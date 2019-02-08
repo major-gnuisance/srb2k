@@ -1291,9 +1291,44 @@ static boolean CL_SendJoin(void)
 	return HSendPacket(servernode, true, 0, sizeof (clientconfig_pak));
 }
 
-static void SV_SendServerInfo(INT32 node, tic_t servertime)
+serverinfo_gametypex_t
+GetGametypex (UINT8 gametype)
+{
+	serverinfo_gametypex_t x;
+	x.mode = !!( gametype & 128 );/* We have extra info? */
+	if (x.mode)
+	{
+		x.kartspeed = ( ( gametype >> 4 ) & 7 );
+	}
+	else
+	{
+		x.kartspeed = -1;
+	}
+	x.gametype = ( gametype & 15 );
+	return x;
+}
+
+UINT8
+MakeGametypex (serverinfo_gametypex_t x)
+{
+	UINT8 gametype = 0;
+	if (x.mode)
+	{
+		gametype |= 128;
+		gametype |= ( ( x.kartspeed & 7 ) << 4 );
+	}
+	gametype |= ( x.gametype & 15 );
+	return gametype;
+}
+
+static void SV_SendServerInfo(INT32 node, tic_t servertime, boolean wantextra)
 {
 	UINT8 *p;
+	serverinfo_gametypex_t gametypex;
+
+	gametypex.mode = wantextra;
+	gametypex.kartspeed = cv_kartspeed.value;
+	gametypex.gametype = (UINT8)(G_BattleGametype() ? VANILLA_GT_MATCH : VANILLA_GT_RACE); // SRB2Kart: Vanilla's gametype constants for MS support
 
 	netbuffer->packettype = PT_SERVERINFO;
 	netbuffer->u.serverinfo.version = VERSION;
@@ -1304,7 +1339,7 @@ static void SV_SendServerInfo(INT32 node, tic_t servertime)
 
 	netbuffer->u.serverinfo.numberofplayer = (UINT8)D_NumPlayers();
 	netbuffer->u.serverinfo.maxplayer = (UINT8)(min((dedicated ? MAXPLAYERS-1 : MAXPLAYERS), cv_maxplayers.value));
-	netbuffer->u.serverinfo.gametype = (UINT8)(G_BattleGametype() ? VANILLA_GT_MATCH : VANILLA_GT_RACE); // SRB2Kart: Vanilla's gametype constants for MS support
+	netbuffer->u.serverinfo.gametype = MakeGametypex(gametypex);
 	netbuffer->u.serverinfo.modifiedgame = (UINT8)modifiedgame;
 	netbuffer->u.serverinfo.cheatsenabled = CV_CheatsEnabled();
 	netbuffer->u.serverinfo.isdedicated = (UINT8)dedicated;
@@ -1726,6 +1761,7 @@ static void SendAskInfo(INT32 node, boolean viams)
 	netbuffer->packettype = PT_ASKINFO;
 	netbuffer->u.askinfo.version = VERSION;
 	netbuffer->u.askinfo.time = (tic_t)LONG(asktime);
+	netbuffer->u.askinfo.mode = 1;/* netplayground */
 
 	// Even if this never arrives due to the host being firewalled, we've
 	// now allowed traffic from the host to us in, so once the MS relays
@@ -3675,9 +3711,12 @@ static void HandleServerInfo(SINT8 node)
 	const tic_t ticnow = I_GetTime();
 	const tic_t ticthen = (tic_t)LONG(netbuffer->u.serverinfo.time);
 	const tic_t ticdiff = (ticnow - ticthen)*1000/NEWTICRATE;
+	serverinfo_gametypex_t gametypex;
+	gametypex = GetGametypex(netbuffer->u.serverinfo.gametype);
+	gametypex.gametype = ( (gametypex.gametype == VANILLA_GT_MATCH) ? GT_MATCH : GT_RACE );
 	netbuffer->u.serverinfo.time = (tic_t)LONG(ticdiff);
 	netbuffer->u.serverinfo.servername[MAXSERVERNAME-1] = 0;
-	netbuffer->u.serverinfo.gametype = (UINT8)((netbuffer->u.serverinfo.gametype == VANILLA_GT_MATCH) ? GT_MATCH : GT_RACE);
+	netbuffer->u.serverinfo.gametype = MakeGametypex(gametypex);
 
 	SL_InsertServer(&netbuffer->u.serverinfo, node);
 }
@@ -3737,7 +3776,7 @@ static void HandlePacketFromAwayNode(SINT8 node)
 		case PT_ASKINFO:
 			if (server && serverrunning)
 			{
-				SV_SendServerInfo(node, (tic_t)LONG(netbuffer->u.askinfo.time));
+				SV_SendServerInfo(node, (tic_t)LONG(netbuffer->u.askinfo.time), netbuffer->u.askinfo.mode);
 				SV_SendPlayerInfo(node); // Send extra info
 			}
 			Net_CloseConnection(node);

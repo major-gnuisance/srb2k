@@ -354,6 +354,15 @@ typedef struct
 	UINT8 mode;
 } ATTRPACK clientconfig_pak;
 
+typedef struct
+{
+	UINT8 mode;/* Want extra info? */
+	UINT8 gametype;
+	/* extra */
+	SINT8 kartspeed;
+}
+serverinfo_gametypex_t;
+
 #define MAXSERVERNAME 32
 #define MAXFILENEEDED 915
 // This packet is too large
@@ -389,6 +398,7 @@ typedef struct
 {
 	UINT8 version;
 	tic_t time; // used for ping evaluation
+	UINT8 mode;
 } ATTRPACK askinfo_pak;
 
 typedef struct
@@ -537,6 +547,9 @@ void SendNetXCmd(netxcmd_t id, const void *param, size_t nparam);
 void SendNetXCmd2(netxcmd_t id, const void *param, size_t nparam); // splitsreen player
 void SendNetXCmd3(netxcmd_t id, const void *param, size_t nparam); // splitsreen3 player
 void SendNetXCmd4(netxcmd_t id, const void *param, size_t nparam); // splitsreen4 player
+
+serverinfo_gametypex_t GetGametypex (UINT8);
+UINT8 MakeGametypex (serverinfo_gametypex_t);
 
 // Create any new ticcmds and broadcast to other players.
 void NetKeepAlive(void);

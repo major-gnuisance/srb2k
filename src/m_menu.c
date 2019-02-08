@@ -7232,6 +7232,9 @@ static void M_DrawConnectMenu(void)
 {
 	UINT16 i, j;
 	const char *gt = "Unknown";
+	const char *gd;
+	const char *gametype_format;
+	serverinfo_gametypex_t gametypex;
 	INT32 numPages = (serverlistcount+(SERVERS_PER_PAGE-1))/SERVERS_PER_PAGE;
 
 	for (i = FIRSTSERVERLINE; i < min(localservercount, SERVERS_PER_PAGE)+FIRSTSERVERLINE; i++)
@@ -7276,16 +7279,24 @@ static void M_DrawConnectMenu(void)
 		                     va("Ping: %u", (UINT32)LONG(serverlist[slindex].info.time)));
 
 		gt = "Unknown";
+		gd = 0;
+		gametypex = GetGametypex(serverlist[slindex].info.gametype);
 		for (j = 0; gametype_cons_t[j].strvalue; j++)
 		{
-			if (gametype_cons_t[j].value == serverlist[slindex].info.gametype)
+			if (gametype_cons_t[j].value == gametypex.gametype)
 				gt = gametype_cons_t[j].strvalue;
+		}
+		for (j = 0; kartspeed_cons_t[j].strvalue; j++)
+		{
+			if (kartspeed_cons_t[j].value == gametypex.kartspeed)
+				gd = kartspeed_cons_t[j].strvalue;
 		}
 
 		V_DrawSmallString(currentMenu->x+46,S_LINEY(i)+8, globalflags,
 		                         va("Players: %02d/%02d", serverlist[slindex].info.numberofplayer, serverlist[slindex].info.maxplayer));
 
-		V_DrawSmallString(currentMenu->x+112, S_LINEY(i)+8, globalflags, va("Gametype: %s", gt));
+		gametype_format = ( (gd) ? "Gametype: %s/%s" : "Gametype: %s" );
+		V_DrawSmallString(currentMenu->x+112, S_LINEY(i)+8, globalflags, va(gametype_format, gt, gd));
 
 		MP_ConnectMenu[i+FIRSTSERVERLINE].status = IT_STRING | IT_CALL;
 	}
