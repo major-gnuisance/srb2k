@@ -1327,7 +1327,7 @@ static void SV_SendServerInfo(INT32 node, tic_t servertime, boolean wantextra)
 	serverinfo_gametypex_t gametypex;
 
 	gametypex.mode = wantextra;
-	gametypex.kartspeed = cv_kartspeed.value;
+	gametypex.kartspeed = ( (G_BattleGametype()) ? -1 : gamespeed );/* No need to tell--battle is always on easy speed. */
 	gametypex.gametype = (UINT8)(G_BattleGametype() ? VANILLA_GT_MATCH : VANILLA_GT_RACE); // SRB2Kart: Vanilla's gametype constants for MS support
 
 	netbuffer->packettype = PT_SERVERINFO;
@@ -1759,9 +1759,8 @@ static void SendAskInfo(INT32 node, boolean viams)
 {
 	const tic_t asktime = I_GetTime();
 	netbuffer->packettype = PT_ASKINFO;
-	netbuffer->u.askinfo.version = VERSION;
+	netbuffer->u.askinfo.version = VERSION|128;/* netplayground */
 	netbuffer->u.askinfo.time = (tic_t)LONG(asktime);
-	netbuffer->u.askinfo.mode = 1;/* netplayground */
 
 	// Even if this never arrives due to the host being firewalled, we've
 	// now allowed traffic from the host to us in, so once the MS relays
@@ -3776,7 +3775,7 @@ static void HandlePacketFromAwayNode(SINT8 node)
 		case PT_ASKINFO:
 			if (server && serverrunning)
 			{
-				SV_SendServerInfo(node, (tic_t)LONG(netbuffer->u.askinfo.time), netbuffer->u.askinfo.mode);
+				SV_SendServerInfo(node, (tic_t)LONG(netbuffer->u.askinfo.time), ( netbuffer->u.askinfo.version & 128 ));
 				SV_SendPlayerInfo(node); // Send extra info
 			}
 			Net_CloseConnection(node);

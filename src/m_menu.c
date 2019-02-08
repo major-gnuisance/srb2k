@@ -7295,7 +7295,7 @@ static void M_DrawConnectMenu(void)
 		V_DrawSmallString(currentMenu->x+46,S_LINEY(i)+8, globalflags,
 		                         va("Players: %02d/%02d", serverlist[slindex].info.numberofplayer, serverlist[slindex].info.maxplayer));
 
-		gametype_format = ( (gd) ? "Gametype: %s/%s" : "Gametype: %s" );
+		gametype_format = ( (gd) ? "Gametype: %s/%s" : "Gametype: %s" );/* Don't show unknown difficulty. */
 		V_DrawSmallString(currentMenu->x+112, S_LINEY(i)+8, globalflags, va(gametype_format, gt, gd));
 
 		MP_ConnectMenu[i+FIRSTSERVERLINE].status = IT_STRING | IT_CALL;

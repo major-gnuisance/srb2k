@@ -398,7 +398,6 @@ typedef struct
 {
 	UINT8 version;
 	tic_t time; // used for ping evaluation
-	UINT8 mode;
 } ATTRPACK askinfo_pak;
 
 typedef struct
