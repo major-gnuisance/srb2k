@@ -152,6 +152,8 @@ static void Command_ExitLevel_f(void);
 static void Command_Showmap_f(void);
 static void Command_Mapmd5_f(void);
 
+static void Command_Sigsegv_f(void);
+
 static void Command_Teamchange_f(void);
 static void Command_Teamchange2_f(void);
 static void Command_Teamchange3_f(void);
@@ -699,6 +701,8 @@ void D_RegisterClientCommands(void)
 
 	COM_AddCommand("numthinkers", Command_Numthinkers_f);
 	COM_AddCommand("countmobjs", Command_CountMobjs_f);
+
+	COM_AddCommand("sigsegv", Command_Sigsegv_f);
 
 	COM_AddCommand("changeteam", Command_Teamchange_f);
 	COM_AddCommand("changeteam2", Command_Teamchange2_f);
@@ -2621,6 +2625,12 @@ static void Got_Clearscores(UINT8 **cp, INT32 playernum)
 		players[i].score = 0;
 
 	CONS_Printf(M_GetText("Scores have been reset by the server.\n"));
+}
+
+static void Command_Sigsegv_f(void)
+{
+	char *p = 0;
+	*p = 0;
 }
 
 // Team changing functions
