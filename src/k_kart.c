@@ -4323,6 +4323,25 @@ static void K_UpdateEngineSounds(player_t *player, ticcmd_t *cmd)
 	if (player->kartstuff[k_enginesnd] > 12)
 		player->kartstuff[k_enginesnd] = 12;
 
+	if (cv_playenginesounds.value == -1)
+		return;
+
+	if (!( cv_playenginesounds.value & 1 ))/* not during start */
+	{
+		if (leveltime < (starttime + (TICRATE/2)))
+			return;
+	}
+	if (!( cv_playenginesounds.value & 2 ))/* not during race */
+	{
+		if (leveltime >= (starttime + (TICRATE/2)) && !player->exiting)
+			return;
+	}
+	if (!( cv_playenginesounds.value & 4 ))/* not during finish */
+	{
+		if (player->exiting)
+			return;
+	}
+
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
 		UINT8 thisvol = 0;

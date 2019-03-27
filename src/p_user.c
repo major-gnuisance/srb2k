@@ -1147,6 +1147,13 @@ boolean P_EndingMusic(player_t *player)
 	if (!P_IsLocalPlayer(player)) // Only applies to a local player
 		return false;
 
+	switch (cv_playendingmusic.value)
+	{
+		case 1:/* RACE   */if (! G_RaceGametype())   return false;
+		case 2:/* BATTLE */if (! G_BattleGametype()) return false;
+		case 3:/* NEVER  */return false;
+	}
+
 	// Event - Level Finish
 	// Check for if this is valid or not
 	if (splitscreen)
