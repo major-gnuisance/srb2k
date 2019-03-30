@@ -1277,10 +1277,10 @@ void P_RestoreMusic(player_t *player)
 		}
 
 		// Item - Grow
-		if (wantedmus == 2)
+		if (wantedmus == 2 && cv_growmusic.value)
 			S_ChangeMusicInternal("kgrow", true);
 		// Item - Invincibility
-		else if (wantedmus == 1)
+		else if (wantedmus == 1 && cv_supermusic.value)
 			S_ChangeMusicInternal("kinvnc", true);
 		else
 		{
