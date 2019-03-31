@@ -918,6 +918,8 @@ boolean CON_Responder(event_t *ev)
 		}
 		if ((key == gamecontrol[gc_talkkey][0] || key == gamecontrol[gc_teamkey][0]) && multiplayer && !con_destlines)
 		{
+			if (cv_consolechat.value != 1)/* is this what we want though? */
+				return false;
 			if (cv_mute.value && !(server || IsPlayerAdmin(consoleplayer)))
 				return true;
 			con_chat = true;

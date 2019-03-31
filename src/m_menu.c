@@ -2360,6 +2360,9 @@ boolean M_Responder(event_t *ev)
 				if (CON_Ready())
 					return false;  // handle this down the road
 
+				if (chat_on)
+					return false;
+
 				M_StartControlPanel();
 				return true;
 		}
