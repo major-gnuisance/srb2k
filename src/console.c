@@ -546,7 +546,7 @@ static void CON_ChangeHeight(void)
 	INT32 minheight = 20 * con_scalefactor;	// 20 = 8+8+4
 
 	// toggle console in
-	con_destlines = (cons_height.value*vid.height)/100;
+	con_destlines = ((con_chat) ? chat_height.value : cons_height.value)*vid.height / 100;
 	if (con_destlines < minheight)
 		con_destlines = minheight;
 	else if (con_destlines > vid.height)
