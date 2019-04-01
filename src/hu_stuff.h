@@ -62,6 +62,8 @@ typedef struct
 //           chat stuff
 //------------------------------------
 #define HU_MAXMSGLEN 224
+#define CHAT_MAXLINEFEEDS 5
+#define CHAT_TABULARSPERLINE 2
 #define CHAT_BUFSIZE 64		// that's enough messages, right? We'll delete the older ones when that gets out of hand.
 #define NETSPLITSCREEN // why the hell WOULDN'T we want this?
 #ifdef NETSPLITSCREEN
@@ -110,7 +112,6 @@ void HU_Start(void);
 boolean HU_Responder(event_t *ev);
 void HU_Ticker(void);
 void HU_Drawer(void);
-char HU_dequeueChatChar(void);
 void HU_Erase(void);
 void HU_clearChatChars(void);
 void HU_drawPing(INT32 x, INT32 y, UINT32 ping, INT32 flags);	// Lat': Ping drawer for scoreboard.

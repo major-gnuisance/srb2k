@@ -676,9 +676,18 @@ static void Got_Saycmd(UINT8 **p, INT32 playernum)
 	{
 		size_t i;
 		const size_t j = strlen(msg);
-		for (i = 0; i < j; i++)
+		UINT8 nlf, ntab;
+		for (i = 0, nlf = ntab = 0; i < j; i++)
 		{
-			if (msg[i] & 0x80)
+			if (msg[i] == '\n')
+			{
+				++nlf;
+				ntab = 0;  // reset per line
+			}
+			else if (msg[i] == '\t')
+				++ntab;
+
+			if (msg[i] & 0x80 || nlf > CHAT_MAXLINEFEEDS || ntab > CHAT_TABULARSPERLINE)
 			{
 				CONS_Alert(CONS_WARNING, M_GetText("Illegal say command received from %s containing invalid characters\n"), player_names[playernum]);
 				if (server)
@@ -2406,7 +2415,7 @@ void HU_Erase(void)
 	static INT32 secondframelines;
 #endif
 
-	if (con_clearlines == oldclearlines && !con_hudupdate && !chat_on)
+	if (con_clearlines == oldclearlines && !con_hudupdate)
 		return;
 
 #ifdef HWRENDER

@@ -2637,13 +2637,13 @@ boolean M_Responder(event_t *ev)
 			// Spymode on F12 handled in game logic
 
 			case KEY_ESCAPE: // Pop up menu
+				if (CON_Ready())
+					return false;  // handle this down the road
+
 				if (chat_on)
-				{
-					HU_clearChatChars();
-					chat_on = false;
-				}
-				else
-					M_StartControlPanel();
+					return false;
+
+				M_StartControlPanel();
 				return true;
 		}
 		noFurtherInput = false; // turns out we didn't care
