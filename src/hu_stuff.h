@@ -62,8 +62,6 @@ typedef struct
 //           chat stuff
 //------------------------------------
 #define HU_MAXMSGLEN 224
-#define CHAT_MAXLINEFEEDS 5
-#define CHAT_TABULARSPERLINE 2
 #define CHAT_BUFSIZE 64		// that's enough messages, right? We'll delete the older ones when that gets out of hand.
 #define NETSPLITSCREEN // why the hell WOULDN'T we want this?
 #ifdef NETSPLITSCREEN

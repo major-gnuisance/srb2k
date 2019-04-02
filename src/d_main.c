@@ -216,7 +216,6 @@ static inline void D_ModifierKeyResponder(event_t *ev)
 		case KEY_RCTRL: ctrldown &= ~0x2; return;
 		case KEY_LALT: altdown &= ~0x1; return;
 		case KEY_RALT: altdown &= ~0x2; return;
-		case KEY_CAPSLOCK: capslock = I_GetCapsLockState(); return;
 		default: return;
 	}
 }
@@ -644,9 +643,6 @@ void D_SRB2Loop(void)
 
 	CONS_Printf("I_StartupKeyboard()...\n");
 	I_StartupKeyboard();
-
-	I_GetEvent();
-	capslock = I_GetCapsLockState();
 
 #ifdef _WINDOWS
 	CONS_Printf("I_StartupMouse()...\n");

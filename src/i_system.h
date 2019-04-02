@@ -342,8 +342,6 @@ void I_GetJoystick4Events(void);
 */
 void I_GetMouseEvents(void);
 
-boolean I_GetCapsLockState (void);  // SOME keyboards don't play nice
-
 char *I_GetEnv(const char *name);
 
 INT32 I_PutEnv(char *variable);

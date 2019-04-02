@@ -829,11 +829,6 @@ INT32 I_GetKey (void)
 	return rc;
 }
 
-boolean I_GetCapsLockState (void)
-{
-	return !!(SDL_GetModState() & KMOD_CAPS);
-}
-
 //
 // I_JoyScale
 //
@@ -3419,7 +3414,7 @@ INT32 I_ClipboardCopy(const char *data, size_t size)
 const char *I_ClipboardPaste(void)
 {
 	static char clipboard_modified[256];
-	char *clipboard_contents, *i = clipboard_modified, *p = clipboard_modified;
+	char *clipboard_contents, *i = clipboard_modified;
 
 	if (!SDL_HasClipboardText())
 		return NULL;
@@ -3428,17 +3423,18 @@ const char *I_ClipboardPaste(void)
 	SDL_free(clipboard_contents);
 	clipboard_modified[255] = 0;
 
-	while (*p)
+	while (*i)
 	{
-		if (*p != '\r')
-		{
-			if (*p == '\n' && *(p+1) == 0)
-				*i = 0;
-			else if ((*p < 32 && *p != '\t' && *p != '\n') || (unsigned)*i > 127)
-				*i = '?'; // Nonprintable chars become question marks
-			++i;
+		if (*i == '\n' || *i == '\r')
+		{ // End on newline
+			*i = 0;
+			break;
 		}
-		++p;
+		else if (*i == '\t')
+			*i = ' '; // Tabs become spaces
+		else if (*i < 32 || (unsigned)*i > 127)
+			*i = '?'; // Nonprintable chars become question marks
+		++i;
 	}
 	return (const char *)&clipboard_modified;
 }

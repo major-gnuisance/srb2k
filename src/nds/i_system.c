@@ -177,11 +177,6 @@ INT32 I_GetKey(void)
 	return 0;
 }
 
-boolean I_GetCapsLockState (void)
-{
-	return false;
-}
-
 static void NDS_VBlankHandler(void)
 {
 	ticcount++;
