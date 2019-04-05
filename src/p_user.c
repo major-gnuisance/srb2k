@@ -8500,6 +8500,7 @@ boolean P_SpectatorJoinGame(player_t *player)
 			displayplayer = consoleplayer;
 
 		HU_AddChatText(va(M_GetText("\x82*%s entered the game."), player_names[player-players]), false);
+		K_BeNice();
 		return true; // no more player->mo, cannot continue.
 	}
 	return false;

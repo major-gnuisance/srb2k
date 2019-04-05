@@ -81,5 +81,7 @@ void K_drawKartHUD(void);
 void K_drawKartFreePlay(UINT32 flashtime);
 void K_drawKartTimestamp(tic_t drawtime, INT32 TX, INT32 TY, INT16 emblemmap, UINT8 mode);
 
+void K_BeNice (void);
+
 // =========================================================================
 #endif  // __K_KART__

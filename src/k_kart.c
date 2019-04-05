@@ -545,6 +545,8 @@ void K_RegisterKartStuff(void)
 	CV_RegisterVar(&cv_karteliminatelast);
 	CV_RegisterVar(&cv_votetime);
 
+	CV_RegisterVar(&cv_kartbenice);
+
 	CV_RegisterVar(&cv_kartdebugitem);
 	CV_RegisterVar(&cv_kartdebugamount);
 	CV_RegisterVar(&cv_kartdebugshrink);
@@ -8917,6 +8919,23 @@ void K_drawKartHUD(void)
 			}
 		}
 	}
+}
+
+void
+K_BeNice (void)
+{
+	INT32 i;
+	INT32 spectators = 0;
+	for (i = 0; i < MAXPLAYERS; ++i)
+		if (playeringame[i])
+	{
+		if (!players[i].spectator)
+			spectators++;
+	}
+	if (spectators < cv_kartbenice.value)
+		COM_BufInsertText("karteliminatelast No\n");
+	else
+		COM_BufInsertText("karteliminatelast Yes\n");
 }
 
 //}
