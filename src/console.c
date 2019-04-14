@@ -1420,14 +1420,6 @@ boolean CON_Responder(event_t *ev)
 		return true;
 	}
 
-	if (key >= 'a' && key <= 'z')
-	{
-		if (capslock ^ shiftdown)
-			key = shiftxform[key];
-	}
-	else if (shiftdown)
-		key = shiftxform[key];
-
 	// enter a char into the command prompt
 	if (key < 32 || key > 127)
 		return true;
