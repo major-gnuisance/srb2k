@@ -19,7 +19,7 @@
 #include "miniupnpc/upnpcommands.h"
 #include "miniupnpc/upnperrors.h"
 
-boolean UPNP_support = TRUE;
+boolean UPNP_support = true;
 
 struct UPNPDev *upnp_dev;
 int upnp_error;
@@ -79,7 +79,6 @@ void InitUPnP(void)
 
 void AddPortMapping(const char *addr, const char *port)
 {
-	int r;
 	int status;
 
 	if (addr == NULL)
@@ -100,7 +99,6 @@ void AddPortMapping(const char *addr, const char *port)
 
 void DeletePortMapping(const char *port)
 {
-	int r;
 	int status;
 
 	if (!upnp_urls.controlURL || upnp_urls.controlURL[0] == '\0')
