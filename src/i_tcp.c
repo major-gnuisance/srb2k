@@ -161,17 +161,6 @@ typedef union
 #endif
 } mysockaddr_t;
 
-#ifdef HAVE_MINIUPNPC
-#ifdef STATIC_MINIUPNPC
-#define STATICLIB
-#endif
-#include "miniupnpc/miniwget.h"
-#include "miniupnpc/miniupnpc.h"
-#include "miniupnpc/upnpcommands.h"
-#undef STATICLIB
-static UINT8 UPNP_support = TRUE;
-#endif
-
 #endif // !NONET
 
 #define MAXBANS 100
@@ -182,6 +171,10 @@ static UINT8 UPNP_support = TRUE;
 #include "d_netfil.h"
 #include "i_tcp.h"
 #include "m_argv.h"
+
+#ifdef HAVE_MINIUPNPC
+#include "upnp.h"
+#endif
 
 #include "doomstat.h"
 
@@ -212,6 +205,8 @@ static UINT8 UPNP_support = TRUE;
 #endif
 
 #define DEFAULTPORT "5029"
+
+const char *sock_port = NULL;
 
 #if defined (USE_WINSOCK) && !defined (NONET)
 typedef SOCKET SOCKET_TYPE;
@@ -337,79 +332,6 @@ static const char* inet_ntopA(short af, const void *cp, char *buf, socklen_t len
 }
 #elif !defined (USE_WINSOCK1)
 #define HAVE_NTOP
-#endif
-
-#ifdef HAVE_MINIUPNPC // based on old XChat patch
-static struct UPNPUrls urls;
-static struct IGDdatas data;
-static char lanaddr[64];
-
-static void I_ShutdownUPnP(void)
-{
-	FreeUPNPUrls(&urls);
-}
-
-static inline void I_InitUPnP(void)
-{
-	struct UPNPDev * devlist = NULL;
-	int upnp_error = -2;
-	CONS_Printf(M_GetText("Looking for UPnP Internet Gateway Device\n"));
-	devlist = upnpDiscover(2000, NULL, NULL, 0, false, &upnp_error);
-	if (devlist)
-	{
-		struct UPNPDev *dev = devlist;
-		char * descXML;
-		int descXMLsize = 0;
-		while (dev)
-		{
-			if (strstr (dev->st, "InternetGatewayDevice"))
-				break;
-			dev = dev->pNext;
-		}
-		if (!dev)
-			dev = devlist; /* defaulting to first device */
-
-		CONS_Printf(M_GetText("Found UPnP device:\n desc: %s\n st: %s\n"),
-		           dev->descURL, dev->st);
-
-		UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr));
-		CONS_Printf(M_GetText("Local LAN IP address: %s\n"), lanaddr);
-		descXML = miniwget(dev->descURL, &descXMLsize);
-		if (descXML)
-		{
-			parserootdesc(descXML, descXMLsize, &data);
-			free(descXML);
-			descXML = NULL;
-			memset(&urls, 0, sizeof(struct UPNPUrls));
-			memset(&data, 0, sizeof(struct IGDdatas));
-			GetUPNPUrls(&urls, &data, dev->descURL);
-			I_AddExitFunc(I_ShutdownUPnP);
-		}
-		freeUPNPDevlist(devlist);
-	}
-	else if (upnp_error == UPNPDISCOVER_SOCKET_ERROR)
-	{
-		CONS_Printf(M_GetText("No UPnP devices discovered\n"));
-	}
-}
-
-static inline void I_UPnP_add(const char * addr, const char *port, const char * servicetype)
-{
-	if (addr == NULL)
-		addr = lanaddr;
-	if (!urls.controlURL || urls.controlURL[0] == '\0')
-		return;
-	UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
-	                    port, port, addr, "SRB2", servicetype, NULL, NULL);
-}
-
-static inline void I_UPnP_rem(const char *port, const char * servicetype)
-{
-	if (!urls.controlURL || urls.controlURL[0] == '\0')
-		return;
-	UPNP_DeletePortMapping(urls.controlURL, data.first.servicetype,
-	                       port, servicetype, NULL);
-}
 #endif
 
 static const char *SOCK_AddrToStr(mysockaddr_t *sk)
@@ -911,7 +833,6 @@ static SOCKET_TYPE UDP_Bind(int family, struct sockaddr *addr, socklen_t addrlen
 
 static boolean UDP_Socket(void)
 {
-	const char *sock_port = NULL;
 	size_t s;
 	struct my_addrinfo *ai, *runp, hints;
 	int gaie;
@@ -979,13 +900,6 @@ static boolean UDP_Socket(void)
 					FD_SET(mysockets[s], &masterset);
 					myfamily[s] = hints.ai_family;
 					s++;
-#ifdef HAVE_MINIUPNPC
-					if (UPNP_support)
-					{
-						I_UPnP_rem(sock_port, "UDP");
-						I_UPnP_add(NULL, sock_port, "UDP");
-					}
-#endif
 				}
 				runp = runp->ai_next;
 			}
@@ -1248,9 +1162,17 @@ boolean I_InitTcpDriver(void)
 		I_AddExitFunc(I_ShutdownTcpDriver);
 #ifdef HAVE_MINIUPNPC
 		if (M_CheckParm("-useUPnP"))
-			I_InitUPnP();
+			InitUPnP();
 		else
 			UPNP_support = false;
+
+		if (UPNP_support)
+		{
+			if (UPNP_support)
+			{
+				AddPortMapping(NULL, sock_port);
+			}
+		}
 #endif
 	}
 	return init_tcp_driver;
@@ -1301,6 +1223,12 @@ void I_ShutdownTcpDriver(void)
 #ifdef _PS3
 	netDeinitialize();
 #endif
+
+#ifdef HAVE_MINIUPNPC
+	if (UPNP_support)
+		DeletePortMapping(sock_port);
+#endif
+
 	CONS_Printf("shut down\n");
 	init_tcp_driver = false;
 #endif
