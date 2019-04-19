@@ -206,8 +206,6 @@ typedef union
 
 #define DEFAULTPORT "5029"
 
-const char *sock_port = NULL;
-
 #if defined (USE_WINSOCK) && !defined (NONET)
 typedef SOCKET SOCKET_TYPE;
 #define ERRSOCKET (SOCKET_ERROR)
@@ -854,20 +852,11 @@ static boolean UDP_Socket(void)
 	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_protocol = IPPROTO_UDP;
 
-	if (M_CheckParm("-clientport"))
-	{
-		if (!M_IsNextParm())
-			I_Error("syntax: -clientport <portnum>");
-		sock_port = M_GetNextParm();
-	}
-	else
-		sock_port = port_name;
-
 	if (M_CheckParm("-bindaddr"))
 	{
 		while (M_IsNextParm())
 		{
-			gaie = I_getaddrinfo(M_GetNextParm(), sock_port, &hints, &ai);
+			gaie = I_getaddrinfo(M_GetNextParm(), port_name, &hints, &ai);
 			if (gaie == 0)
 			{
 				runp = ai;
@@ -888,7 +877,7 @@ static boolean UDP_Socket(void)
 	}
 	else
 	{
-		gaie = I_getaddrinfo("0.0.0.0", sock_port, &hints, &ai);
+		gaie = I_getaddrinfo("0.0.0.0", port_name, &hints, &ai);
 		if (gaie == 0)
 		{
 			runp = ai;
@@ -914,7 +903,7 @@ static boolean UDP_Socket(void)
 		{
 			while (M_IsNextParm())
 			{
-				gaie = I_getaddrinfo(M_GetNextParm(), sock_port, &hints, &ai);
+				gaie = I_getaddrinfo(M_GetNextParm(), port_name, &hints, &ai);
 				if (gaie == 0)
 				{
 					runp = ai;
@@ -935,7 +924,7 @@ static boolean UDP_Socket(void)
 		}
 		else
 		{
-			gaie = I_getaddrinfo("::", sock_port, &hints, &ai);
+			gaie = I_getaddrinfo("::", port_name, &hints, &ai);
 			if (gaie == 0)
 			{
 				runp = ai;
@@ -1160,20 +1149,6 @@ boolean I_InitTcpDriver(void)
 	if (!tcp_was_up && init_tcp_driver)
 	{
 		I_AddExitFunc(I_ShutdownTcpDriver);
-#ifdef HAVE_MINIUPNPC
-		if (M_CheckParm("-useUPnP"))
-			InitUPnP();
-		else
-			UPNP_support = false;
-
-		if (UPNP_support)
-		{
-			if (UPNP_support)
-			{
-				AddPortMapping(NULL, sock_port);
-			}
-		}
-#endif
 	}
 	return init_tcp_driver;
 }
@@ -1226,7 +1201,7 @@ void I_ShutdownTcpDriver(void)
 
 #ifdef HAVE_MINIUPNPC
 	if (UPNP_support)
-		DeletePortMapping(sock_port);
+		DeletePortMapping(port_name);
 #endif
 
 	CONS_Printf("shut down\n");
@@ -1406,14 +1381,25 @@ boolean I_InitTcpNetwork(void)
 	if (!I_InitTcpDriver())
 		return false;
 
-	if (M_CheckParm("-udpport"))
+	if (M_CheckParm("-port"))
+	// Combined -udpport and -clientport into -port
+	// As it was really redundant having two seperate parms that does the same thing
 	{
 		if (M_IsNextParm())
 			strcpy(port_name, M_GetNextParm());
-		else
-			strcpy(port_name, "0");
 	}
 	current_port = (UINT16)atoi(port_name);
+
+#ifdef HAVE_MINIUPNPC
+	// Enable UPnP support, if possible
+		if (M_CheckParm("-useUPnP"))
+			InitUPnP();
+		else
+			UPNP_support = false;
+
+		if (UPNP_support)
+			AddPortMapping(NULL, port_name);
+#endif
 
 	// parse network game options,
 	if (M_CheckParm("-server") || dedicated)

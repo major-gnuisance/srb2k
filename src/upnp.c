@@ -36,7 +36,6 @@ static void ShutdownUPnP(void)
 {
 	FreeUPNPUrls(&upnp_urls);
 	freeUPNPDevlist(upnp_dev);
-	upnp_dev = NULL;
 	CONS_Printf(M_GetText("InitUPnP(): shut down\n"));
 	return;
 }
@@ -73,6 +72,10 @@ void InitUPnP(void)
 		CONS_Alert(CONS_ERROR, M_GetText("No UPnP devices discovered\n"));
 		UPNP_support = false;
 	}
+
+	if (!UPNP_support)
+		CONS_Alert(CONS_ERROR, M_GetText("Failed to initialize UPnP, UPnP support will be initialize\n"));
+
 	I_AddExitFunc(ShutdownUPnP);
 	return;
 }
@@ -109,7 +112,7 @@ void DeletePortMapping(const char *port)
 
 	if (status != UPNPCOMMAND_SUCCESS)
 	{
-		CONS_Alert(CONS_ERROR, M_GetText("UPNP_DeletePortMapping() failed with code %d (%s)\n"), r, strupnperror(r));
+		CONS_Alert(CONS_ERROR, M_GetText("UPNP_DeletePortMapping() failed with code %d (%s)\n"), status, strupnperror(status));
 	}
 	return;
 }
