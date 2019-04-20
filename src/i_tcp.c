@@ -238,8 +238,10 @@ static UINT8 bannedmask[MAXBANS];
 static size_t numbans = 0;
 static boolean SOCK_bannednode[MAXNETNODES+1]; /// \note do we really need the +1?
 static boolean init_tcp_driver = false;
+static boolean added_port_mapping = false;
 
 static char port_name[8] = DEFAULTPORT;
+static char portnum[6];
 
 #ifndef NONET
 
@@ -838,7 +840,6 @@ static boolean UDP_Socket(void)
 	const INT32 b_ipv6 = M_CheckParm("-ipv6");
 #endif
 
-
 	for (s = 0; s < mysocketses; s++)
 		mysockets[s] = ERRSOCKET;
 	for (s = 0; s < MAXNETNODES+1; s++)
@@ -975,6 +976,8 @@ static boolean UDP_Socket(void)
 		s++;
 	}
 
+	sprintf(portnum, "%d", ntohs(clientaddress[s].ip4.sin_port));
+
 	s = 0;
 
 	// setup broadcast adress to BROADCASTADDR entry
@@ -1017,6 +1020,15 @@ static boolean UDP_Socket(void)
 #endif
 
 	broadcastaddresses = s;
+
+
+#ifdef HAVE_MINIUPNPC
+	if (UPNP_support)
+	{
+		if (AddPortMapping(NULL, portnum))
+			added_port_mapping = true; // Set this to prevent multiple attempts.
+	}
+#endif
 
 	doomcom->extratics = 1; // internet is very high ping
 
@@ -1174,6 +1186,13 @@ static void SOCK_CloseSocket(void)
 
 void I_ShutdownTcpDriver(void)
 {
+#ifdef HAVE_MINIUPNPC
+	if (UPNP_support)
+		if (DeletePortMapping(portnum))
+		{
+			added_port_mapping = false;
+		}
+#endif
 #ifndef NONET
 	SOCK_CloseSocket();
 
@@ -1197,11 +1216,6 @@ void I_ShutdownTcpDriver(void)
 #endif // __DJGPP__
 #ifdef _PS3
 	netDeinitialize();
-#endif
-
-#ifdef HAVE_MINIUPNPC
-	if (UPNP_support)
-		DeletePortMapping(port_name);
 #endif
 
 	CONS_Printf("shut down\n");
@@ -1396,9 +1410,6 @@ boolean I_InitTcpNetwork(void)
 			InitUPnP();
 		else
 			UPNP_support = false;
-
-		if (UPNP_support)
-			AddPortMapping(NULL, port_name);
 #endif
 
 	// parse network game options,

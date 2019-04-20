@@ -22,14 +22,14 @@ void InitUPnP(void);
 
 /**	\brief AddPortMapping function
 
-	\return	none
+	\return	true if successful, false if not
 */
-void AddPortMapping(const char *addr, const char *port);
+boolean AddPortMapping(const char *addr, const char *port);
 
 /**	\brief DeletePortMapping function
 
-	\return	none
+	\return	true if successful, false if not
 */
-void DeletePortMapping(const char *port);
+boolean DeletePortMapping(const char *port);
 
 #endif

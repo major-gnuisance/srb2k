@@ -80,7 +80,7 @@ void InitUPnP(void)
 	return;
 }
 
-void AddPortMapping(const char *addr, const char *port)
+boolean AddPortMapping(const char *addr, const char *port)
 {
 	int status;
 
@@ -88,7 +88,7 @@ void AddPortMapping(const char *addr, const char *port)
 		addr = lan_address;
 
 	if (!upnp_urls.controlURL || upnp_urls.controlURL[0] == '\0')
-		return;
+		return false;
 
 	CONS_Printf(M_GetText("Adding port mapping for port: %s, protocol: UDP\n"), port);
 	status = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port, port, addr, "SRB2", "UDP", NULL, 0);
@@ -96,16 +96,17 @@ void AddPortMapping(const char *addr, const char *port)
 	if (status != UPNPCOMMAND_SUCCESS)
 	{
 		CONS_Alert(CONS_ERROR, M_GetText("UPNP_AddPortMapping() failed with code %d (%s)\n"), status, strupnperror(status));
+		return false;
 	}
-	return;
+	return true;
 }
 
-void DeletePortMapping(const char *port)
+boolean DeletePortMapping(const char *port)
 {
 	int status;
 
 	if (!upnp_urls.controlURL || upnp_urls.controlURL[0] == '\0')
-		return;
+		return false;
 
 	CONS_Printf(M_GetText("Deleting port mapping for port: %s, protocol: UDP\n"), port);
 	status = UPNP_DeletePortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port, "UDP", NULL);
@@ -113,8 +114,9 @@ void DeletePortMapping(const char *port)
 	if (status != UPNPCOMMAND_SUCCESS)
 	{
 		CONS_Alert(CONS_ERROR, M_GetText("UPNP_DeletePortMapping() failed with code %d (%s)\n"), status, strupnperror(status));
+		return false;
 	}
-	return;
+	return true;
 }
 
 #endif
