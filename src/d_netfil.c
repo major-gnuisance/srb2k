@@ -117,10 +117,10 @@ UINT8 *PutFileNeeded(void)
 	if (mainwads+1 == numwadfiles)
 	{
 		UINT8 zero[16] = {0};
-		WRITEUINT8(p, 0);
+		WRITEUINT8(p, 1);
 		count++;
 		WRITEUINT32(p, 0);
-		WRITECHAR(p, '\0');
+		WRITESTRING(p, "A");
 		WRITEMEM(p, zero, 16);
 	}
 	else
