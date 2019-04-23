@@ -138,7 +138,7 @@ UINT8 *PutFileNeeded(void)
 		WRITESTRINGN(p, wadfilename, MAX_WADPATH);
 		WRITEMEM(p, wadfiles[i]->md5sum, 16);
 	}
-	netbuffer->u.serverinfo.fileneedednum = (UINT8)count;
+	netbuffer->u.serverinfo.fileneedednum = (UINT8)max(count, 0);
 
 	return p;
 }
