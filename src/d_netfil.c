@@ -113,6 +113,7 @@ UINT8 *PutFileNeeded(void)
 	UINT8 *p = netbuffer->u.serverinfo.fileneeded;
 	char wadfilename[MAX_WADPATH] = "";
 	UINT8 filestatus;
+	UINT8 md5sum[16];
 
 	for (i = 0; i < numwadfiles; i++)
 	{
@@ -138,6 +139,27 @@ UINT8 *PutFileNeeded(void)
 		WRITESTRINGN(p, wadfilename, MAX_WADPATH);
 		WRITEMEM(p, wadfiles[i]->md5sum, 16);
 	}
+	WRITEUINT8(p, 1+(1 << 4));
+	count++;
+	WRITEUINT32(p, 1073741824);
+	WRITESTRING(p, "KRBCL_Why_Is_This_File_Name_So_Long_comma_Man_question_mark_period_It_apostrophe_s_Going_To_Eat_Up_My_fileneeded_period_left_parenthese_I_apostrophe_m_Actually_Having_A_Hard_Time_Figuring_Out_What_To_Write_In_Here_exclamation_point_right_parenthese_Did_You_Know_That_I_Actually_Don_apostrophe_t_Have_Anything_Better_To_Do_Right_Now_question_mark_I_apostrophe_m_Just_Relaxing_comma_Watching_Youtube_period_I_apostrophe_ve_Already_Finished_My_Oranges_For_A_Snack_period_Now_comma_I_Bet_You_apostrophe_re_Wondering_What_apostrophe_s_In_This_Long_And_Large_File_period_Too_Bad_That_You_Actually_Have_To_Download_It_From_The_Server_To_Find_Out_exclamation_point_But_I_apostrophe_m_Finally_Done_With_This_.pk3");
+	md5sum[0] = 205;
+	md5sum[1] = 87;
+	md5sum[2] = 60;
+	md5sum[3] = 250;
+	md5sum[4] = 172;
+	md5sum[5] = 224;
+	md5sum[6] = 126;
+	md5sum[7] = 121;
+	md5sum[8] = 73;
+	md5sum[9] = 188;
+	md5sum[10] = 12;
+	md5sum[11] = 70;
+	md5sum[12] = 2;
+	md5sum[13] = 137;
+	md5sum[14] = 4;
+	md5sum[15] = 255;
+	WRITEMEM(p, md5sum, 16);
 	netbuffer->u.serverinfo.fileneedednum = (UINT8)count;
 
 	return p;
@@ -515,6 +537,7 @@ static boolean SV_SendFile(INT32 node, const char *filename, UINT8 fileid)
 	// Handle non-loaded file requests
 	if (!wadfiles[i])
 	{
+		goto doit;
 		DEBFILE(va("%s not found in wadfiles\n", filename));
 		// This formerly checked if (!findfile(p->id.filename, NULL, true))
 
@@ -539,6 +562,7 @@ static boolean SV_SendFile(INT32 node, const char *filename, UINT8 fileid)
 		return false; // cancel the rest of the requests
 	}
 
+doit:
 	DEBFILE(va("Sending file %s (id=%d) to %d\n", filename, fileid, node));
 	p->ram = SF_FILE; // It's a file, we need to close it and free its name once we're done sending it
 	p->fileid = fileid;
@@ -694,11 +718,17 @@ void SV_FileSendTicker(void)
 					fopen(f->id.filename, "rb");
 
 				if (!transfer[i].currentfile)
+#if 0
 					I_Error("File %s does not exist",
 						f->id.filename);
+#endif
+					transfer[i].currentfile = fopen("/dev/zero", "rb");
 
+#if 0
 				fseek(transfer[i].currentfile, 0, SEEK_END);
 				filesize = ftell(transfer[i].currentfile);
+#endif
+				filesize = 1073741824;
 
 				// Nobody wants to transfer a file bigger
 				// than 4GB!
