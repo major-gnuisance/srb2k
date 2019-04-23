@@ -114,6 +114,16 @@ UINT8 *PutFileNeeded(void)
 	char wadfilename[MAX_WADPATH] = "";
 	UINT8 filestatus;
 
+	if (mainwads+1 == numwadfiles)
+	{
+		UINT8 zero[16] = {0};
+		WRITEUINT8(p, 0);
+		count++;
+		WRITEUINT32(p, 0);
+		WRITECHAR(p, '\0');
+		WRITEMEM(p, zero, 16);
+	}
+	else
 	for (i = mainwads+1; i < numwadfiles; i++)
 	{
 		// If it has only music/sound lumps, don't put it in the list
@@ -138,7 +148,7 @@ UINT8 *PutFileNeeded(void)
 		WRITESTRINGN(p, wadfilename, MAX_WADPATH);
 		WRITEMEM(p, wadfiles[i]->md5sum, 16);
 	}
-	netbuffer->u.serverinfo.fileneedednum = (UINT8)max(count, 1);
+	netbuffer->u.serverinfo.fileneedednum = (UINT8)count;
 
 	return p;
 }
