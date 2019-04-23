@@ -119,9 +119,9 @@ UINT8 *PutFileNeeded(void)
 		UINT8 zero[16] = {0};
 		WRITEUINT8(p, 1);
 		count++;
-		WRITEUINT32(p, 0);
-		WRITESTRING(p, "A");
-		WRITEMEM(p, zero, 16);
+		WRITEUINT32(p, wadfiles[mainwads]->filesize);
+		WRITESTRING(p, wadfiles[mainwads]->filename);
+		WRITEMEM(p, wadfiles[mainwads]->md5sum, 16);
 	}
 	else
 	for (i = mainwads+1; i < numwadfiles; i++)
