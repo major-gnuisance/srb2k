@@ -114,7 +114,8 @@ UINT8 *PutFileNeeded(void)
 	char wadfilename[MAX_WADPATH] = "";
 	UINT8 filestatus;
 
-	for (i = 0; i < numwadfiles; i++)
+	/* patch.kart is added last, so mainwads here is up until that. */
+	for (i = mainwads; i < numwadfiles; i++)
 	{
 		// If it has only music/sound lumps, don't put it in the list
 		if (!wadfiles[i]->important)
@@ -139,6 +140,13 @@ UINT8 *PutFileNeeded(void)
 		WRITEMEM(p, wadfiles[i]->md5sum, 16);
 	}
 	netbuffer->u.serverinfo.fileneedednum = (UINT8)count;
+	for (i = 0; i < mainwads; ++i)
+	{
+		if (!wadfiles[i]->important)
+			continue;
+
+		WRITEMEM(p, wadfiles[i]->md5sum, 16);
+	}
 
 	return p;
 }
@@ -155,9 +163,9 @@ void D_ParseFileneeded(INT32 fileneedednum_parm, UINT8 *fileneededstr)
 	UINT8 *p;
 	UINT8 filestatus;
 
-	fileneedednum = fileneedednum_parm;
+	fileneedednum = mainwads + fileneedednum_parm;
 	p = (UINT8 *)fileneededstr;
-	for (i = 0; i < fileneedednum; i++)
+	for (i = mainwads; i < fileneedednum; i++)
 	{
 		fileneeded[i].status = FS_NOTFOUND; // We haven't even started looking for the file yet
 		filestatus = READUINT8(p); // The first byte is the file status
@@ -166,6 +174,15 @@ void D_ParseFileneeded(INT32 fileneedednum_parm, UINT8 *fileneededstr)
 		fileneeded[i].file = NULL; // The file isn't open yet
 		READSTRINGN(p, fileneeded[i].filename, MAX_WADPATH); // The next bytes are the file name
 		READMEM(p, fileneeded[i].md5sum, 16); // The last 16 bytes are the file checksum
+	}
+	for (i = 0; i < mainwads; ++i)
+	{
+		fileneeded[i].status = FS_NOTFOUND;
+		fileneeded[i].willsend = 0;
+		fileneeded[i].totalsize = 0;
+		fileneeded[i].file = NULL;
+		strcpy(fileneeded[i].filename, wadfiles[i]->filename);
+		READMEM(p, fileneeded[i].md5sum, 16);
 	}
 }
 
@@ -189,7 +206,7 @@ boolean CL_CheckDownloadable(void)
 {
 	UINT8 i,dlstatus = 0;
 
-	for (i = 0; i < fileneedednum; i++)
+	for (i = mainwads; i < fileneedednum; i++)
 		if (fileneeded[i].status != FS_FOUND && fileneeded[i].status != FS_OPEN)
 		{
 			if (fileneeded[i].willsend == 1)
@@ -262,7 +279,7 @@ boolean CL_SendRequestFile(void)
 	if (M_CheckParm("-nodownload"))
 		I_Error("Attempted to download files in -nodownload mode");
 
-	for (i = 0; i < fileneedednum; i++)
+	for (i = mainwads; i < fileneedednum; i++)
 		if (fileneeded[i].status != FS_FOUND && fileneeded[i].status != FS_OPEN
 			&& (fileneeded[i].willsend == 0 || fileneeded[i].willsend == 2))
 		{
@@ -272,7 +289,7 @@ boolean CL_SendRequestFile(void)
 
 	netbuffer->packettype = PT_REQUESTFILE;
 	p = (char *)netbuffer->u.textcmd;
-	for (i = 0; i < fileneedednum; i++)
+	for (i = mainwads; i < fileneedednum; i++)
 		if ((fileneeded[i].status == FS_NOTFOUND || fileneeded[i].status == FS_MD5SUMBAD))
 		{
 			totalfreespaceneeded += fileneeded[i].totalsize;
@@ -346,7 +363,7 @@ INT32 CL_CheckFiles(void)
 	if (modifiedgame)
 	{
 		CONS_Debug(DBG_NETPLAY, "game is modified; only doing basic checks\n");
-		for (i = 1, j = 1; i < fileneedednum || j < numwadfiles;)
+		for (i = mainwads, j = mainwads; i < fileneedednum || j < numwadfiles;)
 		{
 			if (j < numwadfiles && !wadfiles[j]->important)
 			{
@@ -376,7 +393,19 @@ INT32 CL_CheckFiles(void)
 	// See W_LoadWadFile in w_wad.c
 	packetsize = packetsizetally;
 
-	for (i = 1; i < fileneedednum; i++)
+	for (i = 0; i < mainwads; ++i)
+	{
+		if (memcmp(wadfiles[i]->md5sum, fileneeded[i].md5sum, 16))
+		{
+			fileneeded[i].status = FS_MD5SUMBAD;
+		}
+		else
+		{
+			fileneeded[i].status = FS_OPEN;
+		}
+	}
+
+	for (i = mainwads; i < fileneedednum; i++)
 	{
 		CONS_Debug(DBG_NETPLAY, "searching for '%s' ", fileneeded[i].filename);
 
@@ -419,7 +448,7 @@ void CL_LoadServerFiles(void)
 //	if (M_CheckParm("-nofiles"))
 //		return;
 
-	for (i = 1; i < fileneedednum; i++)
+	for (i = mainwads; i < fileneedednum; i++)
 	{
 		if (fileneeded[i].status == FS_OPEN)
 			continue; // Already loaded
@@ -500,7 +529,7 @@ static boolean SV_SendFile(INT32 node, const char *filename, UINT8 fileid)
 	nameonly(p->id.filename);
 
 	// Look for the requested file through all loaded files
-	for (i = 0; wadfiles[i]; i++)
+	for (i = mainwads; wadfiles[i]; i++)
 	{
 		strlcpy(wadfilename, wadfiles[i]->filename, MAX_WADPATH);
 		nameonly(wadfilename);
@@ -881,7 +910,7 @@ void CloseNetFile(void)
 		SV_AbortSendFiles(i);
 
 	// Receiving a file?
-	for (i = 0; i < MAX_WADFILES; i++)
+	for (i = mainwads; i < MAX_WADFILES; i++)
 		if (fileneeded[i].status == FS_DOWNLOADING && fileneeded[i].file)
 		{
 			fclose(fileneeded[i].file);
