@@ -3932,12 +3932,15 @@ static void HandleTimeout(SINT8 node)
   */
 static void HandleServerInfo(SINT8 node)
 {
+	char servername[MAXSERVERNAME];
 	// compute ping in ms
 	const tic_t ticnow = I_GetTime();
 	const tic_t ticthen = (tic_t)LONG(netbuffer->u.serverinfo.time);
 	const tic_t ticdiff = (ticnow - ticthen)*1000/NEWTICRATE;
 	netbuffer->u.serverinfo.time = (tic_t)LONG(ticdiff);
 	netbuffer->u.serverinfo.servername[MAXSERVERNAME-1] = 0;
+	memcpy(servername, netbuffer->u.serverinfo.servername, MAXSERVERNAME);
+	CopyCaretColors(netbuffer->u.serverinfo.servername, servername, MAXSERVERNAME);
 	netbuffer->u.serverinfo.gametype = (UINT8)((netbuffer->u.serverinfo.gametype == VANILLA_GT_MATCH) ? GT_MATCH : GT_RACE);
 
 	SL_InsertServer(&netbuffer->u.serverinfo, node);
