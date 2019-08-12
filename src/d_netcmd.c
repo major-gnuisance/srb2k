@@ -463,6 +463,8 @@ consvar_t cv_mute = {"mute", "Off", CV_NETVAR|CV_CALL, CV_OnOff, Mute_OnChange, 
 
 consvar_t cv_sleep = {"cpusleep", "1", CV_SAVE, sleeping_cons_t, NULL, -1, NULL, NULL, 0, 0, NULL};
 
+consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE};
+
 INT16 gametype = GT_RACE; // SRB2kart
 boolean forceresetplayers = false;
 boolean deferencoremode = false;
@@ -710,6 +712,8 @@ void D_RegisterServerCommands(void)
 #endif
 
 	CV_RegisterVar(&cv_dummyconsvar);
+
+	CV_RegisterVar(&cv_lessbattlevotes);
 }
 
 // =========================================================================
@@ -2347,13 +2351,23 @@ void D_SetupVote(void)
 	UINT8 buf[6*2]; // five UINT16 maps (at twice the width of a UINT8), and two gametypes
 	UINT8 *p = buf;
 	INT32 i;
-	UINT8 secondgt = G_SometimesGetDifferentGametype();
+	UINT8 gt;
+	UINT8 secondgt;
 	INT16 votebuffer[3] = {-1,-1,-1};
 
-	if (cv_kartencore.value && G_RaceGametype())
-		WRITEUINT8(p, (gametype|0x80));
+	if (cv_lessbattlevotes.value && G_BattleGametype())
+	{
+		gt = GT_RACE;
+		secondgt = GT_MATCH;
+	}
 	else
-		WRITEUINT8(p, gametype);
+	{
+		gt = gametype;
+		if (cv_kartencore.value && G_RaceGametype())
+			gt |= 0x80;
+		secondgt = G_SometimesGetDifferentGametype();
+	}
+	WRITEUINT8(p, gt);
 	WRITEUINT8(p, secondgt);
 	secondgt &= ~0x80;
 
@@ -2363,9 +2377,9 @@ void D_SetupVote(void)
 		if (i == 2) // sometimes a different gametype
 			m = G_RandMap(G_TOLFlag(secondgt), prevmap, false, 0, true, votebuffer);
 		else if (i >= 3) // unknown-random and force-unknown MAP HELL
-			m = G_RandMap(G_TOLFlag(gametype), prevmap, false, (i-2), (i < 4), votebuffer);
+			m = G_RandMap(G_TOLFlag(gt), prevmap, false, (i-2), (i < 4), votebuffer);
 		else
-			m = G_RandMap(G_TOLFlag(gametype), prevmap, false, 0, true, votebuffer);
+			m = G_RandMap(G_TOLFlag(gt), prevmap, false, 0, true, votebuffer);
 		if (i < 3)
 			votebuffer[min(i, 2)] = m; // min() is a dumb workaround for gcc 4.4 array-bounds error
 		WRITEUINT16(p, m);
