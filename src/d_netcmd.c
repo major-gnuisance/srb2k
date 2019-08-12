@@ -2369,6 +2369,7 @@ void D_SetupVote(void)
 	}
 	WRITEUINT8(p, gt);
 	WRITEUINT8(p, secondgt);
+	gt       &= ~0x80;
 	secondgt &= ~0x80;
 
 	for (i = 0; i < 5; i++)
