@@ -463,7 +463,7 @@ consvar_t cv_mute = {"mute", "Off", CV_NETVAR|CV_CALL, CV_OnOff, Mute_OnChange, 
 
 consvar_t cv_sleep = {"cpusleep", "1", CV_SAVE, sleeping_cons_t, NULL, -1, NULL, NULL, 0, 0, NULL};
 
-consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE};
+consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo};
 
 INT16 gametype = GT_RACE; // SRB2kart
 boolean forceresetplayers = false;
