@@ -1332,7 +1332,7 @@ static boolean CL_SendJoin(void)
 	return HSendPacket(servernode, true, 0, sizeof (clientconfig_pak));
 }
 
-static void
+void
 CopyCaretColors (char *p, const char *s, int n)
 {
 	char *t;

@@ -580,6 +580,8 @@ void D_QuitNetGame(void);
 //? How many ticks to run?
 void TryRunTics(tic_t realtic);
 
+void CopyCaretColors(char *p, const char *s, int n);
+
 // extra data for lmps
 // these functions scare me. they contain magic.
 /*boolean AddLmpExtradata(UINT8 **demo_p, INT32 playernum);
