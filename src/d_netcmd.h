@@ -153,6 +153,7 @@ extern consvar_t cv_skipmapcheck;
 extern consvar_t cv_sleep;
 
 extern consvar_t cv_lessbattlevotes;
+extern consvar_t cv_lessencorevotes;
 
 typedef enum
 {

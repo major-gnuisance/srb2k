@@ -465,6 +465,7 @@ consvar_t cv_mute = {"mute", "Off", CV_NETVAR|CV_CALL, CV_OnOff, Mute_OnChange, 
 consvar_t cv_sleep = {"cpusleep", "1", CV_SAVE, sleeping_cons_t, NULL, -1, NULL, NULL, 0, 0, NULL};
 
 consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo};
+consvar_t cv_lessencorevotes = {"lessencorevotes", "No", CV_SAVE, CV_YesNo};
 
 INT16 gametype = GT_RACE; // SRB2kart
 boolean forceresetplayers = false;
@@ -715,6 +716,7 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_dummyconsvar);
 
 	CV_RegisterVar(&cv_lessbattlevotes);
+	CV_RegisterVar(&cv_lessencorevotes);
 }
 
 // =========================================================================
@@ -2364,9 +2366,17 @@ void D_SetupVote(void)
 	else
 	{
 		gt = gametype;
-		if (cv_kartencore.value && G_RaceGametype())
-			gt |= 0x80;
 		secondgt = G_SometimesGetDifferentGametype();
+		if (cv_lessencorevotes.value)
+		{
+			if (secondgt == GT_RACE)
+				secondgt |= 0x80;
+		}
+		else
+		{
+			if (cv_kartencore.value && G_RaceGametype())
+				gt |= 0x80;
+		}
 	}
 	WRITEUINT8(p, gt);
 	WRITEUINT8(p, secondgt);
