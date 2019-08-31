@@ -3382,26 +3382,29 @@ INT16 G_SometimesGetDifferentGametype(void)
 {
 	boolean encorepossible = (M_SecretUnlocked(SECRET_ENCORE) && G_RaceGametype());
 
-	if (!cv_kartvoterulechanges.value) // never
-		return gametype;
-
-	if (randmapbuffer[NUMMAPS] > 0 && (encorepossible || cv_kartvoterulechanges.value != 3))
+	if (( randmapbuffer[NUMMAPS] > 0 || cv_kartgametypechanges.value == 0 ) &&
+			encorepossible)
 	{
-		randmapbuffer[NUMMAPS]--;
+		if (cv_kartgametypechanges.value == 3)
+			randmapbuffer[NUMMAPS] = 0;/* may not be set from cvar change */
+		else
+			randmapbuffer[NUMMAPS]--;
+
 		if (encorepossible)
 		{
-			switch (cv_kartvoterulechanges.value)
+			switch (cv_kartencorechance.value)
 			{
 				case 3: // always
-					randmapbuffer[NUMMAPS] = 0; // gotta prep this in case it isn't already set
+					encorepossible = true;
 					break;
 				case 2: // frequent
 					encorepossible = M_RandomChance(FRACUNIT>>1);
 					break;
 				case 1: // sometimes
-				default:
 					encorepossible = M_RandomChance(FRACUNIT>>2);
 					break;
+				default:
+					encorepossible = false;
 			}
 			if (encorepossible != (boolean)cv_kartencore.value)
 				return (gametype|0x80);
@@ -3409,7 +3412,7 @@ INT16 G_SometimesGetDifferentGametype(void)
 		return gametype;
 	}
 
-	switch (cv_kartvoterulechanges.value) // okay, we're having a gametype change! when's the next one, luv?
+	switch (cv_kartgametypechanges.value) // okay, we're having a gametype change! when's the next one, luv?
 	{
 		case 3: // always
 			randmapbuffer[NUMMAPS] = 1; // every other vote (or always if !encorepossible)
@@ -3422,6 +3425,8 @@ INT16 G_SometimesGetDifferentGametype(void)
 		case 2: // frequent
 			randmapbuffer[NUMMAPS] = 2; // ...every 1/2th-ish cup?
 			break;
+		case 0: /* never */
+			return gametype;
 	}
 
 	if (gametype == GT_MATCH)

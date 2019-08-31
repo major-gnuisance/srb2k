@@ -1496,16 +1496,17 @@ static menuitem_t OP_ServerOptionsMenu[] =
 	{IT_STRING | IT_CVAR,    NULL, "Intermission Timer",			&cv_inttime,			 40},
 	{IT_STRING | IT_CVAR,    NULL, "Map Progression",				&cv_advancemap,			 50},
 	{IT_STRING | IT_CVAR,    NULL, "Voting Timer",					&cv_votetime,			 60},
-	{IT_STRING | IT_CVAR,    NULL, "Voting Rule Changes",			&cv_kartvoterulechanges, 70},
+	{IT_STRING | IT_CVAR,    NULL, "Voting Gametype Changes",	&cv_kartgametypechanges, 70},
+	{IT_STRING | IT_CVAR,    NULL, "Voting Encore Chance",      &cv_kartencorechance, 80},
 
 #ifndef NONET
-	{IT_STRING | IT_CVAR,    NULL, "Max. Player Count",				&cv_maxplayers,			 90},
-	{IT_STRING | IT_CVAR,    NULL, "Allow Players to Join",			&cv_allownewplayer,		100},
-	{IT_STRING | IT_CVAR,    NULL, "Allow Add-on Downloading",		&cv_downloading,		110},
-	{IT_STRING | IT_CVAR,    NULL, "Pause Permission",				&cv_pause,				120},
-	{IT_STRING | IT_CVAR,    NULL, "Mute All Chat",					&cv_mute,				130},
+	{IT_STRING | IT_CVAR,    NULL, "Max. Player Count",				&cv_maxplayers,			 100},
+	{IT_STRING | IT_CVAR,    NULL, "Allow Players to Join",			&cv_allownewplayer,		110},
+	{IT_STRING | IT_CVAR,    NULL, "Allow Add-on Downloading",		&cv_downloading,		120},
+	{IT_STRING | IT_CVAR,    NULL, "Pause Permission",				&cv_pause,				130},
+	{IT_STRING | IT_CVAR,    NULL, "Mute All Chat",					&cv_mute,				140},
 
-	{IT_SUBMENU|IT_STRING,   NULL, "Advanced Options...",			&OP_AdvServerOptionsDef,150},
+	{IT_SUBMENU|IT_STRING,   NULL, "Advanced Options...",			&OP_AdvServerOptionsDef,160},
 #endif
 };
 
