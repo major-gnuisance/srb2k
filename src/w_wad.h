@@ -68,6 +68,8 @@ typedef struct
 	unsigned long disksize; // filelump_t size
 	char name[9]; // filelump_t name[]
 	char *name2; // Used by PK3s. Dynamically allocated name.
+	/* James 01Oct2019 Optional filename for when loaded from directory. */
+	char *filename;
 	size_t size; // real (uncompressed) size
 	compmethod compression; // lump compression method
 } lumpinfo_t;
@@ -111,6 +113,9 @@ typedef struct wadfile_s
 	UINT32 filesize; // for network
 	UINT8 md5sum[16];
 	boolean important;
+	/* James wrote this shit */
+	int   sub;/* lump loaded in handle */
+	FILE *subhandle;
 } wadfile_t;
 
 #define WADFILENUM(lumpnum) (UINT16)((lumpnum)>>16) // wad flumpnum>>16) // wad file number in upper word
@@ -186,5 +191,8 @@ void W_UnlockCachedPatch(void *patch);
 void W_VerifyFileMD5(UINT16 wadfilenum, const char *matchmd5);
 
 int W_VerifyNMUSlumps(const char *filename);
+
+/* James wrote this shit */
+char * W_PathLumpName (const char *filename);
 
 #endif // __W_WAD__

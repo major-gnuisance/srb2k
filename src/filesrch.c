@@ -33,10 +33,12 @@
 #include "m_misc.h"
 #include "z_zone.h"
 #include "m_menu.h" // Addons_option_Onchange
+#include "w_wad.h" // James wrote this shit
+
+#include <errno.h>
 
 #if (defined (_WIN32) && !defined (_WIN32_WCE)) && defined (_MSC_VER) && !defined (_XBOX)
 
-#include <errno.h>
 #include <io.h>
 #include <tchar.h>
 
@@ -923,3 +925,103 @@ boolean preparefilemenu(boolean samedepth, boolean replayhut)
 }
 
 #endif
+
+/* James wrote this shit */
+
+/*
+"what is this doing here" FUCK OFF DECENT CODING PRACITICES ;w;
+We already shoved everything in this file once, let's do it again!
+*/
+
+static struct dirent *
+safereaddir (DIR *dp, const char *filename)
+{
+	struct dirent *nt;
+	errno = 0;
+	if (!( nt = readdir(dp) ))
+	{
+		if (errno)
+		{
+			CONS_Alert(CONS_ERROR,
+					"%s: %s\n",
+					filename,
+					strerror(errno));
+		}
+	}
+	return nt;
+}
+
+lumpinfo_t *
+FS_ResGetLumpsDir (const char *filename, UINT16 *nlmp)
+{
+	DIR           *      dp;
+	struct dirent *      nt;/* back to my old ways */
+
+	int               lumpc;
+	lumpinfo_t    *   lumpv;
+	struct stat          st;
+	char           fullname[FILENAME_MAX];
+	int            dirnamen;
+	char          *    name;
+
+	lumpinfo_t    *p;
+
+	if (!( dp = opendir(filename) ))
+	{
+		CONS_Alert(CONS_ERROR,
+				"%s: %s\n",
+				filename,
+				strerror(errno));
+		return 0;
+	}
+
+	lumpc = 0;
+
+	/* No recursion support, sorry! */
+	while (safereaddir(dp, filename))
+	{
+		/* don't bother checking file mode--every file is a FILE */
+		lumpc++;
+	}
+
+	lumpv = Z_Calloc(lumpc * sizeof (lumpinfo_t), PU_STATIC, NULL);
+
+	/* lol now we gotta read again */
+
+	dirnamen = sprintf(fullname, "%s"PATHSEP, filename);
+
+	rewinddir(dp);
+
+	for (p = lumpv; ( nt = safereaddir(dp, filename) ); ++p)
+	{
+		strcpy(fullname + dirnamen, nt->d_name);
+		if (stat(fullname, &st) < 0)
+		{
+			CONS_Alert(CONS_ERROR,
+					"%s: %s\n",
+					fullname,
+					strerror(errno));
+
+			Z_Free(lumpv);
+			lumpv = 0;
+
+			break;
+		}
+
+		p->position = 0;
+		p->size = st.st_size;
+
+		name = nt->d_name;
+		p->name2 = Z_StrDup(name);
+		strcpy(p->name, W_PathLumpName(name));
+
+		p->filename = Z_StrDup(fullname);/* full path to this file */
+	}
+
+	closedir(dp);
+
+	if (lumpv)
+		(*nlmp) = lumpc;
+
+	return lumpv;
+}

@@ -118,7 +118,11 @@ void W_Shutdown(void)
 {
 	while (numwadfiles--)
 	{
-		fclose(wadfiles[numwadfiles]->handle);
+		/* James wrote this shit */
+		if (wadfiles[numwadfiles]->subhandle)
+			fclose(wadfiles[numwadfiles]->subhandle);
+		if (wadfiles[numwadfiles]->handle)
+			fclose(wadfiles[numwadfiles]->handle);
 		Z_Free(wadfiles[numwadfiles]->filename);
 		while (wadfiles[numwadfiles]->numlumps--)
 			Z_Free(wadfiles[numwadfiles]->lumpinfo[wadfiles[numwadfiles]->numlumps].name2);
@@ -345,6 +349,7 @@ static lumpinfo_t* ResGetLumpsStandalone (FILE* handle, UINT16* numlumps, const 
 	lumpinfo->name2 = Z_Malloc(9 * sizeof(char), PU_STATIC, NULL);
 	strcpy(lumpinfo->name2, lumpname);
 	lumpinfo->name2[8] = '\0';
+	lumpinfo->filename = 0;/* James wrote this shit */
 	*numlumps = 1;
 	return lumpinfo;
 }
@@ -435,6 +440,7 @@ static lumpinfo_t* ResGetLumpsWad (FILE* handle, UINT16* nlmp, const char* filen
 		lump_p->name2 = Z_Malloc(9 * sizeof(char), PU_STATIC, NULL);
 		strncpy(lump_p->name2, fileinfo->name, 8);
 		lump_p->name2[8] = '\0';
+		lump_p->filename = 0;/* James wrote this shit */
 	}
 	free(fileinfov);
 	*nlmp = numlumps;
@@ -607,6 +613,8 @@ static lumpinfo_t* ResGetLumpsZip (FILE* handle, UINT16* nlmp)
 		lump_p->name2 = Z_Calloc(zentry->namelen + 1, PU_STATIC, NULL);
 		strncpy(lump_p->name2, fullname, zentry->namelen);
 
+		lump_p->filename = 0;/* James wrote this shit */
+
 		free(fullname);
 
 		switch(zentry->compression)
@@ -679,8 +687,19 @@ UINT16 W_InitFile(const char *filename)
 		return INT16_MAX;
 	}
 
+	/*
+	James wrote this shit
+	Load from directory instead. And I don't care about errors lolol
+	*/
+	if (( lumpinfo = FS_ResGetLumpsDir(filename, &numlumps) ))
+	{
+		handle = 0;
+		type = RET_WAD;
+		important = false;
+		goto loadshit;
+	}
 	// open wad file
-	if ((handle = W_OpenWadFile(&filename, true)) == NULL)
+	else if ((handle = W_OpenWadFile(&filename, true)) == NULL)
 		return INT16_MAX;
 
 	important = !W_VerifyNMUSlumps(filename);
@@ -731,6 +750,7 @@ UINT16 W_InitFile(const char *filename)
 		return INT16_MAX;
 	}
 
+loadshit:/* James wrote this shit */
 	//
 	// link wad file to search files
 	//
@@ -740,8 +760,16 @@ UINT16 W_InitFile(const char *filename)
 	wadfile->numlumps = (UINT16)numlumps;
 	wadfile->lumpinfo = lumpinfo;
 	wadfile->important = important;
-	fseek(handle, 0, SEEK_END);
-	wadfile->filesize = (unsigned)ftell(handle);
+	/* James wrote this shit */
+	wadfile->sub = -1;
+	wadfile->subhandle = 0;
+	if (handle)
+	{
+		fseek(handle, 0, SEEK_END);
+		wadfile->filesize = (unsigned)ftell(handle);
+	}
+	else
+		wadfile->filesize = 4096;
 	wadfile->type = type;
 
 	// already generated, just copy it over
@@ -1215,7 +1243,26 @@ size_t W_ReadLumpHeaderPwad(UINT16 wad, UINT16 lump, void *dest, size_t size, si
 	// Let's get the raw lump data.
 	// We setup the desired file handle to read the lump data.
 	l = wadfiles[wad]->lumpinfo + lump;
-	handle = wadfiles[wad]->handle;
+	/* James wrote this shit */
+	if (!( handle = wadfiles[wad]->handle ))
+	{
+		handle = wadfiles[wad]->subhandle;
+		if (wadfiles[wad]->sub != lump || ! handle)
+		{
+			if (!( handle = fopen(l->filename, "rb") ))
+			{
+				CONS_Alert(CONS_ERROR,
+						"%s: %s\n",
+						l->filename,
+						strerror(errno));
+				return 0;
+			}
+			if (wadfiles[wad]->subhandle)
+				fclose(wadfiles[wad]->subhandle);
+			wadfiles[wad]->sub = lump;
+			wadfiles[wad]->subhandle = handle;
+		}
+	}
 	fseek(handle, (long)(l->position + offset), SEEK_SET);
 
 	// But let's not copy it yet. We support different compression formats on lumps, so we need to take that into account.
@@ -1728,4 +1775,24 @@ int W_VerifyNMUSlumps(const char *filename)
 		{NULL, 0},
 	};
 	return W_VerifyFile(filename, NMUSlist, false);
+}
+
+/* James wrote this shit */
+char *
+W_PathLumpName (const char *s)
+{
+	static char name[9];
+	char *dotp;
+	const char *dirp;
+	int n;
+	if (!( dirp = strrchr(s, '/') ))
+		dirp = s;
+	if (( dotp = strrchr(dirp, '.') ))
+	{
+		n = dotp - dirp;
+		strlcpy(name, dirp, max(0, n) + 1);
+	}
+	else
+		strlcpy(name, dirp, 9);
+	return name;
 }

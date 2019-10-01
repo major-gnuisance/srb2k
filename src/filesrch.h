@@ -93,4 +93,7 @@ void closefilemenu(boolean validsize);
 void searchfilemenu(char *tempname);
 boolean preparefilemenu(boolean samedepth, boolean replayhut);
 
+/* James wrote this shit */
+lumpinfo_t * FS_ResGetLumpsDir (const char *filename, UINT16 *lumpcp);
+
 #endif // __FILESRCH_H__
