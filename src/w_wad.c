@@ -980,7 +980,7 @@ INT32 W_InitMultipleFiles(char **filenames, boolean addons)
   */
 static boolean TestValidLump(UINT16 wad, UINT16 lump)
 {
-	I_Assert(wad < MAX_WADFILES);
+	I_Assert(wad < TOTAL_WADFILES);
 	if (!wadfiles[wad]) // make sure the wad file exists
 		return false;
 
@@ -1093,7 +1093,7 @@ UINT16 W_CheckNumForFullNamePK3(const char *name, UINT16 wad, UINT16 startlump)
 // W_CheckNumForName
 // Returns LUMPERROR if name not found.
 //
-lumpnum_t W_CheckNumForName(const char *name)
+lumpnum_t W_CheckSpecialNumForName(const char *name, int type)
 {
 	INT32 i;
 	lumpnum_t check = INT16_MAX;
@@ -1109,12 +1109,21 @@ lumpnum_t W_CheckNumForName(const char *name)
 		}
 	}
 
-	// scan wad files backwards so patch lump files take precedence
-	for (i = numwadfiles - 1; i >= 0; i--)
+	if (type > 0)
 	{
-		check = W_CheckNumForNamePwad(name,(UINT16)i,0);
-		if (check != INT16_MAX)
-			break; //found it
+		i = type;/* holy shit */
+		check = W_CheckNumForNamePwad(name,type,0);
+	}
+
+	if (check == INT16_MAX)/* now check WADs anyway */
+	{
+		// scan wad files backwards so patch lump files take precedence
+		for (i = numwadfiles - 1; i >= 0; i--)
+		{
+			check = W_CheckNumForNamePwad(name,(UINT16)i,0);
+			if (check != INT16_MAX)
+				break; //found it
+		}
 	}
 
 	if (check == INT16_MAX) return LUMPERROR;
@@ -1165,11 +1174,11 @@ lumpnum_t W_CheckNumForMap(const char *name)
 //
 // Calls W_CheckNumForName, but bombs out if not found.
 //
-lumpnum_t W_GetNumForName(const char *name)
+lumpnum_t W_GetSpecialNumForName(const char *name, int type)
 {
 	lumpnum_t i;
 
-	i = W_CheckNumForName(name);
+	i = W_CheckSpecialNumForName(name, type);
 
 	if (i == LUMPERROR)
 		I_Error("W_GetNumForName: %s not found!\n", name);
@@ -1503,7 +1512,6 @@ void *W_CacheLumpNumPwad(UINT16 wad, UINT16 lump, INT32 tag)
 
 void *W_CacheLumpNum(lumpnum_t lumpnum, INT32 tag)
 {
-
 	return W_CacheLumpNumPwad(WADFILENUM(lumpnum),LUMPNUM(lumpnum),tag);
 }
 
