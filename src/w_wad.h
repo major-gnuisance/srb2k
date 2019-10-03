@@ -108,6 +108,7 @@ typedef struct wadfile_s
 #endif
 	UINT16 numlumps; // this wad's number of resources
 	FILE *handle;
+	int handlelump;/* special WADs don't open EVERY file--only one */
 	UINT32 filesize; // for network
 	UINT8 md5sum[16];
 	boolean important;

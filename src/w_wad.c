@@ -112,7 +112,8 @@ wadfile_t *wadfiles[TOTAL_WADFILES]; // 0 to numwadfiles-1 are valid
 static void
 FreeWAD (wadfile_t *wad)
 {
-	fclose(wad->handle);
+	if (wad->handle)
+		fclose(wad->handle);
 	if (wad->filename)
 		Z_Free(wad->filename);
 	while (wad->numlumps--)
@@ -420,6 +421,8 @@ ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename)
 		wad->numlumps  = 0;
 		wad->lumpinfo  = 0;
 		wad->filesize  = 0;
+		wad->type = RET_UNKNOWN;
+		wad->handlelump = -1;
 		wad->lumpcache = 0;
 	}
 
@@ -428,6 +431,7 @@ ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename)
 			wad->numlumps * sizeof *lumpinfo, PU_STATIC, &wad->lumpinfo);
 
 	wad->handle = fp;
+	wad->handlelump = n;
 
 	p = &lumpinfo[n];
 	memset(p, 0, sizeof *p);
@@ -1342,6 +1346,17 @@ size_t W_ReadLumpHeaderPwad(UINT16 wad, UINT16 lump, void *dest, size_t size, si
 	// Let's get the raw lump data.
 	// We setup the desired file handle to read the lump data.
 	l = wadfiles[wad]->lumpinfo + lump;
+	if (wadfiles[wad]->type == RET_UNKNOWN && wadfiles[wad]->handlelump != lump)
+	{
+		if (wadfiles[wad]->handle)
+			fclose(wadfiles[wad]->handle);
+		if (!( wadfiles[wad]->handle = fopen(l->name2, "rb") ))
+		{
+			CONS_Alert(CONS_ERROR, "oops %s: %s\n", l->name2, strerror(errno));
+			return 0;
+		}
+		wadfiles[wad]->handlelump = lump;
+	}
 	handle = wadfiles[wad]->handle;
 	fseek(handle, (long)(l->position + offset), SEEK_SET);
 
