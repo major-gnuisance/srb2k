@@ -367,17 +367,22 @@ static restype_t ResourceFileDetect (const char* filename)
 static void
 GetFileLump (lumpinfo_t *lumpinfo, FILE *handle, const char *lumpname, int type)
 {
+	char *meme;
+	char *p;
 	lumpinfo->position = 0;
 	fseek(handle, 0, SEEK_END);
 	lumpinfo->size = ftell(handle);
 	fseek(handle, 0, SEEK_SET);
+	nameonly(( meme = va("%s", lumpname) ));
+	if (( p = strrchr(meme, '.') ))
+		*p = 0;
 	switch (type)
 	{
 		case WAD_MUSIC:
-			snprintf(lumpinfo->name, 9, "O_%s", lumpname);
+			snprintf(lumpinfo->name, 9, "O_%s", meme);
 			break;
 		default:
-			strlcpy(lumpinfo->name, lumpname, 9);
+			strlcpy(lumpinfo->name, meme, 9);
 	}
 	strupr(lumpinfo->name);
 	// Allocate the lump's full name.
