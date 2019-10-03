@@ -107,7 +107,19 @@ static UINT16 lumpnumcacheindex = 0;
 //                                                                    GLOBALS
 //===========================================================================
 UINT16 numwadfiles = 0; // number of active wadfiles
-wadfile_t *wadfiles[MAX_WADFILES]; // 0 to numwadfiles-1 are valid
+wadfile_t *wadfiles[TOTAL_WADFILES]; // 0 to numwadfiles-1 are valid
+
+static void
+FreeWAD (wadfile_t *wad)
+{
+	fclose(wad->handle);
+	if (wad->filename)
+		Z_Free(wad->filename);
+	while (wad->numlumps--)
+		Z_Free(wad->lumpinfo[wad->numlumps].name2);
+	Z_Free(wad->lumpinfo);
+	Z_Free(wad);
+}
 
 // W_Shutdown
 // Closes all of the WAD files before quitting
@@ -116,14 +128,11 @@ wadfile_t *wadfiles[MAX_WADFILES]; // 0 to numwadfiles-1 are valid
 // being ejected
 void W_Shutdown(void)
 {
+	if (wadfiles[WAD_MUSIC])
+		FreeWAD(wadfiles[WAD_MUSIC]);
 	while (numwadfiles--)
 	{
-		fclose(wadfiles[numwadfiles]->handle);
-		Z_Free(wadfiles[numwadfiles]->filename);
-		while (wadfiles[numwadfiles]->numlumps--)
-			Z_Free(wadfiles[numwadfiles]->lumpinfo[wadfiles[numwadfiles]->numlumps].name2);
-		Z_Free(wadfiles[numwadfiles]->lumpinfo);
-		Z_Free(wadfiles[numwadfiles]);
+		FreeWAD(wadfiles[numwadfiles]);
 	}
 }
 
@@ -315,19 +324,64 @@ static void W_InvalidateLumpnumCache(void)
 	memset(lumpnumcache, 0, sizeof (lumpnumcache));
 }
 
+static int
+ExtCheck (
+		const char *filename, int filename_length,
+		const char *ext,      int      ext_length)
+{
+	int n;
+	n = filename_length - ( ext_length + 1 );/* include . */
+	if (n > 0)
+	{
+		if (filename[n] == '.')
+			return ( strcmp(&filename[n + 1], ext) == 0 );
+	}
+	return 0;
+}
+
 /** Detect a file type.
  * \todo Actually detect the wad/pkzip headers and whatnot, instead of just checking the extensions.
  */
 static restype_t ResourceFileDetect (const char* filename)
 {
-	if (!stricmp(&filename[strlen(filename) - 4], ".pk3"))
+	int n;
+
+	n = strlen(filename);
+
+#define X( name ) ExtCheck(filename, n, name, sizeof name - 1)
+
+	if (X ("wad") || X ("srb") || X ("kart"))
+		return RET_WAD;
+	if (X ("pk3"))
 		return RET_PK3;
-	if (!stricmp(&filename[strlen(filename) - 4], ".soc"))
+	if (X ("soc"))
 		return RET_SOC;
-	if (!stricmp(&filename[strlen(filename) - 4], ".lua"))
+	if (X ("lua"))
 		return RET_LUA;
 
-	return RET_WAD;
+#undef  X
+
+	return RET_UNKNOWN;
+}
+
+static void
+GetFileLump (lumpinfo_t *lumpinfo, FILE *handle, const char *lumpname, int type)
+{
+	lumpinfo->position = 0;
+	fseek(handle, 0, SEEK_END);
+	lumpinfo->size = ftell(handle);
+	fseek(handle, 0, SEEK_SET);
+	switch (type)
+	{
+		case WAD_MUSIC:
+			snprintf(lumpinfo->name, 9, "O_%s", lumpname);
+			break;
+		default:
+			strlcpy(lumpinfo->name, lumpname, 9);
+	}
+	strupr(lumpinfo->name);
+	// Allocate the lump's full name.
+	lumpinfo->name2 = Z_StrDup(lumpname);
 }
 
 /** Create a 1-lump lumpinfo_t for standalone files.
@@ -335,17 +389,53 @@ static restype_t ResourceFileDetect (const char* filename)
 static lumpinfo_t* ResGetLumpsStandalone (FILE* handle, UINT16* numlumps, const char* lumpname)
 {
 	lumpinfo_t* lumpinfo = Z_Calloc(sizeof (*lumpinfo), PU_STATIC, NULL);
-	lumpinfo = Z_Calloc(sizeof (*lumpinfo), PU_STATIC, NULL);
-	lumpinfo->position = 0;
-	fseek(handle, 0, SEEK_END);
-	lumpinfo->size = ftell(handle);
-	fseek(handle, 0, SEEK_SET);
-	strcpy(lumpinfo->name, lumpname);
-	// Allocate the lump's full name.
-	lumpinfo->name2 = Z_Malloc(9 * sizeof(char), PU_STATIC, NULL);
-	strcpy(lumpinfo->name2, lumpname);
-	lumpinfo->name2[8] = '\0';
+	GetFileLump(lumpinfo, handle, lumpname, 0);
 	*numlumps = 1;
+	return lumpinfo;
+}
+
+static lumpinfo_t *
+ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename)
+{
+	wadfile_t  *wad;
+
+	lumpinfo_t *lumpinfo;
+	lumpinfo_t *p;
+
+	int n;
+
+	if (( wad = wadfiles[WAD_MUSIC] ))
+	{
+		fclose(wad->handle);
+	}
+	else
+	{
+		wad = Z_Malloc(sizeof *wad, PU_STATIC, &wadfiles[WAD_MUSIC]);
+		wad->filename  = 0;
+		wad->numlumps  = 0;
+		wad->lumpinfo  = 0;
+		wad->filesize  = 0;
+		wad->lumpcache = 0;
+	}
+
+	n = wad->numlumps++;
+	lumpinfo = Z_Realloc(wad->lumpinfo,
+			wad->numlumps * sizeof *lumpinfo, PU_STATIC, &wad->lumpinfo);
+
+	wad->handle = fp;
+
+	p = &lumpinfo[n];
+	memset(p, 0, sizeof *p);
+	GetFileLump(p, fp, filename, WAD_MUSIC);
+
+	wad->filesize += p->size;
+
+	Z_Realloc(wad->lumpcache,
+			wad->numlumps * sizeof *wad->lumpcache, PU_STATIC, &wad->lumpcache);
+	wad->lumpcache[n] = 0;
+
+	(*lumpcp) = wad->numlumps;
+
 	return lumpinfo;
 }
 
@@ -644,7 +734,7 @@ static lumpinfo_t* ResGetLumpsZip (FILE* handle, UINT16* nlmp)
 //
 // Can now load dehacked files (.soc)
 //
-UINT16 W_InitFile(const char *filename)
+UINT16 W_InitFile(const char *filename, UINT16 *wadnump)
 {
 	FILE *handle;
 	lumpinfo_t *lumpinfo = NULL;
@@ -668,44 +758,52 @@ UINT16 W_InitFile(const char *filename)
 	else
 		refreshdirname = NULL;
 
-	//CONS_Debug(DBG_SETUP, "Loading %s\n", filename);
-	//
-	// check if limit of active wadfiles
-	//
-	if (numwadfiles >= MAX_WADFILES)
+	type = ResourceFileDetect(filename);
+
+	if (type != RET_UNKNOWN)
 	{
-		CONS_Alert(CONS_ERROR, M_GetText("Maximum wad files reached\n"));
-		refreshdirmenu |= REFRESHDIR_MAX;
-		return INT16_MAX;
+		//CONS_Debug(DBG_SETUP, "Loading %s\n", filename);
+		//
+		// check if limit of active wadfiles
+		//
+		if (numwadfiles >= MAX_WADFILES)
+		{
+			CONS_Alert(CONS_ERROR, M_GetText("Maximum wad files reached\n"));
+			refreshdirmenu |= REFRESHDIR_MAX;
+			return INT16_MAX;
+		}
 	}
 
 	// open wad file
 	if ((handle = W_OpenWadFile(&filename, true)) == NULL)
 		return INT16_MAX;
 
-	important = !W_VerifyNMUSlumps(filename);
+	if (type != RET_UNKNOWN)
+	{
+		important = !W_VerifyNMUSlumps(filename);
 
 #ifndef NOMD5
-	//
-	// w-waiiiit!
-	// Let's not add a wad file if the MD5 matches
-	// an MD5 of an already added WAD file!
-	//
-	W_MakeFileMD5(filename, md5sum);
+		//
+		// w-waiiiit!
+		// Let's not add a wad file if the MD5 matches
+		// an MD5 of an already added WAD file!
+		//
+		W_MakeFileMD5(filename, md5sum);
 
-	for (i = 0; i < numwadfiles; i++)
-	{
-		if (!memcmp(wadfiles[i]->md5sum, md5sum, 16))
+		for (i = 0; i < numwadfiles; i++)
 		{
-			CONS_Alert(CONS_ERROR, M_GetText("%s is already loaded\n"), filename);
-			if (handle)
-				fclose(handle);
-			return INT16_MAX;
+			if (!memcmp(wadfiles[i]->md5sum, md5sum, 16))
+			{
+				CONS_Alert(CONS_ERROR, M_GetText("%s is already loaded\n"), filename);
+				if (handle)
+					fclose(handle);
+				return INT16_MAX;
+			}
 		}
-	}
 #endif
+	}
 
-	switch(type = ResourceFileDetect(filename))
+	switch(type)
 	{
 	case RET_SOC:
 		lumpinfo = ResGetLumpsStandalone(handle, &numlumps, "OBJCTCFG");
@@ -722,68 +820,83 @@ UINT16 W_InitFile(const char *filename)
 		lumpinfo = ResGetLumpsWad(handle, &numlumps, filename);
 		break;
 	default:
-		CONS_Alert(CONS_ERROR, "Unsupported file format\n");
+		lumpinfo = ResGetLumpsSpecial(handle, &numlumps, filename);
 	}
 
-	if (lumpinfo == NULL)
+	if (type == RET_UNKNOWN)
+		wadfile = wadfiles[WAD_MUSIC];
+	else
 	{
-		fclose(handle);
-		return INT16_MAX;
-	}
+		if (lumpinfo == NULL)
+		{
+			fclose(handle);
+			return INT16_MAX;
+		}
 
-	//
-	// link wad file to search files
-	//
-	wadfile = Z_Malloc(sizeof (*wadfile), PU_STATIC, NULL);
-	wadfile->filename = Z_StrDup(filename);
-	wadfile->handle = handle;
-	wadfile->numlumps = (UINT16)numlumps;
-	wadfile->lumpinfo = lumpinfo;
-	wadfile->important = important;
-	fseek(handle, 0, SEEK_END);
-	wadfile->filesize = (unsigned)ftell(handle);
-	wadfile->type = type;
+		//
+		// link wad file to search files
+		//
+		wadfile = Z_Malloc(sizeof (*wadfile), PU_STATIC, NULL);
+		wadfile->filename = Z_StrDup(filename);
+		wadfile->handle = handle;
+		wadfile->numlumps = (UINT16)numlumps;
+		wadfile->lumpinfo = lumpinfo;
+		wadfile->important = important;
+		fseek(handle, 0, SEEK_END);
+		wadfile->filesize = (unsigned)ftell(handle);
+		wadfile->type = type;
 
-	// already generated, just copy it over
-	M_Memcpy(&wadfile->md5sum, &md5sum, 16);
+		// already generated, just copy it over
+		M_Memcpy(&wadfile->md5sum, &md5sum, 16);
 
-	//
-	// set up caching
-	//
-	Z_Calloc(numlumps * sizeof (*wadfile->lumpcache), PU_STATIC, &wadfile->lumpcache);
+		//
+		// set up caching
+		//
+		Z_Calloc(numlumps * sizeof (*wadfile->lumpcache), PU_STATIC, &wadfile->lumpcache);
 
 #ifdef HWRENDER
-	// allocates GLPatch info structures and store them in a tree
-	wadfile->hwrcache = M_AATreeAlloc(AATREE_ZUSER);
+		// allocates GLPatch info structures and store them in a tree
+		wadfile->hwrcache = M_AATreeAlloc(AATREE_ZUSER);
 #endif
+	}
 
 	//
 	// add the wadfile
 	//
 	CONS_Printf(M_GetText("Added file %s (%u lumps)\n"), filename, numlumps);
-	wadfiles[numwadfiles] = wadfile;
-	numwadfiles++; // must come BEFORE W_LoadDehackedLumps, so any addfile called by COM_BufInsertText called by Lua doesn't overwrite what we just loaded
-
-	// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
-	switch (wadfile->type)
+	if (type == RET_UNKNOWN)
 	{
-	case RET_WAD:
-		W_LoadDehackedLumps(numwadfiles - 1);
-		break;
-	case RET_PK3:
-		W_LoadDehackedLumpsPK3(numwadfiles - 1);
-		break;
-	case RET_SOC:
-		CONS_Printf(M_GetText("Loading SOC from %s\n"), wadfile->filename);
-		DEH_LoadDehackedLumpPwad(numwadfiles - 1, 0);
-		break;
+		if (wadnump)
+			(*wadnump) = WAD_MUSIC;
+	}
+	else
+	{
+		wadfiles[numwadfiles] = wadfile;
+		if (wadnump)
+			(*wadnump) = numwadfiles;
+		numwadfiles++; // must come BEFORE W_LoadDehackedLumps, so any addfile called by COM_BufInsertText called by Lua doesn't overwrite what we just loaded
+
+		// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
+		switch (wadfile->type)
+		{
+			case RET_WAD:
+				W_LoadDehackedLumps(numwadfiles - 1);
+				break;
+			case RET_PK3:
+				W_LoadDehackedLumpsPK3(numwadfiles - 1);
+				break;
+			case RET_SOC:
+				CONS_Printf(M_GetText("Loading SOC from %s\n"), wadfile->filename);
+				DEH_LoadDehackedLumpPwad(numwadfiles - 1, 0);
+				break;
 #ifdef HAVE_BLUA
-	case RET_LUA:
-		LUA_LoadLump(numwadfiles - 1, 0);
-		break;
+			case RET_LUA:
+				LUA_LoadLump(numwadfiles - 1, 0);
+				break;
 #endif
-	default:
-		break;
+			default:
+				break;
+		}
 	}
 
 	if (refreshdirmenu & REFRESHDIR_GAMEDATA)
@@ -848,7 +961,7 @@ INT32 W_InitMultipleFiles(char **filenames, boolean addons)
 			G_SetGameModified(true, false);
 
 		//CONS_Debug(DBG_SETUP, "Loading %s\n", *filenames);
-		rc &= (W_InitFile(*filenames) != INT16_MAX) ? 1 : 0;
+		rc &= (W_InitFile(*filenames, 0) != INT16_MAX) ? 1 : 0;
 	}
 
 	if (!numwadfiles)

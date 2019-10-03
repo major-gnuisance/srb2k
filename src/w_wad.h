@@ -113,11 +113,18 @@ typedef struct wadfile_s
 	boolean important;
 } wadfile_t;
 
+enum
+{
+	WAD_MUSIC = MAX_WADFILES,
+
+	TOTAL_WADFILES
+};
+
 #define WADFILENUM(lumpnum) (UINT16)((lumpnum)>>16) // wad flumpnum>>16) // wad file number in upper word
 #define LUMPNUM(lumpnum) (UINT16)((lumpnum)&0xFFFF) // lump number for this pwad
 
 extern UINT16 numwadfiles;
-extern wadfile_t *wadfiles[MAX_WADFILES];
+extern wadfile_t *wadfiles[TOTAL_WADFILES];
 
 // =========================================================================
 
@@ -126,7 +133,7 @@ void W_Shutdown(void);
 // Opens a WAD file. Returns the FILE * handle for the file, or NULL if not found or could not be opened
 FILE *W_OpenWadFile(const char **filename, boolean useerrors);
 // Load and add a wadfile to the active wad files, returns numbers of lumps, INT16_MAX on error
-UINT16 W_InitFile(const char *filename);
+UINT16 W_InitFile(const char *filename, UINT16 *wadnump);
 #ifdef DELFILE
 void W_UnloadWadFile(UINT16 num);
 #endif

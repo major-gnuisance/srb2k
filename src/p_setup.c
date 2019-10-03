@@ -3381,13 +3381,12 @@ boolean P_AddWadFile(const char *wadfilename)
 	boolean mapsadded = false;
 	boolean replacedcurrentmap = false;
 
-	if ((numlumps = W_InitFile(wadfilename)) == INT16_MAX)
+	if ((numlumps = W_InitFile(wadfilename, &wadnum)) == INT16_MAX)
 	{
 		refreshdirmenu |= REFRESHDIR_NOTLOADED;
 		CONS_Printf(M_GetText("Errors occurred while loading %s; not added.\n"), wadfilename);
 		return false;
 	}
-	else wadnum = (UINT16)(numwadfiles-1);
 
 	//
 	// search for sound replacements

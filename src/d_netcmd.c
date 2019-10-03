@@ -4522,6 +4522,7 @@ static void Command_ListWADS_f(void)
 {
 	INT32 i = numwadfiles;
 	char *tempname;
+	lumpinfo_t *p;
 	CONS_Printf(M_GetText("There are %d wads loaded:\n"),numwadfiles);
 	for (i--; i >= 0; i--)
 	{
@@ -4532,6 +4533,19 @@ static void Command_ListWADS_f(void)
 			CONS_Printf("\x82 * %.2d\x80: %s\n", i, tempname);
 		else
 			CONS_Printf("   %.2d: %s\n", i, tempname);
+	}
+	if (wadfiles[WAD_MUSIC])
+	{
+		CONS_Printf("There are also %d music files:\n",
+				wadfiles[WAD_MUSIC]->numlumps);
+		for (i = 0; i < wadfiles[WAD_MUSIC]->numlumps; ++i)
+		{
+			p = &wadfiles[WAD_MUSIC]->lumpinfo[i];
+			if (strcmp(p->name, p->name2) == 0)
+				CONS_Printf("%02d: %-8s\n", i, p->name);
+			else
+				CONS_Printf("%02d: %-8s (%s)\n", i, p->name, p->name2);
+		}
 	}
 }
 
