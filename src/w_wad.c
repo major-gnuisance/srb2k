@@ -1753,23 +1753,20 @@ static int W_VerifyFile(const char *filename, lumpchecklist_t *checklist,
 	FILE *handle;
 	size_t i, j;
 	int goodfile = false;
+	int type;
 
 	if (!checklist)
 		I_Error("No checklist for %s\n", filename);
-	// open wad file
-	if ((handle = W_OpenWadFile(&filename, false)) == NULL)
-		return -1;
-
-	// detect wad file by the absence of the other supported extensions
-	if (stricmp(&filename[strlen(filename) - 4], ".soc")
-#ifdef HAVE_BLUA
-	&& stricmp(&filename[strlen(filename) - 4], ".lua")
-#endif
-	&& stricmp(&filename[strlen(filename) - 4], ".pk3"))
+	type = ResourceFileDetect(filename);
+	if (type == RET_WAD)
 	{
 		// assume wad file
 		wadinfo_t header;
 		filelump_t lumpinfo;
+
+		// open wad file
+		if ((handle = W_OpenWadFile(&filename, false)) == NULL)
+			return -1;
 
 		// read the header
 		if (fread(&header, 1, sizeof header, handle) == sizeof header
@@ -1821,8 +1818,12 @@ static int W_VerifyFile(const char *filename, lumpchecklist_t *checklist,
 			if (!goodfile)
 				break;
 		}
+
+		fclose(handle);
 	}
-	fclose(handle);
+	else if (type == RET_UNKNOWN)
+		goodfile = true;
+
 	return goodfile;
 }
 
