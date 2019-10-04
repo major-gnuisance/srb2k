@@ -1222,15 +1222,27 @@ lumpnum_t W_CheckNumForNameInBlock(const char *name, const char *blockstart, con
 
 // Used by Lua. Case sensitive lump checking, quickly...
 #include "fastcmp.h"
+static boolean
+FindLump (const char *name, int wad)
+{
+	INT32 j;
+	for (j = 0; j < wadfiles[wad]->numlumps; ++j)
+		if (fastcmp(wadfiles[wad]->lumpinfo[j].name,name))
+			return true;
+	return false;
+}
 UINT8 W_LumpExists(const char *name)
 {
-	INT32 i,j;
+	INT32 i;
+	if (wadfiles[WAD_MUSIC])
+	{
+		if (FindLump(name, WAD_MUSIC))
+			return true;
+	}
 	for (i = numwadfiles - 1; i >= 0; i--)
 	{
-		lumpinfo_t *lump_p = wadfiles[i]->lumpinfo;
-		for (j = 0; j < wadfiles[i]->numlumps; ++j, ++lump_p)
-			if (fastcmp(lump_p->name,name))
-				return true;
+		if (FindLump(name, i))
+			return true;
 	}
 	return false;
 }
