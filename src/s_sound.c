@@ -1816,8 +1816,8 @@ boolean S_MusicInfo(char *mname, UINT16 *mflags, boolean *looping)
 boolean S_MusicExists(const char *mname, boolean checkMIDI, boolean checkDigi)
 {
 	return (
-		(checkDigi ? W_CheckSpecialNumForName(va("O_%s", mname), WAD_MUSIC) != LUMPERROR : false)
-		|| (checkMIDI ? W_CheckSpecialNumForName(va("D_%s", mname), WAD_MUSIC) != LUMPERROR : false)
+		(checkDigi ? W_CheckNumForName(va("O_%s", mname)) != LUMPERROR : false)
+		|| (checkMIDI ? W_CheckNumForName(va("D_%s", mname)) != LUMPERROR : false)
 	);
 }
 
@@ -1872,9 +1872,9 @@ static boolean S_LoadMusic(const char *mname)
 		return false;
 
 	if (!S_DigMusicDisabled() && S_DigExists(mname))
-		mlumpnum = W_GetSpecialNumForName(va("o_%s", mname), WAD_MUSIC);
+		mlumpnum = W_GetNumForName(va("o_%s", mname));
 	else if (!S_MIDIMusicDisabled() && S_MIDIExists(mname))
-		mlumpnum = W_GetSpecialNumForName(va("d_%s", mname), WAD_MUSIC);
+		mlumpnum = W_GetNumForName(va("d_%s", mname));
 	else if (S_DigMusicDisabled() && S_DigExists(mname))
 	{
 		CONS_Alert(CONS_NOTICE, "Digital music is disabled!\n");
