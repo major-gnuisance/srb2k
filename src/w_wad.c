@@ -1113,12 +1113,21 @@ lumpnum_t W_CheckNumForName(const char *name)
 		}
 	}
 
-	// scan wad files backwards so patch lump files take precedence
-	for (i = numwadfiles - 1; i >= 0; i--)
+	if (strncasecmp(name, "O_", 2) == 0)
 	{
-		check = W_CheckNumForNamePwad(name,(UINT16)i,0);
-		if (check != INT16_MAX)
-			break; //found it
+		i = WAD_MUSIC;
+		check = W_CheckNumForNamePwad(name,i,0);
+	}
+
+	if (check == INT16_MAX)
+	{
+		// scan wad files backwards so patch lump files take precedence
+		for (i = numwadfiles - 1; i >= 0; i--)
+		{
+			check = W_CheckNumForNamePwad(name,(UINT16)i,0);
+			if (check != INT16_MAX)
+				break; //found it
+		}
 	}
 
 	if (check == INT16_MAX) return LUMPERROR;
