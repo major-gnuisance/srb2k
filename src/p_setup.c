@@ -3357,7 +3357,7 @@ boolean P_RunSOC(const char *socfilename)
 	lumpnum_t lump;
 
 	if (strstr(socfilename, ".soc") != NULL)
-		return P_AddWadFile(socfilename);
+		return P_AddWadFile(socfilename, 0);
 
 	lump = W_CheckNumForName(socfilename);
 	if (lump == LUMPERROR)
@@ -3373,7 +3373,7 @@ boolean P_RunSOC(const char *socfilename)
 // Add a wadfile to the active wad files,
 // replace sounds, musics, patches, textures, sprites and maps
 //
-boolean P_AddWadFile(const char *wadfilename)
+boolean P_AddWadFile(const char *wadfilename, const char *lumpname)
 {
 	size_t i, j, sreplaces = 0, mreplaces = 0, digmreplaces = 0;
 	UINT16 numlumps, wadnum;
@@ -3383,13 +3383,12 @@ boolean P_AddWadFile(const char *wadfilename)
 	boolean mapsadded = false;
 	boolean replacedcurrentmap = false;
 
-	if ((numlumps = W_InitFile(wadfilename)) == INT16_MAX)
+	if ((numlumps = W_InitFile(wadfilename, lumpname, &wadnum)) == INT16_MAX)
 	{
 		refreshdirmenu |= REFRESHDIR_NOTLOADED;
 		CONS_Printf(M_GetText("Errors occurred while loading %s; not added.\n"), wadfilename);
 		return false;
 	}
-	else wadnum = (UINT16)(numwadfiles-1);
 
 	//
 	// search for sound replacements

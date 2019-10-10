@@ -6776,7 +6776,7 @@ static void G_LoadDemoExtraFiles(UINT8 **pp)
 			}
 			else
 			{
-				P_AddWadFile(filename);
+				P_AddWadFile(filename, 0);
 			}
 		}
 	}
