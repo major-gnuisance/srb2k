@@ -862,6 +862,10 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_chatbacktint);
 	CV_RegisterVar(&cv_songcredits);
 	CV_RegisterVar(&cv_showviewpoint);
+	CV_RegisterVar(&cv_playendingmusic);
+	CV_RegisterVar(&cv_playenginesounds);
+	CV_RegisterVar(&cv_growmusic);
+	CV_RegisterVar(&cv_supermusic);
 	//CV_RegisterVar(&cv_crosshair);
 	//CV_RegisterVar(&cv_crosshair2);
 	//CV_RegisterVar(&cv_crosshair3);

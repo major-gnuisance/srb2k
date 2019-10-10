@@ -1149,6 +1149,12 @@ boolean P_EndingMusic(player_t *player)
 
 	if (multiplayer && demo.playback) // Don't play this in multiplayer replays
 		return false;
+	switch (cv_playendingmusic.value)
+	{
+		case 1:/* RACE   */if (! G_RaceGametype())   return false;
+		case 2:/* BATTLE */if (! G_BattleGametype()) return false;
+		case 3:/* NEVER  */return false;
+	}
 
 	// Event - Level Finish
 	// Check for if this is valid or not
@@ -1273,10 +1279,10 @@ void P_RestoreMusic(player_t *player)
 		}
 
 		// Item - Grow
-		if (wantedmus == 2)
+		if (wantedmus == 2 && cv_growmusic.value)
 			S_ChangeMusicInternal("kgrow", true);
 		// Item - Invincibility
-		else if (wantedmus == 1)
+		else if (wantedmus == 1 && cv_supermusic.value)
 			S_ChangeMusicInternal("kinvnc", true);
 		else
 		{
