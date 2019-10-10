@@ -133,6 +133,7 @@ static void Command_View_f (void);
 static void Command_SetViews_f(void);
 
 static void Command_Addfile(void);
+static void Command_Addmusic(void);
 static void Command_ListWADS_f(void);
 #ifdef DELFILE
 static void Command_Delfile(void);
@@ -581,6 +582,7 @@ void D_RegisterServerCommands(void)
 	COM_AddCommand("mapmd5", Command_Mapmd5_f);
 
 	COM_AddCommand("addfile", Command_Addfile);
+	COM_AddCommand("addmusic", Command_Addmusic);
 	COM_AddCommand("listwad", Command_ListWADS_f);
 
 #ifdef DELFILE
@@ -4284,7 +4286,7 @@ static void Command_Addfile(void)
 	// Add file on your client directly if it is trivial, or you aren't in a netgame.
 	if (!(netgame || multiplayer) || musiconly)
 	{
-		P_AddWadFile(fn);
+		P_AddWadFile(fn, 0);
 		return;
 	}
 
@@ -4331,6 +4333,20 @@ static void Command_Addfile(void)
 		SendNetXCmd(XD_REQADDFILE, buf, buf_p - buf);
 	else
 		SendNetXCmd(XD_ADDFILE, buf, buf_p - buf);
+}
+
+/** Adds a music pwad at runtime.
+  */
+static void
+Command_Addmusic (void)
+{
+	if (COM_Argc() != 3)
+	{
+		CONS_Printf(
+				"addmusic <file> <name>: load music file, use 6 char. name\n");
+		return;
+	}
+	P_AddWadFile(COM_Argv(1), COM_Argv(2));
 }
 
 #ifdef DELFILE
@@ -4489,7 +4505,7 @@ static void Got_Addfilecmd(UINT8 **cp, INT32 playernum)
 
 	ncs = findfile(filename,md5sum,true);
 
-	if (ncs != FS_FOUND || !P_AddWadFile(filename))
+	if (ncs != FS_FOUND || !P_AddWadFile(filename, 0))
 	{
 		Command_ExitGame_f();
 		if (ncs == FS_FOUND)

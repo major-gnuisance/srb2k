@@ -366,7 +366,7 @@ static restype_t ResourceFileDetect (const char* filename)
 }
 
 static void
-GetFileLump (lumpinfo_t *lumpinfo, FILE *handle, const char *lumpname, int type)
+GetFileLump (lumpinfo_t *lumpinfo, FILE *handle, const char *filename, const char *lumpname, int type)
 {
 	char *meme;
 	char *p;
@@ -374,20 +374,24 @@ GetFileLump (lumpinfo_t *lumpinfo, FILE *handle, const char *lumpname, int type)
 	fseek(handle, 0, SEEK_END);
 	lumpinfo->size = ftell(handle);
 	fseek(handle, 0, SEEK_SET);
-	nameonly(( meme = va("%s", lumpname) ));
-	if (( p = strrchr(meme, '.') ))
-		*p = 0;
+	if (! lumpname)
+	{
+		nameonly(( meme = va("%s", filename) ));
+		if (( p = strrchr(meme, '.') ))
+			*p = 0;
+		lumpname = meme;
+	}
 	switch (type)
 	{
 		case WAD_MUSIC:
-			snprintf(lumpinfo->name, 9, "O_%s", meme);
+			snprintf(lumpinfo->name, 9, "O_%s", lumpname);
 			break;
 		default:
-			strlcpy(lumpinfo->name, meme, 9);
+			strlcpy(lumpinfo->name, lumpname, 9);
 	}
 	strupr(lumpinfo->name);
 	// Allocate the lump's full name.
-	lumpinfo->name2 = Z_StrDup(lumpname);
+	lumpinfo->name2 = Z_StrDup(filename);
 }
 
 /** Create a 1-lump lumpinfo_t for standalone files.
@@ -395,13 +399,13 @@ GetFileLump (lumpinfo_t *lumpinfo, FILE *handle, const char *lumpname, int type)
 static lumpinfo_t* ResGetLumpsStandalone (FILE* handle, UINT16* numlumps, const char* lumpname)
 {
 	lumpinfo_t* lumpinfo = Z_Calloc(sizeof (*lumpinfo), PU_STATIC, NULL);
-	GetFileLump(lumpinfo, handle, lumpname, 0);
+	GetFileLump(lumpinfo, handle, lumpname, 0, 0);
 	*numlumps = 1;
 	return lumpinfo;
 }
 
 static lumpinfo_t *
-ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename)
+ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename, const char *musicname)
 {
 	wadfile_t  *wad;
 
@@ -435,7 +439,7 @@ ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename)
 
 	p = &lumpinfo[n];
 	memset(p, 0, sizeof *p);
-	GetFileLump(p, fp, filename, WAD_MUSIC);
+	GetFileLump(p, fp, filename, musicname, WAD_MUSIC);
 
 	wad->filesize += p->size;
 
@@ -743,7 +747,7 @@ static lumpinfo_t* ResGetLumpsZip (FILE* handle, UINT16* nlmp)
 //
 // Can now load dehacked files (.soc)
 //
-UINT16 W_InitFile(const char *filename, UINT16 *wadnump)
+UINT16 W_InitFile(const char *filename, const char *lumpname, UINT16 *wadnump)
 {
 	FILE *handle;
 	lumpinfo_t *lumpinfo = NULL;
@@ -829,7 +833,7 @@ UINT16 W_InitFile(const char *filename, UINT16 *wadnump)
 		lumpinfo = ResGetLumpsWad(handle, &numlumps, filename);
 		break;
 	default:
-		lumpinfo = ResGetLumpsSpecial(handle, &numlumps, filename);
+		lumpinfo = ResGetLumpsSpecial(handle, &numlumps, filename, lumpname);
 	}
 
 	if (type == RET_UNKNOWN)
@@ -959,18 +963,18 @@ void W_UnloadWadFile(UINT16 num)
   * \return 1 if all files were loaded, 0 if at least one was missing or
   *           invalid.
   */
-INT32 W_InitMultipleFiles(char **filenames, boolean addons)
+INT32 W_InitMultipleFiles(char *(*filenames)[2], boolean addons)
 {
 	INT32 rc = 1;
 
 	// will be realloced as lumps are added
-	for (; *filenames; filenames++)
+	for (; (*filenames)[0]; filenames++)
 	{
-		if (addons && !W_VerifyNMUSlumps(*filenames))
+		if (addons && !W_VerifyNMUSlumps((*filenames)[0]))
 			G_SetGameModified(true, false);
 
 		//CONS_Debug(DBG_SETUP, "Loading %s\n", *filenames);
-		rc &= (W_InitFile(*filenames, 0) != INT16_MAX) ? 1 : 0;
+		rc &= (W_InitFile((*filenames)[0], (*filenames)[1], 0) != INT16_MAX) ? 1 : 0;
 	}
 
 	if (!numwadfiles)
