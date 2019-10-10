@@ -3815,7 +3815,11 @@ SV_SendDownloadRefuse (
 	right  = sizeof text - n;/* Count terminating byte anyway, see below. */
 
 	/* This is the only text that'll render. */
-	n      = sprintf(p, "%s\n", reason);
+	n      = right - 1;
+	CopyCaretColors(p, reason, n);
+	p[n]   = '\0';
+
+	n      = strlen(p);
 	SUBTRACT;
 
 	/*
