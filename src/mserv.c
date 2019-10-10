@@ -748,7 +748,7 @@ static INT32 AddToMasterServer(boolean firstadd)
 
 	strcpy(info->ip, "");
 	strcpy(info->port, int2str(current_port));
-	strcpy(info->name, cv_servername.string);
+	CopyCaretColors(info->name, cv_servername.string, MAXSERVERNAME);
 	M_Memcpy(&info->room, & room, sizeof (INT32));
 #if VERSION > 0 || SUBVERSION > 0
 	sprintf(info->version, "%d.%d.%d", VERSION/100, VERSION%100, SUBVERSION);
