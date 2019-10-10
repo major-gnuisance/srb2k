@@ -1447,6 +1447,8 @@ static menuitem_t OP_HUDOptionsMenu[] =
 	{IT_STRING | IT_CVAR, NULL,	"Console Text Size",		&cv_constextsize,		120},
 
 	{IT_STRING | IT_CVAR, NULL,   "Show \"FOCUS LOST\"",  &cv_showfocuslost,   135},
+
+	{IT_STRING | IT_CVAR, NULL,   "Show Viewpoint In Replays", &cv_showviewpoint, 150},
 };
 
 // Ok it's still called chatoptions but we'll put ping display in here to be clean
