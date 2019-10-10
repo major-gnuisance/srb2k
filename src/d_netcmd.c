@@ -367,7 +367,8 @@ consvar_t cv_kartfrantic = {"kartfrantic", "Off", CV_NETVAR|CV_CHEAT|CV_CALL|CV_
 consvar_t cv_kartcomeback = {"kartcomeback", "On", CV_NETVAR|CV_CHEAT|CV_CALL|CV_NOINIT, CV_OnOff, KartComeback_OnChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartencore = {"kartencore", "Off", CV_NETVAR|CV_CALL|CV_NOINIT, CV_OnOff, KartEncore_OnChange, 0, NULL, NULL, 0, 0, NULL};
 static CV_PossibleValue_t kartvoterulechanges_cons_t[] = {{0, "Never"}, {1, "Sometimes"}, {2, "Frequent"}, {3, "Always"}, {0, NULL}};
-consvar_t cv_kartvoterulechanges = {"kartvoterulechanges", "Frequent", CV_NETVAR, kartvoterulechanges_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_kartgametypechanges = {"kartgametypechanges", "Frequent", CV_NETVAR, kartvoterulechanges_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_kartencorechance = {"kartencorechance", "Frequent", CV_NETVAR, kartvoterulechanges_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 static CV_PossibleValue_t kartspeedometer_cons_t[] = {{0, "Off"}, {1, "Kilometers"}, {2, "Miles"}, {3, "Fracunits"}, {0, NULL}};
 consvar_t cv_kartspeedometer = {"kartdisplayspeed", "Off", CV_SAVE, kartspeedometer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL}; // use tics in display
 static CV_PossibleValue_t kartvoices_cons_t[] = {{0, "Never"}, {1, "Tasteful"}, {2, "Meme"}, {0, NULL}};
@@ -467,6 +468,9 @@ consvar_t cv_mute = {"mute", "Off", CV_NETVAR|CV_CALL, CV_OnOff, Mute_OnChange, 
 consvar_t cv_sleep = {"cpusleep", "1", CV_SAVE, sleeping_cons_t, NULL, -1, NULL, NULL, 0, 0, NULL};
 
 consvar_t cv_nodownloads = { "downloadnotice", "", CV_SAVE };
+
+consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo};
+consvar_t cv_lessencorevotes = {"lessencorevotes", "No", CV_SAVE, CV_YesNo};
 
 INT16 gametype = GT_RACE; // SRB2kart
 boolean forceresetplayers = false;
@@ -723,6 +727,9 @@ void D_RegisterServerCommands(void)
 #endif
 
 	CV_RegisterVar(&cv_dummyconsvar);
+
+	CV_RegisterVar(&cv_lessbattlevotes);
+	CV_RegisterVar(&cv_lessencorevotes);
 }
 
 // =========================================================================
@@ -2365,14 +2372,33 @@ void D_SetupVote(void)
 	UINT8 buf[6*2]; // five UINT16 maps (at twice the width of a UINT8), and two gametypes
 	UINT8 *p = buf;
 	INT32 i;
-	UINT8 secondgt = G_SometimesGetDifferentGametype();
+	UINT8 gt;
+	UINT8 secondgt;
 	INT16 votebuffer[3] = {-1,-1,-1};
 
-	if (cv_kartencore.value && G_RaceGametype())
-		WRITEUINT8(p, (gametype|0x80));
+	if (cv_lessbattlevotes.value && G_BattleGametype())
+	{
+		gt = GT_RACE;
+		secondgt = GT_MATCH;
+	}
 	else
-		WRITEUINT8(p, gametype);
+	{
+		gt = gametype;
+		secondgt = G_SometimesGetDifferentGametype();
+		if (cv_lessencorevotes.value)
+		{
+			if (secondgt == GT_RACE)
+				secondgt |= 0x80;
+		}
+		else
+		{
+			if (cv_kartencore.value && G_RaceGametype())
+				gt |= 0x80;
+		}
+	}
+	WRITEUINT8(p, gt);
 	WRITEUINT8(p, secondgt);
+	gt       &= ~0x80;
 	secondgt &= ~0x80;
 
 	for (i = 0; i < 5; i++)
@@ -2381,9 +2407,9 @@ void D_SetupVote(void)
 		if (i == 2) // sometimes a different gametype
 			m = G_RandMap(G_TOLFlag(secondgt), prevmap, false, 0, true, votebuffer);
 		else if (i >= 3) // unknown-random and force-unknown MAP HELL
-			m = G_RandMap(G_TOLFlag(gametype), prevmap, false, (i-2), (i < 4), votebuffer);
+			m = G_RandMap(G_TOLFlag(gt), prevmap, false, (i-2), (i < 4), votebuffer);
 		else
-			m = G_RandMap(G_TOLFlag(gametype), prevmap, false, 0, true, votebuffer);
+			m = G_RandMap(G_TOLFlag(gt), prevmap, false, 0, true, votebuffer);
 		if (i < 3)
 			votebuffer[min(i, 2)] = m; // min() is a dumb workaround for gcc 4.4 array-bounds error
 		WRITEUINT16(p, m);
