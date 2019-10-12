@@ -2045,7 +2045,8 @@ void S_ChangeMusicEx(const char *mmusic, UINT16 mflags, boolean looping, UINT32 
 				fadeinms = cv_growmusicfadein.value;
 			}
 
-			resume = true;
+			if (cv_resumemusic.value)
+				resume = true;
 		}
 
 		CONS_Debug(DBG_DETAILED, "Now playing song %s\n", newmusic);

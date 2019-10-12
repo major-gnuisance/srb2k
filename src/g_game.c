@@ -492,6 +492,9 @@ consvar_t cv_supermusicfadein =
 	CV_SAVE, CV_Unsigned,
 };
 
+/* Resume level music to the position where it was stopped. */
+consvar_t cv_resumemusic = { "resumemusic", "Yes", CV_SAVE, CV_YesNo };
+
 /* Resume from where last level's music left off, if it's the same song. */
 consvar_t cv_crossovermusic = { "crossovermusic", "Off", CV_SAVE, CV_OnOff };
 
