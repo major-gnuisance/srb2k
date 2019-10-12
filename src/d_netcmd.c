@@ -854,6 +854,7 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_supermusic);
 	CV_RegisterVar(&cv_growmusicfadein);
 	CV_RegisterVar(&cv_supermusicfadein);
+	CV_RegisterVar(&cv_defaultmusicfadein);
 	CV_RegisterVar(&cv_resumemusic);
 	CV_RegisterVar(&cv_crossovermusic);
 	//CV_RegisterVar(&cv_crosshair);

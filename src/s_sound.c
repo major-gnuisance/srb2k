@@ -2044,6 +2044,8 @@ void S_ChangeMusicEx(const char *mmusic, UINT16 mflags, boolean looping, UINT32 
 			{
 				fadeinms = cv_growmusicfadein.value;
 			}
+			else
+				fadeinms = cv_defaultmusicfadein.value;
 
 			if (cv_resumemusic.value)
 				resume = true;
