@@ -874,6 +874,8 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_playenginesounds);
 	CV_RegisterVar(&cv_growmusic);
 	CV_RegisterVar(&cv_supermusic);
+	CV_RegisterVar(&cv_growmusicfadein);
+	CV_RegisterVar(&cv_supermusicfadein);
 	//CV_RegisterVar(&cv_crosshair);
 	//CV_RegisterVar(&cv_crosshair2);
 	//CV_RegisterVar(&cv_crosshair3);

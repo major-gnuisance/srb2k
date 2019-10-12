@@ -1149,6 +1149,7 @@ boolean P_EndingMusic(player_t *player)
 
 	if (multiplayer && demo.playback) // Don't play this in multiplayer replays
 		return false;
+
 	switch (cv_playendingmusic.value)
 	{
 		case 1:/* RACE   */if (! G_RaceGametype())   return false;
