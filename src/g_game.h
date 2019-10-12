@@ -107,6 +107,7 @@ extern INT16 rw_maximums[NUM_WEAPONS];
 extern consvar_t cv_chatwidth, cv_chatnotifications, cv_chatheight, cv_chattime, cv_consolechat, cv_chatbacktint, cv_chatspamprotection/*, cv_compactscoreboard*/;
 extern consvar_t cv_songcredits;
 extern consvar_t cv_showviewpoint;
+extern consvar_t cv_showfreeplay;
 extern consvar_t cv_playendingmusic;
 extern consvar_t cv_playenginesounds;
 extern consvar_t cv_growmusic, cv_supermusic;
