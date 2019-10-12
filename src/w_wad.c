@@ -482,6 +482,19 @@ ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename, const char *
 
 	(*lumpcp) = wad->numlumps;
 
+	/*
+	SPECIAL CASE
+
+	What if this music is already playing? Then we
+	may have a problem, if the cache is used again...
+	So just use the new music instead.
+	*/
+	if (strncasecmp(S_MusicName(), musicname, 6) == 0)
+	{
+		S_ChangeMusicEx(musicname,
+				mapmusflags|MUSIC_FORCERESET, true, mapmusposition, 0, 0);
+	}
+
 	return lumpinfo;
 }
 
