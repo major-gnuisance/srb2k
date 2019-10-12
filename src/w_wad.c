@@ -366,32 +366,12 @@ static restype_t ResourceFileDetect (const char* filename)
 }
 
 static void
-GetFileLump (lumpinfo_t *lumpinfo, FILE *handle, const char *filename, const char *lumpname, int type)
+GetFileLump (lumpinfo_t *lumpinfo, FILE *handle)
 {
-	char *meme;
-	char *p;
 	lumpinfo->position = 0;
 	fseek(handle, 0, SEEK_END);
 	lumpinfo->size = ftell(handle);
 	fseek(handle, 0, SEEK_SET);
-	if (! lumpname)
-	{
-		nameonly(( meme = va("%s", filename) ));
-		if (( p = strrchr(meme, '.') ))
-			*p = 0;
-		lumpname = meme;
-	}
-	switch (type)
-	{
-		case WAD_MUSIC:
-			snprintf(lumpinfo->name, 9, "O_%s", lumpname);
-			break;
-		default:
-			strlcpy(lumpinfo->name, lumpname, 9);
-	}
-	strupr(lumpinfo->name);
-	// Allocate the lump's full name.
-	lumpinfo->name2 = Z_StrDup(filename);
 }
 
 /** Create a 1-lump lumpinfo_t for standalone files.
@@ -399,7 +379,9 @@ GetFileLump (lumpinfo_t *lumpinfo, FILE *handle, const char *filename, const cha
 static lumpinfo_t* ResGetLumpsStandalone (FILE* handle, UINT16* numlumps, const char* lumpname)
 {
 	lumpinfo_t* lumpinfo = Z_Calloc(sizeof (*lumpinfo), PU_STATIC, NULL);
-	GetFileLump(lumpinfo, handle, lumpname, 0, 0);
+	GetFileLump(lumpinfo, handle);
+	strlcpy(lumpinfo->name, lumpname, 9);
+	lumpinfo->name2 = Z_StrDup(lumpname);
 	*numlumps = 1;
 	return lumpinfo;
 }
@@ -407,16 +389,43 @@ static lumpinfo_t* ResGetLumpsStandalone (FILE* handle, UINT16* numlumps, const 
 static lumpinfo_t *
 ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename, const char *musicname)
 {
+	char        meme[9];
+
 	wadfile_t  *wad;
 
+	int         lump;
 	lumpinfo_t *lumpinfo;
 	lumpinfo_t *p;
 
 	int n;
+	int i;
+	char *t;
+
+	/* Compose music lump name */
+
+	if (! musicname)
+	{
+		nameonly(( t = va("%s", filename) ));
+		musicname = t;
+		if (( t = strrchr(t, '.') ))
+			*t = 0;
+	}
+
+	snprintf(meme, 9, "O_%s", musicname);
+	strupr(meme);
+
+	p = 0;
 
 	if (( wad = wadfiles[WAD_MUSIC] ))
 	{
 		fclose(wad->handle);
+
+		if (( lump = W_CheckNumForNamePwad(meme,
+						WAD_MUSIC, 0) ) != INT16_MAX)
+		{
+			p = &wad->lumpinfo[lump];
+			wad->filesize -= p->size;/* remove from total too */
+		}
 	}
 	else
 	{
@@ -430,24 +439,61 @@ ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename, const char *
 		wad->lumpcache = 0;
 	}
 
-	n = wad->numlumps++;
-	lumpinfo = Z_Realloc(wad->lumpinfo,
-			wad->numlumps * sizeof *lumpinfo, PU_STATIC, &wad->lumpinfo);
+	/* We need to add another lump */
+	if (p)
+	{
+		lumpinfo = wad->lumpinfo;
+		Z_Free(p->name2);
+		/* Remove old cache, if any */
+		Z_Free(wad->lumpcache[lump]);
+		wad->lumpcache[lump] = 0;
+	}
+	else
+	{
+		lump = wad->numlumps++;
+		lumpinfo = Z_Realloc(wad->lumpinfo,
+				wad->numlumps * sizeof *lumpinfo, PU_STATIC, &wad->lumpinfo);
+
+		p = &lumpinfo[lump];
+		memset(p, 0, sizeof *p);
+
+		strcpy(p->name, meme);
+
+		/* Free cached lumps... */
+		if (wad->lumpcache)
+		{
+			for (i = 0; i < lump; ++i)
+				Z_Free(wad->lumpcache[i]);
+		}
+
+		n = wad->numlumps * sizeof *wad->lumpcache;
+		Z_Realloc(wad->lumpcache, n, PU_STATIC, &wad->lumpcache);
+		memset(wad->lumpcache, 0, n);
+	}
 
 	wad->handle = fp;
-	wad->handlelump = n;
+	wad->handlelump = lump;
 
-	p = &lumpinfo[n];
-	memset(p, 0, sizeof *p);
-	GetFileLump(p, fp, filename, musicname, WAD_MUSIC);
+	p->name2 = Z_StrDup(filename);
+
+	GetFileLump(p, fp);
 
 	wad->filesize += p->size;
 
-	Z_Realloc(wad->lumpcache,
-			wad->numlumps * sizeof *wad->lumpcache, PU_STATIC, &wad->lumpcache);
-	wad->lumpcache[n] = 0;
-
 	(*lumpcp) = wad->numlumps;
+
+	/*
+	SPECIAL CASE
+
+	What if this music is already playing? Then we
+	may have a problem, if the cache is used again...
+	So just use the new music instead.
+	*/
+	if (strncasecmp(S_MusicName(), musicname, 6) == 0)
+	{
+		S_ChangeMusicEx(musicname,
+				mapmusflags|MUSIC_FORCERESET, true, mapmusposition, 0, 0);
+	}
 
 	return lumpinfo;
 }
@@ -775,6 +821,15 @@ UINT16 W_InitFile(const char *filename, const char *lumpname, UINT16 *wadnump)
 
 	if (type != RET_UNKNOWN)
 	{
+		/* Trying to circumvent netplay are you? */
+		if (lumpname)
+		{
+			CONS_Alert(CONS_NOTICE,
+					"You cannot add normal WAD files using this method.\n");
+			refreshdirmenu |= REFRESHDIR_MAX;
+			return INT16_MAX;
+		}
+
 		//CONS_Debug(DBG_SETUP, "Loading %s\n", filename);
 		//
 		// check if limit of active wadfiles
