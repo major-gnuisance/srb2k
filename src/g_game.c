@@ -498,6 +498,13 @@ consvar_t cv_supermusicfadein =
 	CV_SAVE, CV_Unsigned,
 };
 
+/* For any other music taking over. (Probably Lua!) */
+consvar_t cv_defaultmusicfadein =
+{
+	"defaultfadein", "0",
+	CV_SAVE, CV_Unsigned,
+}
+
 /* Resume level music to the position where it was stopped. */
 consvar_t cv_resumemusic = { "resumemusic", "Yes", CV_SAVE, CV_YesNo };
 
