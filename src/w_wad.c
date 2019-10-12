@@ -808,6 +808,15 @@ UINT16 W_InitFile(const char *filename, const char *lumpname, UINT16 *wadnump)
 
 	if (type != RET_UNKNOWN)
 	{
+		/* Trying to circumvent netplay are you? */
+		if (lumpname)
+		{
+			CONS_Alert(CONS_NOTICE,
+					"You cannot add normal WAD files using this method.\n");
+			refreshdirmenu |= REFRESHDIR_MAX;
+			return INT16_MAX;
+		}
+
 		//CONS_Debug(DBG_SETUP, "Loading %s\n", filename);
 		//
 		// check if limit of active wadfiles
