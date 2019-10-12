@@ -413,6 +413,7 @@ ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename, const char *
 	lumpinfo_t *p;
 
 	int n;
+	int i;
 
 	if (( wad = wadfiles[WAD_MUSIC] ))
 	{
@@ -443,9 +444,16 @@ ResGetLumpsSpecial (FILE *fp, UINT16 *lumpcp, const char *filename, const char *
 
 	wad->filesize += p->size;
 
-	Z_Realloc(wad->lumpcache,
-			wad->numlumps * sizeof *wad->lumpcache, PU_STATIC, &wad->lumpcache);
-	wad->lumpcache[n] = 0;
+	/* Free cached lumps... */
+	if (wad->lumpcache)
+	{
+		for (i = 0; i < n; ++i)
+			Z_Free(wad->lumpcache[i]);
+	}
+
+	n = wad->numlumps * sizeof *wad->lumpcache;
+	Z_Realloc(wad->lumpcache, n, PU_STATIC, &wad->lumpcache);
+	memset(wad->lumpcache, 0, n);
 
 	(*lumpcp) = wad->numlumps;
 
