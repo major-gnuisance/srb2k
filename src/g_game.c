@@ -454,7 +454,7 @@ consvar_t cv_songcredits = {"songcredits", "On", CV_SAVE, CV_OnOff, NULL, 0, NUL
 consvar_t cv_showviewpoint = {"showviewpoint", "Yes", CV_SAVE, CV_YesNo, };
 
 // Show "FREE PLAY" when you're alone. :(
-consvar_t cv_showfreeplay = { "showfreeplay", "On", CV_SAVE, CV_OnOff, };
+consvar_t cv_showfreeplay = { "showfreeplay", "Yes", CV_SAVE, CV_YesNo, };
 
 // Play race finished and battle over music
 static CV_PossibleValue_t playendingmusic_cons_t[] = {{0, "Both"}, {1, "Race"}, {2,"Battle"}, {3, "Never"}, {0, NULL}};
