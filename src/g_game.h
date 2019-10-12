@@ -112,7 +112,7 @@ extern consvar_t cv_playendingmusic;
 extern consvar_t cv_playenginesounds;
 extern consvar_t cv_growmusic, cv_supermusic;
 extern consvar_t cv_growmusicfadein, cv_supermusicfadein;
-extern consvar_t cv_crossovermusic;
+extern consvar_t cv_resumemusic, cv_crossovermusic;
 extern consvar_t cv_pauseifunfocused;
 //extern consvar_t cv_crosshair, cv_crosshair2, cv_crosshair3, cv_crosshair4;
 extern consvar_t cv_invertmouse/*, cv_alwaysfreelook, cv_chasefreelook, cv_mousemove*/;
