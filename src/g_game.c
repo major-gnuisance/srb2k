@@ -498,6 +498,9 @@ consvar_t cv_supermusicfadein =
 	CV_SAVE, CV_Unsigned,
 };
 
+/* Resume from where last level's music left off, if it's the same song. */
+consvar_t cv_crossovermusic = { "crossovermusic", "Off", CV_SAVE, CV_OnOff };
+
 /*consvar_t cv_crosshair = {"crosshair", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_crosshair2 = {"crosshair2", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_crosshair3 = {"crosshair3", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};

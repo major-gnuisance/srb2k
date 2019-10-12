@@ -2233,6 +2233,11 @@ void S_Start(void)
 {
 	if (mapmusflags & MUSIC_RELOADRESET)
 	{
+		if (! cv_crossovermusic.value ||
+				strcasecmp(mapmusname, mapheaderinfo[gamemap-1]->musname))
+		{
+			music_position = 0;
+		}
 		strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
 		mapmusname[6] = 0;
 		mapmusflags = (mapheaderinfo[gamemap-1]->mustrack & MUSIC_TRACKMASK);
