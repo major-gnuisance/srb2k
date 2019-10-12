@@ -473,6 +473,25 @@ consvar_t cv_playenginesounds = {"playenginesounds", "Always", CV_SAVE, playengi
 consvar_t cv_growmusic  = {"growmusic",  "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_supermusic = {"supermusic", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
+/*
+Power-ups can fade in!
+
+I made Grow longer than Invinc. because of the shrink.
+I made Invinc. shorter than Grow because of the fast paced tune.
+*/
+
+consvar_t cv_growmusicfadein =
+{
+	"growmusicfadein", "500",
+	CV_SAVE, CV_Unsigned,
+};
+
+consvar_t cv_supermusicfadein =
+{
+	"supermusicfadein", "300",
+	CV_SAVE, CV_Unsigned,
+};
+
 /*consvar_t cv_crosshair = {"crosshair", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_crosshair2 = {"crosshair2", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_crosshair3 = {"crosshair3", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};

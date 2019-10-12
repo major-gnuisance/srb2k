@@ -2034,6 +2034,17 @@ void S_ChangeMusicEx(const char *mmusic, UINT16 mflags, boolean looping, UINT32 
 				strcasecmp(oldmusic, mapmusname) &&
 				strcasecmp(newmusic, mapmusname) == 0)
 		{
+			if (
+					strcasecmp(oldmusic, "kinvnc") == 0)
+			{
+				fadeinms = cv_supermusicfadein.value;
+			}
+			else if (
+					strcasecmp(oldmusic, "kgrow") == 0)
+			{
+				fadeinms = cv_growmusicfadein.value;
+			}
+
 			resume = true;
 		}
 
