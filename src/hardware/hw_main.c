@@ -32,6 +32,7 @@
 #include "../r_local.h"
 #include "../r_bsp.h"
 #include "../d_clisrv.h"
+#include "../d_main.h" // lerp_fractic
 #include "../w_wad.h"
 #include "../z_zone.h"
 #include "../r_splats.h"
@@ -643,12 +644,24 @@ static void HWR_RenderPlane(sector_t *sector, extrasubsector_t *xsub, boolean is
 			scrollx = FIXED_TO_FLOAT(FOFsector->floor_xoffs)/fflatsize;
 			scrolly = FIXED_TO_FLOAT(FOFsector->floor_yoffs)/fflatsize;
 			angle = FOFsector->floorpic_angle;
+
+			if (FOFsector->lerp.floor_leveltime)
+			{
+				scrollx = FIXED_TO_FLOAT(R_LerpAngle(FOFsector, floor_xoffs))/fflatsize;
+				scrolly = FIXED_TO_FLOAT(R_LerpAngle(FOFsector, floor_yoffs))/fflatsize;
+			}
 		}
 		else // it's a ceiling
 		{
 			scrollx = FIXED_TO_FLOAT(FOFsector->ceiling_xoffs)/fflatsize;
 			scrolly = FIXED_TO_FLOAT(FOFsector->ceiling_yoffs)/fflatsize;
 			angle = FOFsector->ceilingpic_angle;
+
+			if (FOFsector->lerp.ceiling_leveltime)
+			{
+				scrollx = FIXED_TO_FLOAT(R_LerpAngle(FOFsector, ceiling_xoffs))/fflatsize;
+				scrolly = FIXED_TO_FLOAT(R_LerpAngle(FOFsector, ceiling_yoffs))/fflatsize;
+			}
 		}
 	}
 	else if (gr_frontsector)
@@ -658,12 +671,24 @@ static void HWR_RenderPlane(sector_t *sector, extrasubsector_t *xsub, boolean is
 			scrollx = FIXED_TO_FLOAT(gr_frontsector->floor_xoffs)/fflatsize;
 			scrolly = FIXED_TO_FLOAT(gr_frontsector->floor_yoffs)/fflatsize;
 			angle = gr_frontsector->floorpic_angle;
+
+			if (gr_frontsector->lerp.floor_leveltime)
+			{
+				scrollx = FIXED_TO_FLOAT(R_LerpAngle(gr_frontsector, floor_xoffs))/fflatsize;
+				scrolly = FIXED_TO_FLOAT(R_LerpAngle(gr_frontsector, floor_yoffs))/fflatsize;
+			}
 		}
 		else // it's a ceiling
 		{
 			scrollx = FIXED_TO_FLOAT(gr_frontsector->ceiling_xoffs)/fflatsize;
 			scrolly = FIXED_TO_FLOAT(gr_frontsector->ceiling_yoffs)/fflatsize;
 			angle = gr_frontsector->ceilingpic_angle;
+
+			if (gr_frontsector->lerp.ceiling_leveltime)
+			{
+				scrollx = FIXED_TO_FLOAT(R_LerpAngle(gr_frontsector, ceiling_xoffs))/fflatsize;
+				scrolly = FIXED_TO_FLOAT(R_LerpAngle(gr_frontsector, ceiling_yoffs))/fflatsize;
+			}
 		}
 	}
 
@@ -1420,6 +1445,8 @@ static void HWR_StoreWallRange(double startfrac, double endfrac)
 	{
 		// x offset the texture
 		fixed_t texturehpeg = gr_sidedef->textureoffset + gr_curline->offset;
+		if (gr_sidedef->lerp.leveltime)
+			texturehpeg = R_LerpAngle(gr_sidedef, textureoffset) + gr_curline->offset;
 
 #ifndef NEWCLIP
 		// clip texture s start/end coords with solidsegs
@@ -1604,7 +1631,7 @@ static void HWR_StoreWallRange(double startfrac, double endfrac)
                     texturevpegtop = worldhigh + textureheight[gr_sidedef->toptexture] - worldtop;
 #endif
 
-				texturevpegtop += gr_sidedef->rowoffset;
+				texturevpegtop += gr_sidedef->lerp.leveltime ? R_LerpAngle(gr_sidedef, rowoffset) : gr_sidedef->rowoffset;
 
 				// This is so that it doesn't overflow and screw up the wall, it doesn't need to go higher than the texture's height anyway
 				texturevpegtop %= SHORT(textures[gr_toptexture]->height)<<FRACBITS;
@@ -1686,7 +1713,7 @@ static void HWR_StoreWallRange(double startfrac, double endfrac)
                     texturevpegbottom = 0;
 #endif
 
-				texturevpegbottom += gr_sidedef->rowoffset;
+				texturevpegbottom += gr_sidedef->lerp.leveltime ? R_LerpAngle(gr_sidedef, rowoffset) : gr_sidedef->rowoffset;
 
 				// This is so that it doesn't overflow and screw up the wall, it doesn't need to go higher than the texture's height anyway
 				texturevpegbottom %= SHORT(textures[gr_bottomtexture]->height)<<FRACBITS;
@@ -2029,14 +2056,14 @@ static void HWR_StoreWallRange(double startfrac, double endfrac)
 				// PEGGING
 #ifdef ESLOPE
 				if ((gr_linedef->flags & (ML_DONTPEGBOTTOM|ML_EFFECT2)) == (ML_DONTPEGBOTTOM|ML_EFFECT2))
-					texturevpeg = gr_frontsector->floorheight + textureheight[gr_sidedef->midtexture] - gr_frontsector->ceilingheight + gr_sidedef->rowoffset;
+					texturevpeg = gr_frontsector->floorheight + textureheight[gr_sidedef->midtexture] - gr_frontsector->ceilingheight + (gr_sidedef->lerp.leveltime ? R_LerpAngle(gr_sidedef, rowoffset) : gr_sidedef->rowoffset);
 				else
 #endif
 				if (gr_linedef->flags & ML_DONTPEGBOTTOM)
-					texturevpeg = worldbottom + textureheight[gr_sidedef->midtexture] - worldtop + gr_sidedef->rowoffset;
+					texturevpeg = worldbottom + textureheight[gr_sidedef->midtexture] - worldtop + (gr_sidedef->lerp.leveltime ? R_LerpAngle(gr_sidedef, rowoffset) : gr_sidedef->rowoffset);
 				else
 					// top of texture at top
-					texturevpeg = gr_sidedef->rowoffset;
+					texturevpeg = gr_sidedef->lerp.leveltime ? R_LerpAngle(gr_sidedef, rowoffset) : gr_sidedef->rowoffset;
 
 				grTex = HWR_GetTexture(gr_midtexture);
 
@@ -3290,12 +3317,24 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 			scrollx = FIXED_TO_FLOAT(FOFsector->floor_xoffs)/fflatsize;
 			scrolly = FIXED_TO_FLOAT(FOFsector->floor_yoffs)/fflatsize;
 			angle = FOFsector->floorpic_angle>>ANGLETOFINESHIFT;
+
+			if (FOFsector->lerp.floor_leveltime)
+			{
+				scrollx = FIXED_TO_FLOAT(R_LerpAngle(FOFsector, floor_xoffs))/fflatsize;
+				scrolly = FIXED_TO_FLOAT(R_LerpAngle(FOFsector, floor_yoffs))/fflatsize;
+			}
 		}
 		else // it's a ceiling
 		{
 			scrollx = FIXED_TO_FLOAT(FOFsector->ceiling_xoffs)/fflatsize;
 			scrolly = FIXED_TO_FLOAT(FOFsector->ceiling_yoffs)/fflatsize;
 			angle = FOFsector->ceilingpic_angle>>ANGLETOFINESHIFT;
+
+			if (FOFsector->lerp.ceiling_leveltime)
+			{
+				scrollx = FIXED_TO_FLOAT(R_LerpAngle(FOFsector, ceiling_xoffs))/fflatsize;
+				scrolly = FIXED_TO_FLOAT(R_LerpAngle(FOFsector, ceiling_yoffs))/fflatsize;
+			}
 		}
 	}
 	else if (gr_frontsector)
@@ -3305,12 +3344,24 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 			scrollx = FIXED_TO_FLOAT(gr_frontsector->floor_xoffs)/fflatsize;
 			scrolly = FIXED_TO_FLOAT(gr_frontsector->floor_yoffs)/fflatsize;
 			angle = gr_frontsector->floorpic_angle>>ANGLETOFINESHIFT;
+
+			if (gr_frontsector->lerp.floor_leveltime)
+			{
+				scrollx = FIXED_TO_FLOAT(R_LerpAngle(gr_frontsector, floor_xoffs))/fflatsize;
+				scrolly = FIXED_TO_FLOAT(R_LerpAngle(gr_frontsector, floor_yoffs))/fflatsize;
+			}
 		}
 		else // it's a ceiling
 		{
 			scrollx = FIXED_TO_FLOAT(gr_frontsector->ceiling_xoffs)/fflatsize;
 			scrolly = FIXED_TO_FLOAT(gr_frontsector->ceiling_yoffs)/fflatsize;
 			angle = gr_frontsector->ceilingpic_angle>>ANGLETOFINESHIFT;
+
+			if (gr_frontsector->lerp.ceiling_leveltime)
+			{
+				scrollx = FIXED_TO_FLOAT(R_LerpAngle(gr_frontsector, ceiling_xoffs))/fflatsize;
+				scrolly = FIXED_TO_FLOAT(R_LerpAngle(gr_frontsector, ceiling_yoffs))/fflatsize;
+			}
 		}
 	}
 
@@ -5559,15 +5610,18 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	INT32 heightsec, phs;
 	const boolean papersprite = (thing->frame & FF_PAPERSPRITE);
 	float z1, z2;
+	vector3_t pos;
 
 	if (!thing)
 		return;
 	else
 		this_scale = FIXED_TO_FLOAT(thing->scale);
 
+	R_LerpMobjPosition(thing, &pos);
+
 	// transform the origin point
-	tr_x = FIXED_TO_FLOAT(thing->x) - gr_viewx;
-	tr_y = FIXED_TO_FLOAT(thing->y) - gr_viewy;
+	tr_x = FIXED_TO_FLOAT(pos.x) - gr_viewx;
+	tr_y = FIXED_TO_FLOAT(pos.y) - gr_viewy;
 
 	// rotation around vertical axis
 	tz = (tr_x * gr_viewcos) + (tr_y * gr_viewsin);
@@ -5577,8 +5631,8 @@ static void HWR_ProjectSprite(mobj_t *thing)
 		return;
 
 	// The above can stay as it works for cutting sprites that are too close
-	tr_x = FIXED_TO_FLOAT(thing->x);
-	tr_y = FIXED_TO_FLOAT(thing->y);
+	tr_x = FIXED_TO_FLOAT(pos.x);
+	tr_y = FIXED_TO_FLOAT(pos.y);
 
 	// decide which patch to use for sprite relative to player
 #ifdef RANGECHECK
@@ -5614,9 +5668,11 @@ static void HWR_ProjectSprite(mobj_t *thing)
 #endif
 
 	if (thing->player)
-		ang = R_PointToAngle (thing->x, thing->y) - thing->player->frameangle;
+		ang = R_PointToAngle(pos.x, pos.y) - R_LerpAngle(thing->player, frameangle);
+	else if (thing->flags & (MF_NOTHINK|MF_SCENERY))
+		ang = R_PointToAngle(pos.x, pos.y) - thing->angle;
 	else
-		ang = R_PointToAngle (thing->x, thing->y) - thing->angle;
+		ang = R_PointToAngle(pos.x, pos.y) - R_LerpAngle(thing, angle);
 
 	if (sprframe->rotate == SRF_SINGLE)
 	{
@@ -5661,8 +5717,17 @@ static void HWR_ProjectSprite(mobj_t *thing)
 
 	if (papersprite)
 	{
-		rightsin = FIXED_TO_FLOAT(FINESINE((thing->angle)>>ANGLETOFINESHIFT));
-		rightcos = FIXED_TO_FLOAT(FINECOSINE((thing->angle)>>ANGLETOFINESHIFT));
+		angle_t paperang;
+
+		if (thing->player)
+			paperang = R_LerpAngle(thing->player, frameangle);
+		else if (thing->flags & (MF_NOTHINK|MF_SCENERY))
+			paperang = thing->angle;
+		else
+			paperang = R_LerpAngle(thing, angle);
+
+		rightsin = FIXED_TO_FLOAT(FINESINE(paperang>>ANGLETOFINESHIFT));
+		rightcos = FIXED_TO_FLOAT(FINECOSINE(paperang>>ANGLETOFINESHIFT));
 	}
 	else
 	{
@@ -5688,12 +5753,12 @@ static void HWR_ProjectSprite(mobj_t *thing)
 
 	if (thing->eflags & MFE_VERTICALFLIP)
 	{
-		gz = FIXED_TO_FLOAT(thing->z+thing->height) - FIXED_TO_FLOAT(spritecachedinfo[lumpoff].topoffset) * this_scale;
+		gz = FIXED_TO_FLOAT(pos.z+thing->height) - FIXED_TO_FLOAT(spritecachedinfo[lumpoff].topoffset) * this_scale;
 		gzt = gz + FIXED_TO_FLOAT(spritecachedinfo[lumpoff].height) * this_scale;
 	}
 	else
 	{
-		gzt = FIXED_TO_FLOAT(thing->z) + FIXED_TO_FLOAT(spritecachedinfo[lumpoff].topoffset) * this_scale;
+		gzt = FIXED_TO_FLOAT(pos.z) + FIXED_TO_FLOAT(spritecachedinfo[lumpoff].topoffset) * this_scale;
 		gz = gzt - FIXED_TO_FLOAT(spritecachedinfo[lumpoff].height) * this_scale;
 	}
 
@@ -5712,12 +5777,12 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	if (heightsec != -1 && phs != -1) // only clip things which are in special sectors
 	{
 		if (gr_viewz < FIXED_TO_FLOAT(sectors[phs].floorheight) ?
-		FIXED_TO_FLOAT(thing->z) >= FIXED_TO_FLOAT(sectors[heightsec].floorheight) :
+		FIXED_TO_FLOAT(pos.z) >= FIXED_TO_FLOAT(sectors[heightsec].floorheight) :
 		gzt < FIXED_TO_FLOAT(sectors[heightsec].floorheight))
 			return;
 		if (gr_viewz > FIXED_TO_FLOAT(sectors[phs].ceilingheight) ?
 		gzt < FIXED_TO_FLOAT(sectors[heightsec].ceilingheight) && gr_viewz >= FIXED_TO_FLOAT(sectors[heightsec].ceilingheight) :
-		FIXED_TO_FLOAT(thing->z) >= FIXED_TO_FLOAT(sectors[heightsec].ceilingheight))
+		FIXED_TO_FLOAT(pos.z) >= FIXED_TO_FLOAT(sectors[heightsec].ceilingheight))
 			return;
 	}
 
@@ -6940,6 +7005,7 @@ void HWR_DoPostProcessor(player_t *player)
 		// 10 by 10 grid. 2 coordinates (xy)
 		float v[SCREENVERTS][SCREENVERTS][2];
 		static double disStart = 0;
+		static fixed_t old_lerp_fractic = 0;
 		UINT8 x, y;
 		INT32 WAVELENGTH;
 		INT32 AMPLITUDE;
@@ -6969,7 +7035,10 @@ void HWR_DoPostProcessor(player_t *player)
 			}
 		}
 		HWD.pfnPostImgRedraw(v);
-		disStart += 1;
+		disStart += FIXED_TO_FLOAT(lerp_fractic - old_lerp_fractic);
+		old_lerp_fractic = lerp_fractic;
+		if (!lerp_sameframe)
+			disStart += 1;
 
 		// Capture the screen again for screen waving on the intermission
 		if(gamestate != GS_INTERMISSION)

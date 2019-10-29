@@ -2300,7 +2300,7 @@ void HU_Drawer(void)
 	if (chat_on)
 	{
 		// count down the scroll timer.
-		if (chat_scrolltime > 0)
+		if (chat_scrolltime > 0 && lerp_sameframe)
 			chat_scrolltime--;
 		if (!OLDCHAT)
 			HU_DrawChat();
