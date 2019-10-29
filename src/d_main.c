@@ -275,6 +275,7 @@ static boolean D_Display(void)
 	static boolean wipe = false;
 	INT32 wipedefindex = 0;
 	UINT8 i;
+	INT16 startms = 0; // dynamic res
 
 	if (dedicated)
 		return false;
@@ -292,6 +293,10 @@ static boolean D_Display(void)
 
 		frame = newframe;
 	}
+
+	// dynamic res profiling
+	if (cv_dynamicres.value && rendermode == render_soft)
+		startms = I_GetFrameReference(1000);
 
 	// check for change of screen size (video mode)
 	if (setmodeneeded && !wipe)
@@ -585,6 +590,7 @@ static boolean D_Display(void)
 	//
 	if (!wipe)
 	{
+		boolean scaling = false;
 
 		if (cv_netstat.value)
 		{
@@ -624,7 +630,123 @@ static boolean D_Display(void)
 			}
 		}*/
 
+		if (cv_dynamicres.value && rendermode == render_soft)
+		{
+			// DYNAMIC RES STUFF
+			static boolean downscale[30], upscale[30];
+			static UINT8 downscalei = 0, upscalei = 0;
+			UINT8 i, downscalecount = 0, upscalecount = 0;
+
+			startms = I_GetFrameReference(1000) - startms;
+			if (startms < 0)
+				startms += 1000;
+
+			downscale[downscalei] = startms > cv_dynamicdowntime.value;
+			upscale[upscalei] = startms < cv_dynamicuptime.value;
+			downscalei++; upscalei++;
+			downscalei %= cv_dynamicdowntictime.value;
+			upscalei %= cv_dynamicuptictime.value;
+
+			for (i = 0; i < cv_dynamicdowntictime.value; i++)
+				if (downscale[i])
+					downscalecount++;
+
+			for (i = 0; i < cv_dynamicuptictime.value; i++)
+				if (upscale[i])
+					upscalecount++;
+
+			if (cv_dynamicres.value == 2)
+			{
+				V_DrawString(2, 2, V_SNAPTOLEFT|V_SNAPTOTOP|V_ALLOWLOWERCASE, va("Dyn. Res: %4dx%4d (Set Res: %4dx%4d)", vid.width, vid.height, vid.pickedwidth, vid.pickedheight));
+				V_DrawString(44, 12, V_SNAPTOLEFT|V_SNAPTOTOP|V_ALLOWLOWERCASE, va("Frame Time: %2d (%2dD %2dU)", startms, downscalecount, upscalecount));
+			}
+
+			I_FinishUpdate(); // page flip or blit buffer
+
+			if (downscalecount >= cv_dynamicdownticsover.value)
+			{
+				// DOWNSCALE
+				memset(downscale, 0, 30);
+				scaling = true;
+
+				switch (cv_dynamicresorder.value)
+				{
+				case 0: // X then Y
+					if (vid.dupx > cv_dynamicminx.value)
+						vid.dupx--;
+					else if (vid.dupy > cv_dynamicminy.value)
+						vid.dupy--;
+					else
+						scaling = false;
+					break;
+
+				case 1: // Alternating
+					if (vid.dupx >= vid.dupy && vid.dupx > cv_dynamicminx.value)
+						vid.dupx--;
+					else if (vid.dupy > cv_dynamicminy.value)
+						vid.dupy--;
+					else
+						scaling = false;
+					break;
+
+				case 2: // Square pixels
+				default:
+					if (vid.dupx > cv_dynamicminx.value)
+						vid.dupx--;
+					else
+						scaling = false;
+					vid.dupy = vid.dupx;
+					break;
+				}
+			}
+			else if (upscalecount >= cv_dynamicupticsover.value)
+			{
+				// UPSCALE
+				memset(upscale, 0, 30);
+				scaling = true;
+
+				switch (cv_dynamicresorder.value)
+				{
+				case 0: // X then Y
+					if (vid.dupy < vid.pickeddup)
+						vid.dupy++;
+					else if (vid.dupx < vid.pickeddup)
+						vid.dupx++;
+					else
+						scaling = false;
+					break;
+
+				case 1: // Alternating
+					if (vid.dupy <= vid.dupx && vid.dupy < vid.pickeddup)
+						vid.dupy++;
+					else if (vid.dupx < vid.pickeddup)
+						vid.dupx++;
+					else
+						scaling = false;
+					break;
+
+				case 2: // Square pixels
+				default:
+					if (vid.dupx < vid.pickeddup)
+						vid.dupx++;
+					else
+						scaling = false;
+					vid.dupy = vid.dupx;
+					break;
+				}
+			}
+		} else
+
 		I_FinishUpdate(); // page flip or blit buffer
+
+		if (scaling)
+		{
+			vid.width = vid.pickedwidth * vid.dupx / vid.pickeddup;
+			vid.height = vid.pickedheight * vid.dupy / vid.pickeddup;
+			vid.yscale = vid.dupy / (float) vid.dupx;
+			VID_SetMode(-1);
+			R_SetViewSize();
+		}
 	}
 
 	return true;

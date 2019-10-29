@@ -1231,6 +1231,30 @@ static menuitem_t OP_Mouse2OptionsMenu[] =
 	                      NULL, "Mouse Y Speed",    &cv_mouseysens2,      80},
 };*/
 
+static menuitem_t OP_DynResOptionsMenu[] =
+{
+
+	{IT_STRING | IT_CVAR,	NULL,	"Dynamic Resolution",	&cv_dynamicres,		 10},
+	{IT_STRING | IT_CVAR,	NULL,	"Resize Order",			&cv_dynamicresorder, 20},
+
+	{IT_HEADER, NULL, "Minimum Resolution", NULL, 35},
+	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
+							NULL,	"Horizontal",	&cv_dynamicminx, 45},
+	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
+							NULL,	"Vertical",		&cv_dynamicminy, 55},
+
+	{IT_HEADER, NULL, "Resizing Behavior", NULL, 70},
+	{IT_STRING | IT_CVAR,	NULL,	"Frame Time to Downscale",		&cv_dynamicdowntime,			 80},
+	{IT_STRING | IT_CVAR,	NULL,	"...For This Many Frames",		&cv_dynamicdownticsover,		 90},
+	{IT_STRING | IT_CVAR,	NULL,	"    ...Out of This Many",		&cv_dynamicdowntictime,		 100},
+
+	{IT_STRING | IT_CVAR,	NULL,	"Frame Time to Upscale",		&cv_dynamicuptime,			 115},
+	{IT_STRING | IT_CVAR,	NULL,	"...For This Many Frames",		&cv_dynamicupticsover,		 125},
+	{IT_STRING | IT_CVAR,	NULL,	"    ...Out of This Many",		&cv_dynamicuptictime,		 135},
+};
+
+static menu_t OP_DynResOptionsDef = DEFAULTMENUSTYLE("M_VIDEO", OP_DynResOptionsMenu, &OP_VideoOptionsDef, 30, 30);
+
 static menuitem_t OP_VideoOptionsMenu[] =
 {
 	{IT_STRING | IT_CALL,	NULL,	"Set Resolution...",	M_VideoModeMenu,		 10},
@@ -1250,6 +1274,8 @@ static menuitem_t OP_VideoOptionsMenu[] =
 	{IT_STRING | IT_CVAR,	NULL,	"Show FPS",				&cv_ticrate,			 90},
 	{IT_STRING | IT_CVAR,	NULL,	"Max Level Framerate",	&cv_framerate,			100},
 	{IT_STRING | IT_CVAR,	NULL,	"Future Sight",			&cv_extrapolation,		110},
+
+	{IT_SUBMENU|IT_STRING,	NULL,	"Dynamic Res Options...", &OP_DynResOptionsDef, 125},
 
 #ifdef HWRENDER
 	{IT_STRING | IT_CVAR,	NULL,	"3D models",            &cv_grmdls,              125},
@@ -1273,6 +1299,7 @@ enum
 	op_video_fps,
 	op_video_frameratecap,
 	op_video_vsync,
+	op_video_dynres,
 #ifdef HWRENDER
 	op_video_md2,
 	op_video_kartman,
@@ -3344,6 +3371,8 @@ void M_Init(void)
 		OP_VideoOptionsMenu[op_video_ogl].status =
 			OP_VideoOptionsMenu[op_video_kartman].status =
 			OP_VideoOptionsMenu[op_video_md2]    .status = IT_DISABLED;
+	else
+		OP_VideoOptionsMenu[op_video_dynres].status = IT_DISABLED;
 #endif
 
 #ifndef NONET

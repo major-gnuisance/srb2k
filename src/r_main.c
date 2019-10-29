@@ -750,6 +750,9 @@ void R_ExecuteSetViewSize(void)
 
 	projection = projectiony = FixedDiv(centerxfrac, fovtan);
 
+	//if (vid.width == 640 && vid.height == 800)
+		projectiony *= vid.yscale;
+
 	R_InitViewBuffer(scaledviewwidth, viewheight);
 
 	R_InitTextureMapping();
@@ -903,6 +906,8 @@ static void R_SetupFreelook(void)
 		// (lmps, network and use F12...)
 		G_SoftwareClipAimingPitch((INT32 *)&aimingangle);
 		dy = AIMINGTODY(aimingangle) * viewwidth/BASEVIDWIDTH;
+		//if (vid.width == 640 && vid.height == 800)
+			dy *= vid.yscale;
 		yslope = &yslopetab[viewheight*8 - (viewheight/2 + dy)];
 	}
 	centery = (viewheight/2) + dy;
