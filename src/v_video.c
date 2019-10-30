@@ -1219,7 +1219,7 @@ void V_DrawPatchFill(patch_t *pat)
 
 void V_DrawVhsEffect(boolean rewind)
 {
-	static fixed_t upbary = 100, downbary = 150;
+	static INT16 upbary = 100, downbary = 150;
 
 	UINT8 *buf = screens[0], *tmp = screens[4];
 	UINT16 y;
@@ -1246,6 +1246,14 @@ void V_DrawVhsEffect(boolean rewind)
 		if (upbary < -barsize) upbary = vid.height;
 		if (downbary > vid.height) downbary = -barsize;
 	}
+
+#ifdef HWRENDER
+	if (rendermode != render_soft)
+	{
+		HWR_RenderVhsEffect(upbary, downbary, updistort, downdistort, barsize);
+		return;
+	}
+#endif
 
 	for (y = 0; y < vid.height; y+=2)
 	{

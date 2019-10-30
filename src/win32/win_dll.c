@@ -122,6 +122,7 @@ static loadfunc_t hwdFuncTable[] = {
 	{"DoScreenWipe@4",      &hwdriver.pfnDoScreenWipe},
 	{"DrawIntermissionBG@0",&hwdriver.pfnDrawIntermissionBG},
 	{"MakeScreenTexture@0", &hwdriver.pfnMakeScreenTexture},
+	{"RenderVhsEffect@8", &hwdriver.pfnRenderVhsEffect},
 	{"MakeScreenFinalTexture@0", &hwdriver.pfnMakeScreenFinalTexture},
 	{"DrawScreenFinalTexture@8", &hwdriver.pfnDrawScreenFinalTexture},
 #else
