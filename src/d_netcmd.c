@@ -2369,15 +2369,18 @@ void D_SetupVote(void)
 	{
 		gt = gametype;
 		secondgt = G_SometimesGetDifferentGametype();
-		if (cv_lessencorevotes.value)
+		if (cv_kartencore.value)
 		{
-			if (secondgt == GT_RACE)
-				secondgt |= 0x80;
-		}
-		else
-		{
-			if (cv_kartencore.value && G_RaceGametype())
-				gt |= 0x80;
+			if (cv_lessencorevotes.value)
+			{
+				if (secondgt == GT_RACE)
+					secondgt |= 0x80;
+			}
+			else
+			{
+				if (G_RaceGametype())
+					gt |= 0x80;
+			}
 		}
 	}
 	WRITEUINT8(p, gt);
