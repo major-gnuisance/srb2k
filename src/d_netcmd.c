@@ -473,6 +473,7 @@ consvar_t cv_nodownloads = { "downloadnotice", "", CV_SAVE };
 
 consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo};
 consvar_t cv_lessencorevotes = {"lessencorevotes", "No", CV_SAVE, CV_YesNo};
+consvar_t cv_moreencorevotes = {"moreencorevotes", "No", CV_SAVE, CV_YesNo};
 
 INT16 gametype = GT_RACE; // SRB2kart
 boolean forceresetplayers = false;
@@ -732,6 +733,7 @@ void D_RegisterServerCommands(void)
 
 	CV_RegisterVar(&cv_lessbattlevotes);
 	CV_RegisterVar(&cv_lessencorevotes);
+	CV_RegisterVar(&cv_moreencorevotes);
 }
 
 // =========================================================================
@@ -2393,15 +2395,23 @@ void D_SetupVote(void)
 	{
 		gt = gametype;
 		secondgt = G_SometimesGetDifferentGametype();
-		if (cv_lessencorevotes.value)
+		if (cv_kartencore.value)
 		{
-			if (secondgt == GT_RACE)
-				secondgt |= 0x80;
+			if (! cv_lessencorevotes.value)
+			{
+				if (G_RaceGametype())
+					gt |= 0x80;
+			}
+			if (cv_lessencorevotes.value || cv_moreencorevotes.value)
+			{
+				if (secondgt == GT_RACE)
+					secondgt |= 0x80;
+			}
 		}
-		else
+		else if (cv_moreencorevotes.value)
 		{
-			if (cv_kartencore.value && G_RaceGametype())
-				gt |= 0x80;
+			if (G_RaceGametype())
+				gt |= ( secondgt & 0x80 );
 		}
 	}
 	WRITEUINT8(p, gt);
