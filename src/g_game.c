@@ -48,6 +48,7 @@
 #include "m_cond.h" // condition sets
 #include "md5.h" // demo checksums
 #include "k_kart.h" // SRB2kart
+#include "d_vote.h"
 
 gameaction_t gameaction;
 gamestate_t gamestate = GS_NULL;
@@ -2549,6 +2550,8 @@ void G_Ticker(boolean run)
 			spectatedelay3--;
 		if (spectatedelay4)
 			spectatedelay4--;
+
+		D_VoteTicker();
 	}
 }
 
@@ -4728,7 +4731,10 @@ void G_InitNew(UINT8 pencoremode, const char *mapname, boolean resetplayer, bool
 	imcontinuing = false;
 
 	if (server)
+	{
 		alreadyresetdownloads = false;
+		alreadydunced         = false;
+	}
 
 	if (!skipprecutscene && mapheaderinfo[gamemap-1]->precutscenenum && !modeattacking) // Start a custom cutscene.
 		F_StartCustomCutscene(mapheaderinfo[gamemap-1]->precutscenenum-1, true, resetplayer);

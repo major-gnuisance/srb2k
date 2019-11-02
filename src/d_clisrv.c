@@ -47,6 +47,7 @@
 #include "lua_script.h"
 #include "lua_hook.h"
 #include "k_kart.h"
+#include "d_vote.h"
 
 #ifdef CLIENT_LOADINGSCREEN
 // cl loading screen
@@ -2789,6 +2790,18 @@ void CL_RemovePlayer(INT32 playernum, INT32 reason)
 		K_CheckBumpers();
 	else if (G_RaceGametype())
 		P_CheckRacers();
+
+	if (d_chatvote.type)
+	{
+		if (d_chatvote.target == playernum)
+			D_StopVote("Player left.", 0);
+		/* If a new player joins in this slot, let them vote! */
+		if (d_chatvote.from == playernum)
+			d_chatvote.from = 0;
+		D_RecalcVote();
+
+		d_chatvote.canvote[playernum] = 0;/* prevent voting until new vote */
+	}
 }
 
 void CL_Reset(void)
@@ -3510,6 +3523,8 @@ void SV_ResetServer(void)
 
 	// clear server_context
 	memset(server_context, '-', 8);
+
+	D_ClearVote();
 
 	DEBFILE("\n-=-=-=-=-=-=-= Server Reset =-=-=-=-=-=-=-\n\n");
 }
