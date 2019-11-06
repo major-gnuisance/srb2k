@@ -3355,7 +3355,7 @@ boolean P_RunSOC(const char *socfilename)
 	lumpnum_t lump;
 
 	if (strstr(socfilename, ".soc") != NULL)
-		return P_AddWadFile(socfilename);
+		return P_AddWadFile(socfilename, false);
 
 	lump = W_CheckNumForName(socfilename);
 	if (lump == LUMPERROR)
@@ -3371,7 +3371,7 @@ boolean P_RunSOC(const char *socfilename)
 // Add a wadfile to the active wad files,
 // replace sounds, musics, patches, textures, sprites and maps
 //
-boolean P_AddWadFile(const char *wadfilename)
+boolean P_AddWadFile(const char *wadfilename, boolean local)
 {
 	size_t i, j, sreplaces = 0, mreplaces = 0, digmreplaces = 0;
 	UINT16 numlumps, wadnum;
@@ -3388,6 +3388,9 @@ boolean P_AddWadFile(const char *wadfilename)
 		return false;
 	}
 	else wadnum = (UINT16)(numwadfiles-1);
+
+	if (local)
+		wadfiles[wadnum]->important = false;/* xd */
 
 	//
 	// search for sound replacements
@@ -3464,7 +3467,7 @@ boolean P_AddWadFile(const char *wadfilename)
 	//
 	// look for skins
 	//
-	R_AddSkins(wadnum); // faB: wadfile index in wadfiles[]
+	R_AddSkins(wadnum, local); // faB: wadfile index in wadfiles[]
 
 	//
 	// edit music defs
