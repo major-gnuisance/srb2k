@@ -151,8 +151,8 @@ extern FILE *logstream;
 #else
 #define VERSION    110 // Game version
 #define SUBVERSION 0 // more precise version number
-#define VERSIONSTRING "v1.1 BIRBv2.2 BETA"
-#define VERSIONSTRINGW L"v1.1 BIRBv2.2 BETA"
+#define VERSIONSTRING "v1.1 BIRBv3b BETA"
+#define VERSIONSTRINGW L"v1.1 BIRBv3b BETA"
 // Hey! If you change this, add 1 to the MODVERSION below! Otherwise we can't force updates!
 // And change CMakeLists.txt, for CMake users!
 // AND appveyor.yml, for the build bots!
