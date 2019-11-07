@@ -2628,6 +2628,8 @@ void G_PlayerReborn(INT32 player)
 	UINT8 mare;
 	UINT8 skincolor;
 	INT32 skin;
+	int localskin;
+	boolean skinlocal;
 	tic_t jointime;
 	UINT8 splitscreenindex;
 	boolean spectator;
@@ -2668,6 +2670,8 @@ void G_PlayerReborn(INT32 player)
 
 	skincolor = players[player].skincolor;
 	skin = players[player].skin;
+	localskin = players[player].localskin;
+	skinlocal = players[player].skinlocal;
 	// SRB2kart
 	kartspeed = players[player].kartspeed;
 	kartweight = players[player].kartweight;
@@ -2744,6 +2748,8 @@ void G_PlayerReborn(INT32 player)
 	// save player config truth reborn
 	p->skincolor = skincolor;
 	p->skin = skin;
+	p->localskin = localskin;
+	p->skinlocal = skinlocal;
 	// SRB2kart
 	p->kartspeed = kartspeed;
 	p->kartweight = kartweight;
@@ -6848,7 +6854,7 @@ static void G_LoadDemoExtraFiles(UINT8 **pp)
 			}
 			else
 			{
-				P_AddWadFile(filename, 0);
+				P_AddWadFile(filename, 0, false);
 			}
 		}
 	}

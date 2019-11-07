@@ -46,6 +46,7 @@ void ST_LoadGraphics(void);
 
 // face load graphics, called when skin changes
 void ST_LoadFaceGraphics(char *rankstr, char *wantstr, char *mmapstr, INT32 playernum);
+void ST_LoadLocalFaceGraphics(char *rankstr, char *wantstr, char *mmapstr, INT32 playernum, boolean local);
 void ST_ReloadSkinFaceGraphics(void);
 #ifdef DELFILE
 void ST_UnLoadFaceGraphics(INT32 skinnum);
@@ -72,6 +73,9 @@ extern patch_t *sboperiod;
 extern patch_t *facerankprefix[MAXSKINS]; // ranking
 extern patch_t *facewantprefix[MAXSKINS]; // wanted
 extern patch_t *facemmapprefix[MAXSKINS]; // minimap
+extern patch_t *localfacerankprefix[MAXSKINS]; // ranking
+extern patch_t *localfacewantprefix[MAXSKINS]; // wanted
+extern patch_t *localfacemmapprefix[MAXSKINS]; // minimap
 extern patch_t *livesback;
 extern patch_t *ngradeletters[7];
 

@@ -9095,13 +9095,20 @@ static state_t   *multi_state;
 static char       setupm_name[MAXPLAYERNAME+1];
 static player_t  *setupm_player;
 static consvar_t *setupm_cvskin;
+static consvar_t *setupm_cvlocalskin;
 static consvar_t *setupm_cvcolor;
 static consvar_t *setupm_cvname;
 static INT32      setupm_fakeskin;
+static boolean    setupm_skinlocal;
+static INT32      setupm_localskin;
 static INT32      setupm_fakecolor;
+
+#define STROBETICS 14
 
 static void M_DrawSetupMultiPlayerMenu(void)
 {
+	static int strobe;
+	static int rave;
 	INT32 mx, my, st, flags = 0;
 	spritedef_t *sprdef;
 	spriteframe_t *sprframe;
@@ -9116,6 +9123,8 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	UINT8 i;
 	const UINT8 *flashcol = V_GetStringColormap(highlightflags);
 	INT32 statx, staty;
+	skin_t *skin;
+	const char *name;
 
 	mx = MP_PlayerSetupDef.x;
 	my = MP_PlayerSetupDef.y;
@@ -9125,6 +9134,7 @@ static void M_DrawSetupMultiPlayerMenu(void)
 
 	// use generic drawer for cursor, items and title
 	M_DrawGenericMenu();
+	V_DrawThinString(mx + 80 + ( (strobe < STROBETICS/4) ? M_RandomKey(2) : 0 ), my + 15, V_ALLOWLOWERCASE, "(TAB)");
 
 	// draw name string
 	M_DrawTextBox(mx + 32, my - 8, MAXPLAYERNAME, 1);
@@ -9134,11 +9144,28 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	if (!itemOn && skullAnimCounter < 4) // blink cursor
 		V_DrawCharacter(mx + 40 + V_StringWidth(setupm_name, V_ALLOWLOWERCASE), my, '_',false);
 
+	skin = &skins[setupm_fakeskin];
+	if (setupm_skinlocal)
+	{
+		if (setupm_localskin)
+		{
+			if (setupm_localskin-1 >= numskins)
+				skin = &localskins[setupm_localskin-1-numskins];
+			else
+				skin = &skins[setupm_localskin-1];
+			name = skin->realname;
+		}
+		else
+			name = "Same";
+	}
+	else
+		name = skin->realname;
+
 	// draw skin string
-	st = V_StringWidth(skins[setupm_fakeskin].realname, 0);
+	st = V_StringWidth(name, 0);
 	V_DrawString(BASEVIDWIDTH - mx - st, my + 16,
 	             ((MP_PlayerSetupMenu[2].status & IT_TYPE) == IT_SPACE ? V_TRANSLUCENT : 0)|highlightflags|V_ALLOWLOWERCASE,
-	             skins[setupm_fakeskin].realname);
+	             name);
 	if (itemOn == 1)
 	{
 		V_DrawCharacter(BASEVIDWIDTH - mx - 10 - st - (skullAnimCounter/5), my + 16,
@@ -9228,7 +9255,7 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	{
 		const INT32 icons = 4;
 		INT32 k = -icons;
-		INT16 col = setupm_fakeskin - icons;
+		INT16 col = ( (setupm_skinlocal) ? setupm_localskin : setupm_fakeskin ) - icons;
 		INT32 x = BASEVIDWIDTH/2 - ((icons+1)*24) - 4;
 		fixed_t scale = FRACUNIT/2;
 		INT32 offx = 8, offy = 8;
@@ -9245,33 +9272,77 @@ static void M_DrawSetupMultiPlayerMenu(void)
 		cursor = W_CachePatchName(va("K_BHILI%d", cursorframe+1), PU_CACHE);
 
 		if (col < 0)
-			col += numskins;
+			col += ( (setupm_skinlocal) ? 1 + numskins + numlocalskins : numskins );
 		while (k <= icons)
 		{
 			if (!(k++))
 			{
 				scale = FRACUNIT;
-				face = facewantprefix[col];
+				if (setupm_skinlocal)
+				{
+					if (col == 0)
+						face = facewantprefix[setupm_fakeskin];
+					else
+						face = ( (col-1 >= numskins) ? localfacewantprefix[col-1-numskins] : facewantprefix[col-1] );
+				}
+				else
+					face = facewantprefix[col];
 				offx = 12;
 				offy = 0;
 			}
 			else
 			{
 				scale = FRACUNIT/2;
-				face = facerankprefix[col];
+				if (setupm_skinlocal)
+				{
+					if (col == 0)
+						face = facerankprefix[setupm_fakeskin];
+					else
+						face = ( (col-1 >= numskins) ? localfacerankprefix[col-1-numskins] : facerankprefix[col-1] );
+				}
+				else
+					face = facerankprefix[col];
 				offx = 8;
 				offy = 8;
 			}
-			colmap =  R_GetTranslationColormap(col, setupm_fakecolor, GTC_MENUCACHE);
+			if (setupm_skinlocal)
+			{
+				if (col == 0)
+				{
+					if (strobe < STROBETICS/2)
+						colmap = R_GetTranslationColormap(setupm_fakeskin, setupm_fakecolor, GTC_MENUCACHE);
+					else
+					{
+						colmap = R_GetTranslationColormap(TC_RAINBOW, rave, GTC_MENUCACHE);
+						if (++rave == MAXSKINCOLORS)
+							rave = 0;
+					}
+				}
+				else
+					colmap = R_GetLocalTranslationColormap(( (col-1 < numskins) ? &skins[col-1] : 0 ), ( (col-1 >= numskins) ? &localskins[col-1-numskins] : 0 ), setupm_fakecolor, GTC_MENUCACHE, ( col-1 >= numskins ));
+			}
+			else
+				colmap = R_GetTranslationColormap(col, setupm_fakecolor, GTC_MENUCACHE);
 			V_DrawFixedPatch((x+offx)<<FRACBITS, (my+28+offy)<<FRACBITS, FRACUNIT, 0, face, colmap);
 			if (scale == FRACUNIT) // bit of a hack
 				V_DrawFixedPatch((x+offx)<<FRACBITS, (my+28+offy)<<FRACBITS, FRACUNIT, 0, cursor, colmap);
-			if (++col >= numskins)
-				col -= numskins;
+			if (setupm_skinlocal)
+			{
+				if (++col >= 1 + numskins + numlocalskins)
+					col -= 1 + numskins + numlocalskins;
+			}
+			else
+			{
+				if (++col >= numskins)
+					col -= numskins;
+			}
 			x += FixedMul(iconwidth<<FRACBITS, 3*scale/2)/FRACUNIT;
 		}
 	}
 #undef iconwidth
+
+	if (++strobe == STROBETICS)
+		strobe = 0;
 
 	// anim the player in the box
 	if (--multi_tics <= 0)
@@ -9284,11 +9355,7 @@ static void M_DrawSetupMultiPlayerMenu(void)
 			multi_tics = 15;
 	}
 
-	// skin 0 is default player sprite
-	if (R_SkinAvailable(skins[setupm_fakeskin].name) != -1)
-		sprdef = &skins[R_SkinAvailable(skins[setupm_fakeskin].name)].spritedef;
-	else
-		sprdef = &skins[0].spritedef;
+	sprdef = &skin->spritedef;
 
 	if (!sprdef->numframes) // No frames ??
 		return; // Can't render!
@@ -9305,21 +9372,29 @@ static void M_DrawSetupMultiPlayerMenu(void)
 	// draw box around guy
 	V_DrawFill(mx + 43 - (charw/2), my+65, charw, 84, 239);
 
+	if (setupm_skinlocal)
+	{
+		UINT8 *colmap;
+		colmap = R_GetTranslationColormap(setupm_fakeskin, setupm_fakecolor, GTC_MENUCACHE);
+		V_DrawFixedPatch(( mx + 43 - (charw/2) + 1 )<<FRACBITS, ( my+65+2 )<<FRACBITS, FRACUNIT, 0, facerankprefix[setupm_fakeskin], colmap);
+	}
+
 	// draw player sprite
 	if (setupm_fakecolor) // inverse should never happen
 	{
-		UINT8 *colormap = R_GetTranslationColormap(setupm_fakeskin, setupm_fakecolor, GTC_MENUCACHE);
+		UINT8 *colormap = R_GetLocalTranslationColormap(skin, ( (setupm_skinlocal && setupm_localskin >= numskins) ? skin : 0 ), setupm_fakecolor, GTC_MENUCACHE, ( setupm_skinlocal && setupm_localskin >= numskins ));
 
-		if (skins[setupm_fakeskin].flags & SF_HIRES)
+		if (skin->flags & SF_HIRES)
 		{
 			V_DrawFixedPatch((mx+43)<<FRACBITS,
 						(my+131)<<FRACBITS,
-						skins[setupm_fakeskin].highresscale,
+						skin->highresscale,
 						flags, patch, colormap);
 		}
 		else
 			V_DrawMappedPatch(mx+43, my+131, flags, patch, colormap);
 	}
+
 #undef charw
 }
 
@@ -9348,7 +9423,7 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 			if (itemOn == 1)       //player skin
 			{
 				S_StartSound(NULL,sfx_menu1); // Tails
-				setupm_fakeskin--;
+				( (setupm_skinlocal) ? setupm_localskin-- : setupm_fakeskin-- );
 			}
 			else if (itemOn == 2) // player color
 			{
@@ -9361,7 +9436,7 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 			if (itemOn == 1)       //player skin
 			{
 				S_StartSound(NULL,sfx_menu1); // Tails
-				setupm_fakeskin++;
+				( (setupm_skinlocal) ? setupm_localskin++ : setupm_fakeskin++ );
 			}
 			else if (itemOn == 2) // player color
 			{
@@ -9383,6 +9458,14 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 					setupm_name[l-1] =0;
 				}
 			}
+			else if (itemOn == 1)
+			{
+				if (setupm_skinlocal && setupm_localskin)
+				{
+					S_StartSound(NULL,sfx_s3k74); // Jails
+					setupm_localskin = 0;
+				}
+			}
 			else if (itemOn == 2)
 			{
 				UINT8 col = skins[setupm_fakeskin].prefcolor;
@@ -9399,6 +9482,17 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 			{
 				S_StartSound(NULL,sfx_menu1); // Tails
 				setupm_name[0] = 0;
+			}
+			break;
+
+		case KEY_TAB:
+			if (itemOn == 1)       //player skin
+			{
+				S_StartSound(NULL, sfx_s221);
+				setupm_skinlocal = ! setupm_skinlocal;
+				currentMenu->menuitems[itemOn].text = ( (setupm_skinlocal) ?
+						"Local Skin" :
+						"Character" );
 			}
 			break;
 
@@ -9420,6 +9514,11 @@ static void M_HandleSetupMultiPlayer(INT32 choice)
 		setupm_fakeskin = numskins-1;
 	if (setupm_fakeskin > numskins-1)
 		setupm_fakeskin = 0;
+
+	if (setupm_localskin < 0)
+		setupm_localskin = numskins + numlocalskins;
+	if (setupm_localskin > numskins + numlocalskins)
+		setupm_localskin = 0;
 
 	// check color
 	if (setupm_fakecolor < 1)
@@ -9448,6 +9547,7 @@ static void M_SetupMultiPlayer(INT32 choice)
 	// set for player 1
 	setupm_player = &players[consoleplayer];
 	setupm_cvskin = &cv_skin;
+	setupm_cvlocalskin = &cv_localskin;
 	setupm_cvcolor = &cv_playercolor;
 	setupm_cvname = &cv_playername;
 
@@ -9455,6 +9555,18 @@ static void M_SetupMultiPlayer(INT32 choice)
 	setupm_fakeskin = R_SkinAvailable(setupm_cvskin->string);
 	if (setupm_fakeskin == -1)
 		setupm_fakeskin = 0;
+	setupm_localskin = R_SkinAvailable(setupm_cvlocalskin->string);
+	if (setupm_localskin == -1)
+	{
+		setupm_localskin = R_LocalSkinAvailable(setupm_cvlocalskin->string, true);
+		if (setupm_localskin == -1)
+			setupm_localskin = 0;
+		else
+			setupm_localskin += 1 + numskins;
+	}
+	else
+		++setupm_localskin;
+	setupm_skinlocal = false;
 	setupm_fakecolor = setupm_cvcolor->value;
 
 	// disable skin changes if we can't actually change skins
@@ -9574,6 +9686,13 @@ static boolean M_QuitMultiPlayerMenu(void)
 	}
 	// you know what? always putting these in the buffer won't hurt anything.
 	COM_BufAddText (va("%s \"%s\"\n",setupm_cvskin->name,skins[setupm_fakeskin].name));
+	/* welcome to hell */
+	if (setupm_localskin == 0)
+		COM_BufAddText (va("%s \"none\"\n",setupm_cvlocalskin->name));
+	else
+		COM_BufAddText (va("%s \"%s\"\n",setupm_cvlocalskin->name,( (setupm_localskin-1 >= numskins) ?
+						localskins[setupm_localskin-1-numskins].name :
+						skins[setupm_localskin-1].name )));
 	COM_BufAddText (va("%s %d\n",setupm_cvcolor->name,setupm_fakecolor));
 	return true;
 }
