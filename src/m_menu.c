@@ -9131,6 +9131,7 @@ static void M_DrawSetupMultiPlayerMenu(void)
 
 	// use generic drawer for cursor, items and title
 	M_DrawGenericMenu();
+	V_DrawThinString(mx + 80 + ( (strobe < STROBETICS/4) ? M_RandomKey(2) : 0 ), my + 15, V_ALLOWLOWERCASE, "(TAB)");
 
 	// draw name string
 	M_DrawTextBox(mx + 32, my - 8, MAXPLAYERNAME, 1);
@@ -9313,8 +9314,6 @@ static void M_DrawSetupMultiPlayerMenu(void)
 						if (++rave == MAXSKINCOLORS)
 							rave = 0;
 					}
-					if (++strobe == STROBETICS)
-						strobe = 0;
 				}
 				else
 					colmap = R_GetLocalTranslationColormap(( (col-1 < numskins) ? &skins[col-1] : 0 ), ( (col-1 >= numskins) ? &localskins[col-1-numskins] : 0 ), setupm_fakecolor, GTC_MENUCACHE, ( col-1 >= numskins ));
@@ -9338,6 +9337,9 @@ static void M_DrawSetupMultiPlayerMenu(void)
 		}
 	}
 #undef iconwidth
+
+	if (++strobe == STROBETICS)
+		strobe = 0;
 
 	// anim the player in the box
 	if (--multi_tics <= 0)
