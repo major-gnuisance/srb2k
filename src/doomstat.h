@@ -269,6 +269,7 @@ typedef struct
 	customoption_t *customopts; ///< Custom options. Allocated dynamically for space reasons. Be careful.
 
 	boolean already;
+	boolean hidden;
 } mapheader_t;
 
 // level flags

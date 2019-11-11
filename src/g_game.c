@@ -3618,6 +3618,7 @@ tryagain:
 		if ((mapheaderinfo[ix]->typeoflevel & tolflags) != tolflags
 			|| ix == pprevmap
 			|| mapheaderinfo[ix]->already
+			|| mapheaderinfo[ix]->hidden
 			|| (!dedicated && M_MapLocked(ix+1))
 			|| (usehellmaps != (mapheaderinfo[ix]->menuflags & LF2_HIDEINMENU))) // this is bad
 			continue; //isokmap = false;

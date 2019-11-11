@@ -127,6 +127,7 @@ static void discardmaps_OnChange (void);
 
 static void Command_resetdownloads_f (void);
 static void Command_resetvotebuffer_f (void);
+static void Command_hidemap_f (void);
 
 static void Command_Playdemo_f(void);
 static void Command_Timedemo_f(void);
@@ -575,6 +576,7 @@ void D_RegisterServerCommands(void)
 
 	COM_AddCommand("resetdownloads", Command_resetdownloads_f);
 	COM_AddCommand("resetvotebuffer", Command_resetvotebuffer_f);
+	COM_AddCommand("hidemap", Command_hidemap_f);
 
 	CV_RegisterVar(&cv_nodownloads);
 
@@ -5998,6 +6000,37 @@ Command_resetvotebuffer_f (void)
 	prevmap = -1;
 	lessvotes_OnChange();
 	discardmaps_OnChange();
+}
+
+static void
+Command_hidemap_f (void)
+{
+	int ac;
+	const char *a;
+	char *title;
+	int i;
+	int n;
+	ac = COM_Argc();
+	for (i = 1; i < ac; ++i)
+	{
+		a = COM_Argv(i);
+		if (strlen(a) == 2)
+		{
+			n = M_MapNumber(a[0], a[1]);
+			if (n && mapheaderinfo[n-1])
+			{
+				mapheaderinfo[n-1]->hidden = ! mapheaderinfo[n-1]->hidden;
+				title = G_BuildMapTitle(n);
+				CONS_Printf(
+						"%s (%s) is %s hidden\n",
+						title,
+						G_BuildMapName(n),
+						( (mapheaderinfo[n-1]->hidden) ?
+							"now" :
+							"no longer" ));
+			}
+		}
+	}
 }
 
 static void
