@@ -122,7 +122,10 @@ static void KartEliminateLast_OnChange(void);
 static void Fishcake_OnChange(void);
 #endif
 
+static void lessvotes_OnChange (void);
+
 static void Command_resetdownloads_f (void);
+static void Command_resetvotebuffer_f (void);
 
 static void Command_Playdemo_f(void);
 static void Command_Timedemo_f(void);
@@ -474,6 +477,8 @@ consvar_t cv_nodownloads = { "downloadnotice", "", CV_SAVE };
 consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo};
 consvar_t cv_lessencorevotes = {"lessencorevotes", "No", CV_SAVE, CV_YesNo};
 
+consvar_t cv_lessvotes = {"lessvotes", "0", CV_SAVE, CV_Unsigned, lessvotes_OnChange};
+
 INT16 gametype = GT_RACE; // SRB2kart
 boolean forceresetplayers = false;
 boolean deferencoremode = false;
@@ -567,6 +572,7 @@ void D_RegisterServerCommands(void)
 	RegisterNetXCmd(XD_PICKVOTE, Got_PickVotecmd);
 
 	COM_AddCommand("resetdownloads", Command_resetdownloads_f);
+	COM_AddCommand("resetvotebuffer", Command_resetvotebuffer_f);
 
 	CV_RegisterVar(&cv_nodownloads);
 
@@ -732,6 +738,8 @@ void D_RegisterServerCommands(void)
 
 	CV_RegisterVar(&cv_lessbattlevotes);
 	CV_RegisterVar(&cv_lessencorevotes);
+
+	CV_RegisterVar(&cv_lessvotes);
 }
 
 // =========================================================================
@@ -2413,15 +2421,17 @@ void D_SetupVote(void)
 	{
 		UINT16 m;
 		if (i == 2) // sometimes a different gametype
-			m = G_RandMap(G_TOLFlag(secondgt), prevmap, false, 0, true, votebuffer);
+			m = G_RandMap(G_TOLFlag(secondgt), prevmap, prevmapvotes, false, 0, true, votebuffer);
 		else if (i >= 3) // unknown-random and force-unknown MAP HELL
-			m = G_RandMap(G_TOLFlag(gt), prevmap, false, (i-2), (i < 4), votebuffer);
+			m = G_RandMap(G_TOLFlag(gt), prevmap, prevmapvotes, false, (i-2), (i < 4), votebuffer);
 		else
-			m = G_RandMap(G_TOLFlag(gt), prevmap, false, 0, true, votebuffer);
+			m = G_RandMap(G_TOLFlag(gt), prevmap, prevmapvotes, false, 0, true, votebuffer);
 		if (i < 3)
 			votebuffer[min(i, 2)] = m; // min() is a dumb workaround for gcc 4.4 array-bounds error
 		WRITEUINT16(p, m);
 	}
+	if (cv_lessvotes.value)
+		memcpy(prevmapvotes, votebuffer, sizeof prevmapvotes);
 
 	SendNetXCmd(XD_SETUPVOTE, buf, p - buf);
 }
@@ -5977,4 +5987,19 @@ Command_resetdownloads_f (void)
 		COM_ImmedExecute("say \"Downloads have been reset.\"");
 		alreadyresetdownloads = true;
 	}
+}
+
+static void
+Command_resetvotebuffer_f (void)
+{
+	prevmap = -1;
+	lessvotes_OnChange();
+}
+
+static void
+lessvotes_OnChange (void)
+{
+	prevmapvotes[0] = -1;
+	prevmapvotes[1] = -1;
+	prevmapvotes[2] = -1;
 }

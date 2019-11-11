@@ -327,6 +327,7 @@ demoghost *ghosts = NULL;
 boolean precache = true; // if true, load all graphics at start
 
 INT16 prevmap, nextmap;
+INT16 prevmapvotes[3] = { -1, -1, -1 };
 
 static CV_PossibleValue_t recordmultiplayerdemos_cons_t[] = {{0, "Disabled"}, {1, "Manual Save"}, {2, "Auto Save"}, {0, NULL}};
 consvar_t cv_recordmultiplayerdemos = {"netdemo_record", "Manual Save", CV_SAVE, recordmultiplayerdemos_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -872,7 +873,7 @@ const char *G_BuildMapName(INT32 map)
 			map = gamemap-1;
 		else
 			map = prevmap;
-		map = G_RandMap(G_TOLFlag(cv_newgametype.value), map, false, 0, false, NULL)+1;
+		map = G_RandMap(G_TOLFlag(cv_newgametype.value), map, 0, false, 0, false, NULL)+1;
 	}
 
 	if (map < 100)
@@ -3584,7 +3585,7 @@ static INT32 TOLMaps(INT16 tolflags)
   * \author Graue <graue@oceanbase.org>
   */
 static INT16 *okmaps = NULL;
-INT16 G_RandMap(INT16 tolflags, INT16 pprevmap, boolean ignorebuffer, UINT8 maphell, boolean callagainsoon, INT16 *extbuffer)
+INT16 G_RandMap(INT16 tolflags, INT16 pprevmap, INT16 *pprevmapbuffer, boolean ignorebuffer, UINT8 maphell, boolean callagainsoon, INT16 *extbuffer)
 {
 	INT32 numokmaps = 0;
 	INT16 ix, bufx;
@@ -3619,6 +3620,17 @@ tryagain:
 			|| (!dedicated && M_MapLocked(ix+1))
 			|| (usehellmaps != (mapheaderinfo[ix]->menuflags & LF2_HIDEINMENU))) // this is bad
 			continue; //isokmap = false;
+
+		if (pprevmapbuffer)
+		{
+			if (
+					ix == pprevmapbuffer[0] ||
+					ix == pprevmapbuffer[1] ||
+					ix == pprevmapbuffer[2]
+			){
+				continue;
+			}
+		}
 
 		if (!ignorebuffer)
 		{
@@ -3862,7 +3874,7 @@ static void G_DoCompleted(void)
 		if (cv_advancemap.value == 0) // Stay on same map.
 			nextmap = prevmap;
 		else if (cv_advancemap.value == 2) // Go to random map.
-			nextmap = G_RandMap(G_TOLFlag(gametype), prevmap, false, 0, false, NULL);
+			nextmap = G_RandMap(G_TOLFlag(gametype), prevmap, 0, false, 0, false, NULL);
 	}
 
 
