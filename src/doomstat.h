@@ -267,6 +267,8 @@ typedef struct
 	// (This is not ifdeffed so the map header structure can stay identical, just in case.)
 	UINT8 numCustomOptions;     ///< Internal. For Lua custom value support.
 	customoption_t *customopts; ///< Custom options. Allocated dynamically for space reasons. Be careful.
+
+	boolean already;
 } mapheader_t;
 
 // level flags

@@ -3617,6 +3617,7 @@ tryagain:
 
 		if ((mapheaderinfo[ix]->typeoflevel & tolflags) != tolflags
 			|| ix == pprevmap
+			|| mapheaderinfo[ix]->already
 			|| (!dedicated && M_MapLocked(ix+1))
 			|| (usehellmaps != (mapheaderinfo[ix]->menuflags & LF2_HIDEINMENU))) // this is bad
 			continue; //isokmap = false;
@@ -4724,6 +4725,9 @@ void G_InitNew(UINT8 pencoremode, const char *mapname, boolean resetplayer, bool
 	}
 
 	gamemap = (INT16)M_MapNumber(mapname[3], mapname[4]); // get xx out of MAPxx
+
+	if (cv_discardmaps.value)
+		mapheaderinfo[gamemap-1]->already = true;
 
 	// gamemap changed; we assume that its map header is always valid,
 	// so make it so

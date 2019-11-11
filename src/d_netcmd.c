@@ -123,6 +123,7 @@ static void Fishcake_OnChange(void);
 #endif
 
 static void lessvotes_OnChange (void);
+static void discardmaps_OnChange (void);
 
 static void Command_resetdownloads_f (void);
 static void Command_resetvotebuffer_f (void);
@@ -478,6 +479,7 @@ consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo};
 consvar_t cv_lessencorevotes = {"lessencorevotes", "No", CV_SAVE, CV_YesNo};
 
 consvar_t cv_lessvotes = {"lessvotes", "0", CV_SAVE, CV_Unsigned, lessvotes_OnChange};
+consvar_t cv_discardmaps = {"discardmaps", "No", CV_SAVE, CV_YesNo, discardmaps_OnChange};
 
 INT16 gametype = GT_RACE; // SRB2kart
 boolean forceresetplayers = false;
@@ -740,6 +742,7 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_lessencorevotes);
 
 	CV_RegisterVar(&cv_lessvotes);
+	CV_RegisterVar(&cv_discardmaps);
 }
 
 // =========================================================================
@@ -5994,6 +5997,7 @@ Command_resetvotebuffer_f (void)
 {
 	prevmap = -1;
 	lessvotes_OnChange();
+	discardmaps_OnChange();
 }
 
 static void
@@ -6002,4 +6006,15 @@ lessvotes_OnChange (void)
 	prevmapvotes[0] = -1;
 	prevmapvotes[1] = -1;
 	prevmapvotes[2] = -1;
+}
+
+static void
+discardmaps_OnChange (void)
+{
+	int i;
+	for (i = 0; i < NUMMAPS; ++i)
+	{
+		if (mapheaderinfo[i])
+			mapheaderinfo[i]->already = false;
+	}
 }

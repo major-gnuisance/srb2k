@@ -258,6 +258,8 @@ static void P_ClearSingleMapHeaderInfo(INT16 i)
 	mapheaderinfo[num]->customopts = NULL;
 	mapheaderinfo[num]->numCustomOptions = 0;
 
+	mapheaderinfo[num]->already = false;
+
 	DEH_WriteUndoline(va("# uload for map %d", i), NULL, UNDO_DONE);
 }
 
