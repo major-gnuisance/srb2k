@@ -1357,6 +1357,9 @@ static void R_ProjectSprite(mobj_t *thing)
 		// off the left side
 		if (x2 < 0)
 			return;
+
+		if (thing->type == MT_SHADOW)
+			yscale = FixedMul(yscale, FixedDiv(abs(pos.z - viewz)*2, tz));
 	}
 
 	// PORTAL SPRITE CLIPPING
@@ -1451,6 +1454,10 @@ static void R_ProjectSprite(mobj_t *thing)
 	vis->pzt = vis->pz + vis->thingheight;
 	vis->texturemid = vis->gzt - viewz;
 	vis->scalestep = scalestep;
+
+	if (thing->type == MT_SHADOW)
+		vis->texturemid = FixedDiv(vis->texturemid - FixedMul(spritecachedinfo[lump].topoffset, this_scale), FixedDiv(abs(pos.z - viewz)*2, tz))
+		                                           + FixedMul(spritecachedinfo[lump].topoffset, this_scale);
 
 	vis->mobj = thing; // Easy access! Tails 06-07-2002
 
