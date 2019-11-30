@@ -1247,7 +1247,11 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 	static boolean keyboard_look[MAXSPLITSCREENPLAYERS]; // true if lookup/down using keyboard
 	static boolean resetdown[MAXSPLITSCREENPLAYERS]; // don't cam reset every frame
 
-	if (demo.playback) return;
+	if (demo.playback)
+	{
+		camspin[ssplayer-1] = InputDown(gc_lookback, ssplayer);
+		return;
+	}
 
 	if (ssplayer == 1)
 		player = &players[consoleplayer];
@@ -1903,6 +1907,22 @@ boolean G_Responder(event_t *ev)
 			G_AdjustView(4, 1, true);
 
 			return true;
+		}
+
+		// Allow looking back during replays
+		if (
+			ev->data1 == gamecontrol[gc_lookback][0] ||
+			ev->data1 == gamecontrol[gc_lookback][1] ||
+			ev->data1 == gamecontrolbis[gc_lookback][0] ||
+			ev->data1 == gamecontrolbis[gc_lookback][1] ||
+			ev->data1 == gamecontrol3[gc_lookback][0] ||
+			ev->data1 == gamecontrol3[gc_lookback][1] ||
+			ev->data1 == gamecontrol4[gc_lookback][0] ||
+			ev->data1 == gamecontrol4[gc_lookback][1]
+		)
+		{
+			G_MapEventsToControls(ev);
+			return false;
 		}
 
 		// Allow pausing
