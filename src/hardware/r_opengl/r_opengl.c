@@ -2659,7 +2659,7 @@ EXPORT void HWRAPI(RenderVhsEffect) (INT16 upbary, INT16 downbary, UINT8 updisto
 
 	// Slight fuzziness
 	MakeScreenTexture();
-	SetBlend(PF_Modulated|PF_Translucent|PF_NoDepthTest|PF_Clip|PF_NoZClip);
+	SetBlend(PF_Modulated|PF_Translucent|PF_NoDepthTest);
 	pglBindTexture(GL_TEXTURE_2D, screentexture);
 
 	fix[2] = (float)(rand() / 255) / -22000 * xfix;
