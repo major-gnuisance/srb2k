@@ -1409,7 +1409,7 @@ void I_FinishUpdate(void)
 			SDL_UnlockSurface(vidSurface);
 		}
 		SDL_RenderClear(renderer);
-		SDL_RenderCopy(renderer, texture, NULL, NULL);
+		SDL_RenderCopy(renderer, texture, &rect, NULL);
 		SDL_RenderPresent(renderer);
 	}
 
@@ -1619,6 +1619,22 @@ INT32 VID_SetMode(INT32 modeNum)
 	vid.recalc = 1;
 	vid.bpp = 1;
 
+	if (modeNum == -1)
+	{
+		if (rendermode == render_soft)
+		{
+			if (bufSurface)
+			{
+				SDL_FreeSurface(bufSurface);
+				bufSurface = NULL;
+			}
+
+			Impl_VideoSetupBuffer();
+		}
+
+		return SDL_TRUE;
+	}
+
 	if (modeNum >= 0 && modeNum < MAXWINMODES)
 	{
 		vid.width = windowedModes[modeNum][0];
@@ -1644,7 +1660,16 @@ INT32 VID_SetMode(INT32 modeNum)
 	}
 	//Impl_SetWindowName("SRB2Kart "VERSIONSTRING);
 
-	SDLSetMode(vid.width, vid.height, USE_FULLSCREEN);
+	vid.dupx = vid.width / BASEVIDWIDTH;
+	vid.dupy = vid.height / BASEVIDHEIGHT;
+	vid.dupx = vid.dupy = (vid.dupx < vid.dupy ? vid.dupx : vid.dupy);
+		vid.yscale = 1;
+
+	vid.pickedwidth = vid.width;
+	vid.pickedheight = vid.height;
+	vid.pickeddup = vid.dupx;
+
+	SDLSetMode(vid.pickedwidth, vid.pickedheight, USE_FULLSCREEN);
 
 	if (rendermode == render_soft)
 	{
@@ -1869,6 +1894,7 @@ void I_StartupGraphics(void)
 		HWD.pfnDoScreenWipe     = hwSym("DoScreenWipe",NULL);
 		HWD.pfnDrawIntermissionBG=hwSym("DrawIntermissionBG",NULL);
 		HWD.pfnMakeScreenTexture= hwSym("MakeScreenTexture",NULL);
+		HWD.pfnRenderVhsEffect  = hwSym("RenderVhsEffect",NULL);
 		HWD.pfnMakeScreenFinalTexture=hwSym("MakeScreenFinalTexture",NULL);
 		HWD.pfnDrawScreenFinalTexture=hwSym("DrawScreenFinalTexture",NULL);
 

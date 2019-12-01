@@ -513,6 +513,7 @@ static menuitem_t MISC_ReplayOptionsMenu[] =
 	{IT_CVAR|IT_STRING, NULL, "Sync Check Interval", &cv_netdemosyncquality,     10},
 };
 
+static tic_t playback_last_menu_interaction_leveltime = 0;
 static menuitem_t PlaybackMenu[] =
 {
 	{IT_CALL   | IT_STRING, "M_PHIDE",  "Hide Menu", M_SelectableClearMenus, 0},
@@ -1092,7 +1093,8 @@ static menuitem_t OP_ControlsMenu[] =
 	{IT_CALL | IT_STRING, NULL, "Player 3 Controls...", &M_Setup3PControlsMenu,  30},
 	{IT_CALL | IT_STRING, NULL, "Player 4 Controls...", &M_Setup4PControlsMenu,  40},
 
-	{IT_STRING | IT_CVAR, NULL, "Controls per key", &cv_controlperkey, 60},
+	{IT_STRING | IT_CVAR, NULL, "Controls per key",    &cv_controlperkey, 60},
+	{IT_STRING | IT_CVAR, NULL, "Digital turn easing", &cv_turnsmooth, 70},
 };
 
 static menuitem_t OP_AllControlsMenu[] =
@@ -1227,6 +1229,30 @@ static menuitem_t OP_Mouse2OptionsMenu[] =
 	                      NULL, "Mouse Y Speed",    &cv_mouseysens2,      80},
 };*/
 
+static menuitem_t OP_DynResOptionsMenu[] =
+{
+
+	{IT_STRING | IT_CVAR,	NULL,	"Dynamic Resolution",	&cv_dynamicres,		 10},
+	{IT_STRING | IT_CVAR,	NULL,	"Resize Order",			&cv_dynamicresorder, 20},
+
+	{IT_HEADER, NULL, "Minimum Resolution", NULL, 35},
+	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
+							NULL,	"Horizontal",	&cv_dynamicminx, 45},
+	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
+							NULL,	"Vertical",		&cv_dynamicminy, 55},
+
+	{IT_HEADER, NULL, "Resizing Behavior", NULL, 70},
+	{IT_STRING | IT_CVAR,	NULL,	"Frame Time to Downscale",		&cv_dynamicdowntime,			 80},
+	{IT_STRING | IT_CVAR,	NULL,	"...For This Many Frames",		&cv_dynamicdownticsover,		 90},
+	{IT_STRING | IT_CVAR,	NULL,	"    ...Out of This Many",		&cv_dynamicdowntictime,		 100},
+
+	{IT_STRING | IT_CVAR,	NULL,	"Frame Time to Upscale",		&cv_dynamicuptime,			 115},
+	{IT_STRING | IT_CVAR,	NULL,	"...For This Many Frames",		&cv_dynamicupticsover,		 125},
+	{IT_STRING | IT_CVAR,	NULL,	"    ...Out of This Many",		&cv_dynamicuptictime,		 135},
+};
+
+static menu_t OP_DynResOptionsDef = DEFAULTMENUSTYLE("M_VIDEO", OP_DynResOptionsMenu, &OP_VideoOptionsDef, 30, 30);
+
 static menuitem_t OP_VideoOptionsMenu[] =
 {
 	{IT_STRING | IT_CALL,	NULL,	"Set Resolution...",	M_VideoModeMenu,		 10},
@@ -1241,15 +1267,18 @@ static menuitem_t OP_VideoOptionsMenu[] =
 	{IT_STRING | IT_CVAR,	NULL,	"Weather Draw Distance",&cv_drawdist_precip,	 55},
 	//{IT_STRING | IT_CVAR,	NULL,	"Weather Density",		&cv_precipdensity,		 65},
 	{IT_STRING | IT_CVAR,	NULL,	"Skyboxes",				&cv_skybox,				 65},
-	{IT_STRING | IT_CVAR,	NULL,	"Field of View",		&cv_fov,					75},
+	{IT_STRING | IT_CVAR,	NULL,	"Field of View",		&cv_fov,				 75},
 
 	{IT_STRING | IT_CVAR,	NULL,	"Show FPS",				&cv_ticrate,			 90},
-	{IT_STRING | IT_CVAR,	NULL,	"Vertical Sync",		&cv_vidwait,			100},
+	{IT_STRING | IT_CVAR,	NULL,	"Max Level Framerate",	&cv_framerate,			100},
+	{IT_STRING | IT_CVAR,	NULL,	"Future Sight",			&cv_extrapolation,		110},
+
+	{IT_SUBMENU|IT_STRING,	NULL,	"Dynamic Res Options...", &OP_DynResOptionsDef, 125},
 
 #ifdef HWRENDER
-	{IT_STRING | IT_CVAR,	NULL,	"3D models",            &cv_grmdls,              115},
-	{IT_STRING | IT_CVAR,	NULL,	"Fallback Player 3D Model",	&cv_grfallbackplayermodel,	125},
-	{IT_SUBMENU|IT_STRING,	NULL,	"OpenGL Options...",	&OP_OpenGLOptionsDef,   135},
+	{IT_STRING | IT_CVAR,	NULL,	"3D models",            &cv_grmdls,              125},
+	{IT_STRING | IT_CVAR,	NULL,	"Fallback Player 3D Model",	&cv_grfallbackplayermodel,	135},
+	{IT_SUBMENU|IT_STRING,	NULL,	"OpenGL Options...",	&OP_OpenGLOptionsDef,   145},
 #endif
 };
 
@@ -1266,7 +1295,9 @@ enum
 	op_video_skybox,
 	op_video_fov,
 	op_video_fps,
+	op_video_frameratecap,
 	op_video_vsync,
+	op_video_dynres,
 #ifdef HWRENDER
 	op_video_md2,
 	op_video_kartman,
@@ -2767,6 +2798,7 @@ boolean M_Responder(event_t *ev)
 
 	if (currentMenu == &PlaybackMenuDef)
 	{
+		playback_last_menu_interaction_leveltime = leveltime;
 		// Flip left/right with up/down for the playback menu, since it's a horizontal icon row.
 		switch (ch)
 		{
@@ -2828,9 +2860,9 @@ boolean M_Responder(event_t *ev)
 			if (currentMenu == &PlaybackMenuDef)
 			{
 				boolean held = (boolean)playback_enterheld;
-				playback_enterheld = TICRATE/7;
 				if (held)
 					return true;
+				playback_enterheld = 3;
 			}
 
 			if (routine)
@@ -3003,6 +3035,7 @@ void M_StartControlPanel(void)
 	if (demo.playback)
 	{
 		currentMenu = &PlaybackMenuDef;
+		playback_last_menu_interaction_leveltime = leveltime;
 	}
 	else if (!Playing())
 	{
@@ -3321,6 +3354,8 @@ void M_Init(void)
 		OP_VideoOptionsMenu[op_video_ogl].status =
 			OP_VideoOptionsMenu[op_video_kartman].status =
 			OP_VideoOptionsMenu[op_video_md2]    .status = IT_DISABLED;
+	else
+		OP_VideoOptionsMenu[op_video_dynres].status = IT_DISABLED;
 #endif
 
 #ifndef NONET
@@ -5165,6 +5200,7 @@ void M_ReplayHut(INT32 choice)
 	G_SetGamestate(GS_TIMEATTACK);
 
 	demo.rewinding = false;
+	CL_ClearRewinds();
 
 	S_ChangeMusicInternal("replst", true);
 }
@@ -5177,7 +5213,8 @@ static void M_HandleReplayHutList(INT32 choice)
 		if (dir_on[menudepthleft])
 			dir_on[menudepthleft]--;
 		else
-			M_PrevOpt();
+			return;
+			//M_PrevOpt();
 
 		S_StartSound(NULL, sfx_menu1);
 		replayScrollTitle = 0; replayScrollDelay = TICRATE; replayScrollDir = 1;
@@ -5187,7 +5224,8 @@ static void M_HandleReplayHutList(INT32 choice)
 		if (dir_on[menudepthleft] < sizedirmenu-1)
 			dir_on[menudepthleft]++;
 		else
-			itemOn = 0; // Not M_NextOpt because that would take us to the extra dummy item
+			return;
+			//itemOn = 0; // Not M_NextOpt because that would take us to the extra dummy item
 
 		S_StartSound(NULL, sfx_menu1);
 		replayScrollTitle = 0; replayScrollDelay = TICRATE; replayScrollDir = 1;
@@ -5694,6 +5732,11 @@ static void M_DrawPlaybackMenu(void)
 	INT16 i;
 	patch_t *icon;
 	UINT8 *activemap = R_GetTranslationColormap(TC_RAINBOW, SKINCOLOR_GOLD, GTC_MENUCACHE);
+	UINT32 transmap = max(0, (INT32)(leveltime - playback_last_menu_interaction_leveltime - 4*TICRATE)) / 5;
+	transmap = min(8, transmap) << V_ALPHASHIFT;
+
+	if (leveltime - playback_last_menu_interaction_leveltime >= 6*TICRATE)
+		playback_last_menu_interaction_leveltime = leveltime - 6*TICRATE;
 
 	// Toggle items
 	if (paused && !demo.rewinding)
@@ -5775,16 +5818,16 @@ static void M_DrawPlaybackMenu(void)
 			icon = W_CachePatchName("PLAYRANK", PU_CACHE); // temp
 
 		if ((i == playback_fastforward && cv_playbackspeed.value > 1) || (i == playback_rewind && demo.rewinding))
-			V_DrawMappedPatch(currentMenu->x + currentMenu->menuitems[i].alphaKey, currentMenu->y, V_SNAPTOTOP, icon, R_GetTranslationColormap(TC_RAINBOW, SKINCOLOR_JAWZ, GTC_MENUCACHE));
+			V_DrawMappedPatch(currentMenu->x + currentMenu->menuitems[i].alphaKey, currentMenu->y, transmap|V_SNAPTOTOP, icon, R_GetTranslationColormap(TC_RAINBOW, SKINCOLOR_JAWZ, GTC_MENUCACHE));
 		else
-			V_DrawMappedPatch(currentMenu->x + currentMenu->menuitems[i].alphaKey, currentMenu->y, V_SNAPTOTOP, icon, (i == itemOn) ? activemap : inactivemap);
+			V_DrawMappedPatch(currentMenu->x + currentMenu->menuitems[i].alphaKey, currentMenu->y, transmap|V_SNAPTOTOP, icon, (i == itemOn) ? activemap : inactivemap);
 
 		if (i == itemOn)
 		{
 			V_DrawCharacter(currentMenu->x + currentMenu->menuitems[i].alphaKey + 4, currentMenu->y + 14,
-				'\x1A' | V_SNAPTOTOP|highlightflags, false);
+				'\x1A' | transmap|V_SNAPTOTOP|highlightflags, false);
 
-			V_DrawCenteredString(BASEVIDWIDTH/2, currentMenu->y + 18, V_SNAPTOTOP|V_ALLOWLOWERCASE, currentMenu->menuitems[i].text);
+			V_DrawCenteredString(BASEVIDWIDTH/2, currentMenu->y + 18, transmap|V_SNAPTOTOP|V_ALLOWLOWERCASE, currentMenu->menuitems[i].text);
 
 			if ((currentMenu->menuitems[i].status & IT_TYPE) == IT_ARROWS)
 			{
@@ -5792,11 +5835,11 @@ static void M_DrawPlaybackMenu(void)
 
 				if (!(i == playback_viewcount && splitscreen == 3))
 					V_DrawCharacter(BASEVIDWIDTH/2 - 4, currentMenu->y + 28 - (skullAnimCounter/5),
-						'\x1A' | V_SNAPTOTOP|highlightflags, false); // up arrow
+						'\x1A' | transmap|V_SNAPTOTOP|highlightflags, false); // up arrow
 
 				if (!(i == playback_viewcount && splitscreen == 0))
 					V_DrawCharacter(BASEVIDWIDTH/2 - 4, currentMenu->y + 48 + (skullAnimCounter/5),
-						'\x1B' | V_SNAPTOTOP|highlightflags, false); // down arrow
+						'\x1B' | transmap|V_SNAPTOTOP|highlightflags, false); // down arrow
 
 				switch (i)
 				{
@@ -5815,7 +5858,7 @@ static void M_DrawPlaybackMenu(void)
 					continue;
 				}
 
-				V_DrawCenteredString(BASEVIDWIDTH/2, currentMenu->y + 38, V_SNAPTOTOP|V_ALLOWLOWERCASE|highlightflags, str);
+				V_DrawCenteredString(BASEVIDWIDTH/2, currentMenu->y + 38, transmap|V_SNAPTOTOP|V_ALLOWLOWERCASE|highlightflags, str);
 			}
 		}
 	}

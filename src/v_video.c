@@ -19,6 +19,7 @@
 #include "hu_stuff.h"
 #include "r_draw.h"
 #include "console.h"
+#include "d_main.h"
 
 #include "i_video.h" // rendermode
 #include "z_zone.h"
@@ -333,7 +334,7 @@ void V_DrawFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, INT32 scrn, patch_t 
 	UINT8 (*patchdrawfunc)(const UINT8*, const UINT8*, fixed_t);
 	UINT32 alphalevel = 0;
 
-	fixed_t col, ofs, colfrac, rowfrac, fdup;
+	fixed_t col, ofs, colfrac, rowfrac, fdup, fdupy;
 	INT32 dupx, dupy;
 	const column_t *column;
 	UINT8 *desttop, *dest, *deststart, *destend;
@@ -401,10 +402,11 @@ void V_DrawFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, INT32 scrn, patch_t 
 	}
 
 	// only use one dup, to avoid stretching (har har)
-	dupx = dupy = (dupx < dupy ? dupx : dupy);
+	//dupx = dupy = (dupx < dupy ? dupx : dupy);
 	fdup = FixedMul(dupx<<FRACBITS, pscale);
+	fdupy = FixedMul(dupy<<FRACBITS, pscale);
 	colfrac = FixedDiv(FRACUNIT, fdup);
-	rowfrac = FixedDiv(FRACUNIT, fdup);
+	rowfrac = FixedDiv(FRACUNIT, fdupy);
 
 	// So it turns out offsets aren't scaled in V_NOSCALESTART unless V_OFFSET is applied ...poo, that's terrible
 	// For now let's just at least give V_OFFSET the ability to support V_FLIP
@@ -542,7 +544,7 @@ void V_DrawFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, INT32 scrn, patch_t 
 			dest = desttop;
 			if (scrn & V_FLIP)
 				dest = deststart + (destend - desttop);
-			dest += FixedInt(FixedMul(topdelta<<FRACBITS,fdup))*vid.width;
+			dest += FixedInt(FixedMul(topdelta<<FRACBITS,fdupy))*vid.width;
 
 			for (ofs = 0; dest < deststop && (ofs>>FRACBITS) < column->length; ofs += rowfrac)
 			{
@@ -1157,7 +1159,7 @@ void V_DrawPatchFill(patch_t *pat)
 
 void V_DrawVhsEffect(boolean rewind)
 {
-	static fixed_t upbary = 100, downbary = 150;
+	static INT16 upbary = 100, downbary = 150;
 
 	UINT8 *buf = screens[0], *tmp = screens[4];
 	UINT16 y;
@@ -1177,10 +1179,21 @@ void V_DrawVhsEffect(boolean rewind)
 	if (rewind)
 		V_DrawVhsEffect(false); // experimentation
 
-	upbary -= vid.dupy * (rewind ? 3 : 1.8f);
-	downbary += vid.dupy * (rewind ? 2 : 1);
-	if (upbary < -barsize) upbary = vid.height;
-	if (downbary > vid.height) downbary = -barsize;
+	if (!lerp_sameframe)
+	{
+		upbary -= vid.dupy * (rewind ? 3 : 1.8f);
+		downbary += vid.dupy * (rewind ? 2 : 1);
+		if (upbary < -barsize) upbary = vid.height;
+		if (downbary > vid.height) downbary = -barsize;
+	}
+
+#ifdef HWRENDER
+	if (rendermode != render_soft)
+	{
+		HWR_RenderVhsEffect(upbary, downbary, updistort, downdistort, barsize);
+		return;
+	}
+#endif
 
 	for (y = 0; y < vid.height; y+=2)
 	{

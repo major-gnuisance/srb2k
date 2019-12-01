@@ -2916,9 +2916,9 @@ static p_timeGetTime pfntimeGetTime = NULL;
 // but lower precision on Windows NT
 // ---------
 
-tic_t I_GetTime(void)
+static DWORD TimeMillis(void)
 {
-	tic_t newtics = 0;
+	DWORD newtics = 0;
 
 	if (!starttickcount) // high precision timer
 	{
@@ -2938,7 +2938,7 @@ tic_t I_GetTime(void)
 
 		if (frequency.LowPart && QueryPerformanceCounter(&currtime))
 		{
-			newtics = (INT32)((currtime.QuadPart - basetime.QuadPart) * NEWTICRATE
+			newtics = (INT32)((currtime.QuadPart - basetime.QuadPart) * 1000
 				/ frequency.QuadPart);
 		}
 		else if (pfntimeGetTime)
@@ -2946,13 +2946,28 @@ tic_t I_GetTime(void)
 			currtime.LowPart = pfntimeGetTime();
 			if (!basetime.LowPart)
 				basetime.LowPart = currtime.LowPart;
-			newtics = ((currtime.LowPart - basetime.LowPart)/(1000/NEWTICRATE));
+			newtics = ((currtime.LowPart - basetime.LowPart));
 		}
 	}
 	else
-		newtics = (GetTickCount() - starttickcount)/(1000/NEWTICRATE);
+		newtics = (GetTickCount() - starttickcount);
 
 	return newtics;
+}
+
+tic_t I_GetTime(void)
+{
+	return TimeMillis() / (1000/NEWTICRATE);
+}
+
+fixed_t I_GetFracTime(void)
+{
+	return TimeMillis() % (1000/NEWTICRATE) * (FRACUNIT / NEWTICRATE);
+}
+
+UINT16 I_GetFrameReference(UINT16 fps)
+{
+	return (TimeMillis() % 1000) * fps / 1000;
 }
 
 static void I_ShutdownTimer(void)
