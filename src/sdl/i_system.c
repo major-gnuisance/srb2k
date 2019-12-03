@@ -3015,6 +3015,7 @@ tic_t I_GetTime (void)
 
 	return (tic_t)ticks;
 }
+#endif
 
 #ifndef __MACH__
 fixed_t I_GetFracTime(void)
@@ -3027,7 +3028,6 @@ UINT16 I_GetFrameReference(UINT16 fps)
 	return (TimeMillis() % 1000) * fps / 1000;
 }
 #endif/*__MACH__*/
-#endif
 
 //
 //I_StartupTimer
