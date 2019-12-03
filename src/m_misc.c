@@ -1131,7 +1131,7 @@ void M_SaveFrame(void)
 {
 #if NUMSCREENS > 2
 	// paranoia: should be unnecessary without singletics
-	static tic_t oldtic = 0;
+	//static tic_t oldtic = 0;
 
 	//if (oldtic == I_GetTime())
 		//return;
