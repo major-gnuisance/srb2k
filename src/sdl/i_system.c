@@ -52,6 +52,9 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #endif
 #if defined (__unix__) || defined (UNIXCOMMON)
 #include <fcntl.h>
+#ifndef __MACH__
+#include <time.h>
+#endif/*__MACH__*/
 #endif
 
 #include <stdio.h>
@@ -2960,16 +2963,6 @@ tic_t I_GetTime(void)
 	return TimeMillis() / (1000/NEWTICRATE);
 }
 
-fixed_t I_GetFracTime(void)
-{
-	return TimeMillis() % (1000/NEWTICRATE) * (FRACUNIT / NEWTICRATE);
-}
-
-UINT16 I_GetFrameReference(UINT16 fps)
-{
-	return (TimeMillis() % 1000) * fps / 1000;
-}
-
 static void I_ShutdownTimer(void)
 {
 	pfntimeGetTime = NULL;
@@ -2983,6 +2976,25 @@ static void I_ShutdownTimer(void)
 	}
 }
 #else
+#ifndef __MACH__
+struct timespec clk_basetime;
+
+static int TimeMillis(void)
+{
+	struct timespec ts;
+	int ms;
+
+	/* clock_gettime won't fail if its arguments are correct */
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	/* nanoseconds to milliseconds */
+	ms  = ( ts.tv_nsec - clk_basetime.tv_nsec )/ 1000000;
+	ms +=   ts.tv_sec  * 1000;
+
+	return ms;
+}
+#endif/*__MACH__*/
+
 //
 // I_GetTime
 // returns time in 1/TICRATE second tics
@@ -3005,6 +3017,18 @@ tic_t I_GetTime (void)
 }
 #endif
 
+#ifndef __MACH__
+fixed_t I_GetFracTime(void)
+{
+	return TimeMillis() % (1000/NEWTICRATE) * (FRACUNIT / NEWTICRATE);
+}
+
+UINT16 I_GetFrameReference(UINT16 fps)
+{
+	return (TimeMillis() % 1000) * fps / 1000;
+}
+#endif/*__MACH__*/
+
 //
 //I_StartupTimer
 //
@@ -3026,6 +3050,8 @@ void I_StartupTimer(void)
 		pfntimeGetTime = (p_timeGetTime)GetProcAddress(winmm, "timeGetTime");
 	}
 	I_AddExitFunc(I_ShutdownTimer);
+#else
+	clock_gettime(CLOCK_MONOTONIC, &clk_basetime);
 #endif
 }
 

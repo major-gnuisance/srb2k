@@ -664,7 +664,7 @@ static boolean D_Display(void)
 			if (downscalecount >= cv_dynamicdownticsover.value)
 			{
 				// DOWNSCALE
-				memset(downscale, 0, 30);
+				memset(downscale, 0, sizeof downscale);
 				scaling = true;
 
 				switch (cv_dynamicresorder.value)
@@ -700,7 +700,7 @@ static boolean D_Display(void)
 			else if (upscalecount >= cv_dynamicupticsover.value)
 			{
 				// UPSCALE
-				memset(upscale, 0, 30);
+				memset(upscale, 0, sizeof upscale);
 				scaling = true;
 
 				switch (cv_dynamicresorder.value)
