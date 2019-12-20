@@ -1419,7 +1419,7 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 		{
 			cmd->buttons |= BT_ACCELERATE;
 			// JOYAXISRANGE is supposed to be 1023 (divide by 1024)
-			forward += ((axis * forwardmove[1]) >> 10)*2;
+			forward += (((axis+1) * forwardmove[1]) >> 10);
 		}
 
 		axis = JoyAxis(AXISBRAKE, ssplayer);
@@ -1434,7 +1434,7 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 			cmd->buttons |= BT_BRAKE;
 			// JOYAXISRANGE is supposed to be 1023 (divide by 1024)
 			if (cmd->buttons & BT_ACCELERATE || cmd->forwardmove <= 0)
-				forward -= ((axis * forwardmove[0]) >> 10);
+				forward -= (((axis+1) * forwardmove[0]) >> 10);
 		}
 
 		// But forward/backward IS used for aiming.
