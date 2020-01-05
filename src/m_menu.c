@@ -2978,6 +2978,10 @@ boolean M_Responder(event_t *ev)
 //
 void M_Drawer(void)
 {
+	static int lolxd;
+	int n;
+	int d;
+
 	if (currentMenu == &MessageDef)
 		menuactive = true;
 
@@ -3008,8 +3012,15 @@ void M_Drawer(void)
 				V_DrawThinString(vid.dupx, vid.height - 20*vid.dupy, V_NOSCALESTART|V_TRANSLUCENT|V_ALLOWLOWERCASE, compbranch);
 				V_DrawThinString(vid.dupx, vid.height - 10*vid.dupy, V_NOSCALESTART|V_TRANSLUCENT|V_ALLOWLOWERCASE, comprevision);
 #else // Regular build
-				V_DrawThinString(vid.dupx, vid.height - 10*vid.dupy, V_NOSCALESTART|V_TRANSLUCENT|V_ALLOWLOWERCASE, va("%s", VERSIONSTRING));
+				n = vid.dupx * V_ThinStringWidth(VERSIONSTRING, 0);
+				d = ( vid.width - lolxd );
+				if (d < n)
+					V_DrawThinString((( lolxd + n )% vid.width )- n, vid.height - 10*vid.dupy, V_NOSCALESTART|V_TRANSLUCENT|V_ALLOWLOWERCASE, va("%s", VERSIONSTRING));
+				V_DrawThinString(lolxd, vid.height - 10*vid.dupy, V_NOSCALESTART|V_TRANSLUCENT|V_ALLOWLOWERCASE, va("%s", VERSIONSTRING));
 #endif
+				lolxd += vid.dupx;
+				if (lolxd > vid.width)
+					lolxd -= vid.width;
 			}
 		}
 	}
