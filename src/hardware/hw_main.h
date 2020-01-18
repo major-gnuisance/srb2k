@@ -57,7 +57,7 @@ UINT8 *HWR_GetScreenshot(void);
 boolean HWR_Screenshot(const char *lbmname);
 
 // hw_main.c
-void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox);
+void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean do_stats);// added do_stats to calculate stats only when not doing skybox
 void HWR_RenderPlayerView(INT32 viewnumber, player_t *player);
 void HWR_LoadShaders(UINT16 wadnum, boolean PK3);
 void HWR_SetViewSize(void);
@@ -149,6 +149,27 @@ extern consvar_t cv_grfovchange;
 extern consvar_t cv_grsolvetjoin;
 extern consvar_t cv_grspritebillboarding;
 extern consvar_t cv_grfallbackplayermodel;
+
+// render stats console toggle
+extern consvar_t cv_hrenderstats;
+extern consvar_t cv_grwireframe;
+// render stats time counter variables
+extern int hrs_prevframetime;// time when previous frame was rendered
+extern int hrs_rendercalltime;
+extern int hrs_bsptime;
+extern int hrs_nodetime;
+extern int hrs_nodesorttime;
+extern int hrs_nodedrawtime;
+extern int hrs_spritesorttime;
+extern int hrs_spritedrawtime;
+
+extern int hrs_numdrawnodes;
+extern int hrs_numbspcalls;
+extern int hrs_numsprites;
+
+
+extern consvar_t cv_test_disable_something;
+
 
 extern CV_PossibleValue_t granisotropicmode_cons_t[];
 

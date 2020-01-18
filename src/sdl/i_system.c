@@ -188,6 +188,10 @@ static char returnWadPath[256];
 #include "../byteptr.h"
 #endif
 
+
+// need to get prev_tics somehow
+#include "../r_main.h"
+
 /**	\brief	The JoyReset function
 
 	\param	JoySet	Joystick info to reset
@@ -2960,7 +2964,9 @@ static DWORD TimeMillis(void)
 
 tic_t I_GetTime(void)
 {
-	return TimeMillis() / (1000/NEWTICRATE);
+	//return TimeMillis() / (1000/NEWTICRATE);
+	// how about this
+	return (TimeMillis() * NEWTICRATE) / 1000;
 }
 
 static void I_ShutdownTimer(void)
@@ -2995,21 +3001,22 @@ static int TimeMillis(void)
 }
 #endif/*__MACH__*/
 
+
 //
 // I_GetTime
 // returns time in 1/TICRATE second tics
 //
 tic_t I_GetTime (void)
 {
-	static Uint64 basetime = 0;
-		   Uint64 ticks = SDL_GetTicks();
+//	static Uint64 basetime = 0;
+		   Uint64 ticks = TimeMillis();//SDL_GetTicks();
 
-	if (!basetime)
-		basetime = ticks;
+//	if (!basetime)
+//		basetime = ticks;
 
-	ticks -= basetime;
+//	ticks -= basetime;
 
-	ticks = (ticks*TICRATE);
+	ticks = (ticks*NEWTICRATE);
 
 	ticks = (ticks/1000);
 
@@ -3018,10 +3025,30 @@ tic_t I_GetTime (void)
 #endif
 
 #ifndef __MACH__
-fixed_t I_GetFracTime(void)
+/*fixed_t I_GetFracTime(void)
 {
 	return TimeMillis() % (1000/NEWTICRATE) * (FRACUNIT / NEWTICRATE);
+}*/
+// how about this
+fixed_t I_GetFracTime(void)
+{
+	Uint64 ticks;
+	Uint64 prevticks;
+	fixed_t frac;
+
+	ticks = TimeMillis();
+	prevticks = prev_tics * 1000 / TICRATE;
+
+	frac = FixedDiv((ticks - prevticks) * FRACUNIT, (int)lroundf((1.f/TICRATE)*1000 * FRACUNIT));
+	return frac > FRACUNIT ? FRACUNIT : frac;
 }
+
+
+int I_GetTimeMillis(void)
+{
+	return TimeMillis();
+}
+
 
 UINT16 I_GetFrameReference(UINT16 fps)
 {
@@ -3687,7 +3714,7 @@ const char *I_LocateWad(void)
 	I_OutputMsg("Looking for WADs in: ");
 	waddir = locateWad();
 	I_OutputMsg("\n");
-
+/*// removed the chdir so it does not try to write to it. Seems like the game still works fine without this
 	if (waddir)
 	{
 		// change to the directory where we found srb2.srb
@@ -3697,7 +3724,7 @@ const char *I_LocateWad(void)
 		if (chdir(waddir) == -1)
 			I_OutputMsg("Couldn't change working directory\n");
 #endif
-	}
+	}*/
 	return waddir;
 }
 

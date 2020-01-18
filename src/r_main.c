@@ -47,6 +47,14 @@ INT64 mytotal = 0;
 #endif
 //profile stuff ---------------------------------------------------------
 
+
+
+
+tic_t prev_tics;
+
+
+
+
 // Fineangles in the SCREENWIDTH wide window.
 #define FIELDOFVIEW 2048
 
@@ -1543,6 +1551,12 @@ void R_RegisterEngineStuff(void)
 	CV_RegisterVar(&cv_grshearing);
 	CV_RegisterVar(&cv_grshaders);
 #endif
+
+	// render stats
+	CV_RegisterVar(&cv_hrenderstats);
+	CV_RegisterVar(&cv_grwireframe);
+	
+	CV_RegisterVar(&cv_test_disable_something);
 
 #ifdef HWRENDER
 	if (rendermode != render_soft && rendermode != render_none)

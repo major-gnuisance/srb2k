@@ -148,6 +148,9 @@ static const GLfloat byte2float[256] = {
 // Returns          :
 // -----------------+
 
+// dont save ogllog.txt, it crashes on this machine for some reason
+#undef DEBUG_TO_FILE
+
 #ifdef DEBUG_TO_FILE
 FILE *gllogstream;
 #endif
@@ -491,6 +494,10 @@ static float glstate_fog_density = 0;
 
 INT32 gl_leveltime = 0;
 
+// for wireframe mode, not sure where and how and what and why to put this
+typedef void    (APIENTRY *PFNglPolygonMode)                (GLenum, GLenum);
+static PFNglPolygonMode pglPolygonMode;
+
 #ifdef GL_SHADERS
 typedef GLuint 	(APIENTRY *PFNglCreateShader)		(GLenum);
 typedef void 	(APIENTRY *PFNglShaderSource)		(GLuint, GLsizei, const GLchar**, GLint*);
@@ -544,6 +551,13 @@ static char *gl_customfragmentshaders[MAXSHADERS];
 static boolean gl_allowshaders = false;
 static boolean gl_shadersenabled = false;
 static GLuint gl_currentshaderprogram = 0;
+
+// trying to improve performance by removing redundant glUseProgram calls
+static boolean gl_shaderprogramchanged = true;
+
+// adding some test stuff here
+// this var makes DrawPolygon do nothing, purpose is to study opengl calls' effect on performance
+static INT32 gl_test_disable_something = 0;
 
 // 13062019
 typedef enum
@@ -711,6 +725,9 @@ void SetupGLFunc4(void)
 	pglBindBuffer = GetGLFunc("glBindBuffer");
 	pglBufferData = GetGLFunc("glBufferData");
 	pglDeleteBuffers = GetGLFunc("glDeleteBuffers");
+
+	// wireframe
+	pglPolygonMode = GetGLFunc("glPolygonMode");
 
 #ifdef GL_SHADERS
 	pglCreateShader = GetGLFunc("glCreateShader");
@@ -888,7 +905,11 @@ EXPORT void HWRAPI(SetShader) (int shader)
 	if (gl_allowshaders)
 	{
 		gl_shadersenabled = true;
-		gl_currentshaderprogram = shader;
+		if (shader != gl_currentshaderprogram)
+		{
+			gl_currentshaderprogram = shader;
+			gl_shaderprogramchanged = true;
+		}
 	}
 	else
 #endif
@@ -900,6 +921,8 @@ EXPORT void HWRAPI(UnSetShader) (void)
 #ifdef GL_SHADERS
 	gl_shadersenabled = false;
 	gl_currentshaderprogram = 0;
+	gl_shaderprogramchanged = true;// not sure if this is needed
+	pglUseProgram(0);
 #endif
 }
 
@@ -1386,6 +1409,7 @@ EXPORT void HWRAPI(SetBlend) (FBITFIELD PolyFlags)
 // -----------------+
 EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 {
+	if (gl_test_disable_something) return;
 	if (!pTexInfo)
 	{
 		SetNoTexture();
@@ -1621,6 +1645,7 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *f
 #ifdef GL_SHADERS
 	if (gl_shadersenabled)
 	{
+		//gl_shaderprogramchanged = true;// test for comparing with/without optimization
 		gl_shaderprogram_t *shader = &gl_shaderprograms[gl_currentshaderprogram];
 		if (shader->program)
 		{
@@ -1638,10 +1663,22 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *f
 						return;
 					}
 					else	// enabled
-						pglUseProgram(gl_shaderprograms[gl_currentshaderprogram].program);
+					{
+						if (gl_shaderprogramchanged)
+						{
+							pglUseProgram(gl_shaderprograms[gl_currentshaderprogram].program);
+							gl_shaderprogramchanged = false;
+						}
+					}
 				}
 				else	// always load custom shaders
-					pglUseProgram(gl_shaderprograms[gl_currentshaderprogram].program);
+				{
+					if (gl_shaderprogramchanged)
+					{
+						pglUseProgram(gl_shaderprograms[gl_currentshaderprogram].program);
+						gl_shaderprogramchanged = false;
+					}
+				}
 			}
 
 			// set uniforms
@@ -1703,6 +1740,8 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *f
 // -----------------+
 EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUINT iNumPts, FBITFIELD PolyFlags)
 {
+	if (gl_test_disable_something) return;
+	
 	static GLRGBAFloat mix = {0,0,0,0};
 	static GLRGBAFloat fade = {0,0,0,0};
 
@@ -1746,7 +1785,7 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 		Clamp2D(GL_TEXTURE_WRAP_T);
 
 #ifdef GL_SHADERS
-	pglUseProgram(0);
+	//pglUseProgram(0);// test: removed this, trying to improve performance
 #endif
 }
 
@@ -1767,6 +1806,13 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 					gl_allowshaders = false;
 					break;
 			}
+			break;
+		case HWD_SET_WIREFRAME:
+			pglPolygonMode(GL_FRONT_AND_BACK, Value ? GL_LINE : GL_FILL);
+			break;
+		
+		case HWD_SET_TEST_DISABLE_SOMETHING:
+			gl_test_disable_something = Value;
 			break;
 
 		case HWD_SET_FOG_MODE:
@@ -2316,7 +2362,8 @@ EXPORT void HWRAPI(PostImgRedraw) (float points[SCREENVERTS][SCREENVERTS][2])
 	INT32 x, y;
 	float float_x, float_y, float_nextx, float_nexty;
 	float xfix, yfix;
-	INT32 texsize = 2048;
+	//INT32 texsize = 2048;
+	INT32 texsize = 512;
 
 	const float blackBack[16] =
 	{
@@ -2325,12 +2372,18 @@ EXPORT void HWRAPI(PostImgRedraw) (float points[SCREENVERTS][SCREENVERTS][2])
 		16.0f, 16.0f, 6.0f,
 		16.0f, -16.0f, 6.0f
 	};
-
+/*
 	// Use a power of two texture
+	if(screen_width <= 2048)
+		texsize = 2048;
 	if(screen_width <= 1024)
 		texsize = 1024;
 	if(screen_width <= 512)
 		texsize = 512;
+*/	
+	// look for power of two that is large enough for the screen
+	while (texsize < screen_width || texsize < screen_height)
+		texsize <<= 1;
 
 	// X/Y stretch fix for all resolutions(!)
 	xfix = (float)(texsize)/((float)((screen_width)/(float)(SCREENVERTS-1)));
@@ -2414,14 +2467,21 @@ EXPORT void HWRAPI(FlushScreenTextures) (void)
 // Create Screen to fade from
 EXPORT void HWRAPI(StartScreenWipe) (void)
 {
-	INT32 texsize = 2048;
+	//INT32 texsize = 2048;
+	INT32 texsize = 512;
 	boolean firstTime = (startScreenWipe == 0);
-
+/*
 	// Use a power of two texture, dammit
 	if(screen_width <= 512)
 		texsize = 512;
 	else if(screen_width <= 1024)
 		texsize = 1024;
+	else if(screen_width <= 2048)
+		texsize = 2048;
+*/
+	// look for power of two that is large enough for the screen
+	while (texsize < screen_width || texsize < screen_height)
+		texsize <<= 1;
 
 	// Create screen texture
 	if (firstTime)
@@ -2445,14 +2505,21 @@ EXPORT void HWRAPI(StartScreenWipe) (void)
 // Create Screen to fade to
 EXPORT void HWRAPI(EndScreenWipe)(void)
 {
-	INT32 texsize = 2048;
+	//INT32 texsize = 2048;
+	INT32 texsize = 512;
 	boolean firstTime = (endScreenWipe == 0);
-
+/*
 	// Use a power of two texture, dammit
 	if(screen_width <= 512)
 		texsize = 512;
 	else if(screen_width <= 1024)
 		texsize = 1024;
+	else if(screen_width <= 2048)
+		texsize = 2048;
+*/
+	// look for power of two that is large enough for the screen
+	while (texsize < screen_width || texsize < screen_height)
+		texsize <<= 1;
 
 	// Create screen texture
 	if (firstTime)
@@ -2477,7 +2544,8 @@ EXPORT void HWRAPI(EndScreenWipe)(void)
 EXPORT void HWRAPI(DrawIntermissionBG)(void)
 {
 	float xfix, yfix;
-	INT32 texsize = 2048;
+	//INT32 texsize = 2048;
+	INT32 texsize = 512;
 
 	const float screenVerts[12] =
 	{
@@ -2488,11 +2556,17 @@ EXPORT void HWRAPI(DrawIntermissionBG)(void)
 	};
 
 	float fix[8];
-
+/*
+	if(screen_width <= 2048)
+		texsize = 2048;
 	if(screen_width <= 1024)
 		texsize = 1024;
 	if(screen_width <= 512)
 		texsize = 512;
+*/
+	// look for power of two that is large enough for the screen
+	while (texsize < screen_width || texsize < screen_height)
+		texsize <<= 1;
 
 	xfix = 1/((float)(texsize)/((float)((screen_width))));
 	yfix = 1/((float)(texsize)/((float)((screen_height))));
@@ -2519,7 +2593,8 @@ EXPORT void HWRAPI(DrawIntermissionBG)(void)
 // Do screen fades!
 EXPORT void HWRAPI(DoScreenWipe)(void)
 {
-	INT32 texsize = 2048;
+	//INT32 texsize = 2048;
+	INT32 texsize = 512;
 	float xfix, yfix;
 
 	INT32 fademaskdownloaded = tex_downloaded; // the fade mask that has been set
@@ -2541,12 +2616,19 @@ EXPORT void HWRAPI(DoScreenWipe)(void)
 		1.0f, 0.0f,
 		1.0f, 1.0f
 	};
-
+/*
 	// Use a power of two texture, dammit
+	if(screen_width <= 2048)
+		texsize = 2048;
 	if(screen_width <= 1024)
 		texsize = 1024;
 	if(screen_width <= 512)
 		texsize = 512;
+*/
+	// look for power of two that is large enough for the screen
+	while (texsize < screen_width || texsize < screen_height)
+		texsize <<= 1;
+
 
 	xfix = 1/((float)(texsize)/((float)((screen_width))));
 	yfix = 1/((float)(texsize)/((float)((screen_height))));
@@ -2605,14 +2687,21 @@ EXPORT void HWRAPI(DoScreenWipe)(void)
 // Create a texture from the screen.
 EXPORT void HWRAPI(MakeScreenTexture) (void)
 {
-	INT32 texsize = 2048;
+	//INT32 texsize = 2048;
+	INT32 texsize = 512;
 	boolean firstTime = (screentexture == 0);
-
+/*
 	// Use a power of two texture, dammit
 	if(screen_width <= 512)
 		texsize = 512;
 	else if(screen_width <= 1024)
 		texsize = 1024;
+	else if(screen_width <= 2048)
+		texsize = 2048;
+*/
+	// look for power of two that is large enough for the screen
+	while (texsize < screen_width || texsize < screen_height)
+		texsize <<= 1;
 
 	// Create screen texture
 	if (firstTime)
@@ -2635,7 +2724,8 @@ EXPORT void HWRAPI(MakeScreenTexture) (void)
 
 EXPORT void HWRAPI(RenderVhsEffect) (INT16 upbary, INT16 downbary, UINT8 updistort, UINT8 downdistort, UINT8 barsize)
 {
-	INT32 texsize = 2048;
+	//INT32 texsize = 2048;
+	INT32 texsize = 512;
 	float xfix, yfix;
 	float fix[8];
 	GLubyte color[4] = {255, 255, 255, 255};
@@ -2648,11 +2738,18 @@ EXPORT void HWRAPI(RenderVhsEffect) (INT16 upbary, INT16 downbary, UINT8 updisto
 		1.0f, 1.0f, 1.0f,
 		1.0f, -1.0f, 1.0f
 	};
-
+/*
+	if(screen_width <= 2048)
+		texsize = 2048;
 	if(screen_width <= 1024)
 		texsize = 1024;
 	if(screen_width <= 512)
 		texsize = 512;
+*/
+	// look for power of two that is large enough for the screen
+	while (texsize < screen_width || texsize < screen_height)
+		texsize <<= 1;
+
 
 	xfix = 1/((float)(texsize)/((float)((screen_width))));
 	yfix = 1/((float)(texsize)/((float)((screen_height))));
@@ -2740,14 +2837,21 @@ EXPORT void HWRAPI(RenderVhsEffect) (INT16 upbary, INT16 downbary, UINT8 updisto
 
 EXPORT void HWRAPI(MakeScreenFinalTexture) (void)
 {
-	INT32 texsize = 2048;
+	//INT32 texsize = 2048;
+	INT32 texsize = 512;
 	boolean firstTime = (finalScreenTexture == 0);
-
+/*
 	// Use a power of two texture, dammit
 	if(screen_width <= 512)
 		texsize = 512;
 	else if(screen_width <= 1024)
 		texsize = 1024;
+	else if(screen_width <= 2048)
+		texsize = 2048;
+*/
+	// look for power of two that is large enough for the screen
+	while (texsize < screen_width || texsize < screen_height)
+		texsize <<= 1;
 
 	// Create screen texture
 	if (firstTime)
@@ -2774,15 +2878,22 @@ EXPORT void HWRAPI(DrawScreenFinalTexture)(int width, int height)
 	float origaspect, newaspect;
 	float xoff = 1, yoff = 1; // xoffset and yoffset for the polygon to have black bars around the screen
 	FRGBAFloat clearColour;
-	INT32 texsize = 2048;
+	//INT32 texsize = 2048;
+	INT32 texsize = 512;
 
 	float off[12];
 	float fix[8];
-
+/*
+	if(screen_width <= 2048)
+		texsize = 2048;
 	if(screen_width <= 1024)
 		texsize = 1024;
 	if(screen_width <= 512)
 		texsize = 512;
+*/
+	// look for power of two that is large enough for the screen
+	while (texsize < screen_width || texsize < screen_height)
+		texsize <<= 1;
 
 	xfix = 1/((float)(texsize)/((float)((screen_width))));
 	yfix = 1/((float)(texsize)/((float)((screen_height))));

@@ -18,6 +18,10 @@
 #include "p_local.h"
 #include "r_data.h"
 
+// trying out mix and match frame interp code
+extern tic_t prev_tics;
+
+
 //
 // POV related.
 //

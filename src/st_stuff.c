@@ -2072,7 +2072,7 @@ void ST_DrawDemoTitleEntry(void)
 // MayonakaStatic: draw Midnight Channel's TV-like borders
 static void ST_MayonakaStatic(void)
 {
-	INT32 flag = (leveltime%2) ? V_90TRANS : V_70TRANS;
+	INT32 flag = V_70TRANS;//(leveltime%2) ? V_90TRANS : V_70TRANS;
 
 	V_DrawFixedPatch(0, 0, FRACUNIT, V_SNAPTOTOP|V_SNAPTOLEFT|flag, hud_tv1, NULL);
 	V_DrawFixedPatch(320<<FRACBITS, 0, FRACUNIT, V_SNAPTOTOP|V_SNAPTORIGHT|V_FLIP|flag, hud_tv1, NULL);

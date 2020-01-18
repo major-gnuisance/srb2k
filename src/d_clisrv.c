@@ -5285,6 +5285,9 @@ void TryRunTics(tic_t realtics)
 			{
 				DEBFILE(va("============ Running tic %d (local %d)\n", gametic, localgametic));
 
+				// from the earlier frame interp
+				prev_tics = I_GetTime();
+
 				G_Ticker((gametic % NEWTICRATERATIO) == 0);
 				ExtraDataTicker();
 				gametic++;

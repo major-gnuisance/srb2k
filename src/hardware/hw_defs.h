@@ -239,6 +239,9 @@ typedef struct FSurfaceInfo FSurfaceInfo;
 enum hwdsetspecialstate
 {
 	HWD_SET_SHADERS,
+	HWD_SET_WIREFRAME,
+	
+	HWD_SET_TEST_DISABLE_SOMETHING,
 
 	HWD_SET_FOG_MODE,
 	HWD_SET_FOG_DENSITY,
