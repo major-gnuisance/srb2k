@@ -757,6 +757,7 @@ GLPatch_t *HWR_GetCachedGLPatchPwad(UINT16 wadnum, UINT16 lumpnum)
 
 	if (!(grpatch = M_AATreeGet(hwrcache, lumpnum)))
 	{
+		//printf("Creating AA Tree entry for wadnum %u lumpnum %u\n", wadnum, lumpnum);
 		grpatch = Z_Calloc(sizeof(GLPatch_t), PU_HWRPATCHINFO, NULL);
 		grpatch->wadnum = wadnum;
 		grpatch->lumpnum = lumpnum;

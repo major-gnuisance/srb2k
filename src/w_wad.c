@@ -754,7 +754,7 @@ UINT16 W_InitFile(const char *filename)
 
 #ifdef HWRENDER
 	// allocates GLPatch info structures and store them in a tree
-	wadfile->hwrcache = M_AATreeAlloc(AATREE_ZUSER);
+	wadfile->hwrcache = M_AATreeAlloc(AATREE_ZUSER, numlumps);// added size for the array test
 #endif
 
 	//
