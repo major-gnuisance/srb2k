@@ -639,7 +639,7 @@ static boolean D_Display(void)
 			// own additions for testing
 			char s[50];
 			static DWORD prev_t = 0;
-			DWORD curr_t = I_TimeMillisDebug();
+			DWORD curr_t = I_GetTimeMillis();
 			int t_diff = curr_t - prev_t;
 			prev_t = curr_t;
 
@@ -892,7 +892,7 @@ void D_SRB2Loop(void)
 		{
 			static fixed_t oldlerp = 0;
 			fixed_t lerp = I_GetFracTime();
-			realtics = realtics * cv_playbackspeed.value + FixedMul(lerp, cv_playbackspeed.value) - FixedMul(oldlerp, cv_playbackspeed.value);
+			realtics = realtics * cv_playbackspeed.value;// + FixedMul(lerp, cv_playbackspeed.value) - FixedMul(oldlerp, cv_playbackspeed.value);
 			oldlerp = lerp;
 		}
 
