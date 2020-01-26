@@ -1735,6 +1735,8 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *f
 		pglUseProgram(0);
 }
 
+// unfinished draw call batching
+/*
 struct PolygonArrayEntry
 {
 	FSurfaceInfo surf;
@@ -1838,6 +1840,7 @@ void wip_batch_drawpolygon(FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUINT iNu
 	memcpy(&unsortedVertexArray[unsortedVertexArraySize], pOutVerts, iNumPts * sizeof(FOutVector));
 	unsortedVertexArraySize += iNumPts;
 }
+*/
 
 // -----------------+
 // DrawPolygon      : Render a polygon, set the texture, set render mode
