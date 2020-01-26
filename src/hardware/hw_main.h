@@ -166,9 +166,11 @@ extern int hrs_spritedrawtime;
 extern int hrs_numdrawnodes;
 extern int hrs_numbspcalls;
 extern int hrs_numsprites;
+extern int hrs_numpolyobjects;
 
 
 extern consvar_t cv_test_disable_something;
+extern consvar_t cv_try_optimization;
 
 
 extern CV_PossibleValue_t granisotropicmode_cons_t[];

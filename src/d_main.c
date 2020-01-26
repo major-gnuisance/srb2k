@@ -293,7 +293,10 @@ static boolean D_Display(void)
 		UINT16 newframe = I_GetFrameReference(cv_framerate.value);
 
 		if (newframe == frame)
+		{
+			I_Sleep();// Sleep in main loop now only happens in 35 fps mode, so sleep here to avoid a full busy loop
 			return false;
+		}
 
 		frame = newframe;
 	}
@@ -693,6 +696,8 @@ static boolean D_Display(void)
 			V_DrawThinString(50, 115, V_MONOSPACE | V_BLUEMAP, s);
 			snprintf(s, sizeof s - 1, "nspr %d", hrs_numsprites);
 			V_DrawThinString(50, 125, V_MONOSPACE | V_BLUEMAP, s);
+			snprintf(s, sizeof s - 1, "npol %d", hrs_numpolyobjects);
+			V_DrawThinString(50, 135, V_MONOSPACE | V_BLUEMAP, s);
 		}
 
 		if (cv_dynamicres.value && rendermode == render_soft)
@@ -898,8 +903,7 @@ void D_SRB2Loop(void)
 
 		if (!realtics && !singletics)// ?? if no tic progression has happened
 		{
-			I_Sleep();
-
+			//I_Sleep();//test
 			if (cv_framerate.value != 35 && gamestate == GS_LEVEL)
 			{
 				if (rendertimeout == entertic+TICRATE/17)
@@ -938,6 +942,8 @@ void D_SRB2Loop(void)
 						M_DoScreenShot();
 				}
 			}
+			else
+				I_Sleep();// only sleep in 35 fps mode. Frame rate cap has a separate sleep
 
 			continue;
 		}

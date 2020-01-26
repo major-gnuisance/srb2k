@@ -1557,6 +1557,7 @@ void R_RegisterEngineStuff(void)
 	CV_RegisterVar(&cv_grwireframe);
 	
 	CV_RegisterVar(&cv_test_disable_something);
+	CV_RegisterVar(&cv_try_optimization);
 
 #ifdef HWRENDER
 	if (rendermode != render_soft && rendermode != render_none)

@@ -1735,6 +1735,110 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *f
 		pglUseProgram(0);
 }
 
+struct PolygonArrayEntry
+{
+	FSurfaceInfo surf;
+	unsigned int vertsIndex;// location of verts in unsortedVertexArray
+	FUINT numVerts;
+	FBITFIELD polyFlags;
+	GLuint texNum;
+	GLuint shader;
+};
+
+FOutVector* finalVertexArray = NULL;// contains subset of sorted vertices and texture coordinates to be sent to gpu
+unsigned int* finalVertexIndexArray = NULL;// contains indexes for glDrawElements, taking into account fan->triangles conversion
+//     NOTE have this alloced as 3x finalVertexArray size
+GLubyte* colorArray = NULL;// contains color data to be sent to gpu, if needed
+int colorArrayAllocSize = 65536;
+
+PolygonArrayEntry* polygonArray = NULL;// contains the polygon data from DrawPolygon, waiting to be processed
+int polygonArraySize = 0;
+unsigned int* polygonIndexArray = NULL;// contains sorting pointers for polygonArray
+int polygonArrayAllocSize = 65536;
+
+FOutVector unsortedVertexArray = NULL;// contains unsorted vertices and texture coordinates from DrawPolygon
+int unsortedVertexArraySize = 0;
+int unsortedVertexArrayAllocSize = 65536;
+
+void wip_draw_batches()
+{
+	// init polygonIndexArray
+	for (int i = 0; i < polygonArraySize; i++)
+	{
+		polygonIndexArray[i] = i;
+	}
+
+	// sort polygons
+	qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygons);// TODO comparePolygons
+
+	int finalVertexWritePos = 0;// position in finalVertexArray
+	int finalIndexWritePos = 0;// position in finalVertexIndexArray
+	int colorArrayWritePos = 0;// position in colorArray
+
+	int polygonReadPos = 0;// position in polygonIndexArray
+
+	GLuint currentShader = polygonArray[polygonIndexArray[0]].shader;
+	boolean changeShader = true;
+	GLuint currentTexture = polygonArray[polygonIndexArray[0]].texNum;
+	boolean changeTexture = true;
+	FBITFIELD currentPolyFlags = polygonArray[polygonIndexArray[0]].polyFlags;
+	boolean changePolyFlags = true;
+	// TODO check what to do with surf.fadecolor, maybe track and sort it and set shader uniforms when it changes
+	// note: polycolor also used in shaders, would also need to do same stuff for that
+	// vertex attributes might be usable for this (?) but would have to change the shader code
+	while (1)// note: remember handling notexture polyflag as having texture number 0 (also in comparePolygons)
+	{
+		// write polygon data to finalVertexArray
+		// write color data to colorArray *if needed*
+		
+		// check next polygon, does it have changes, if does then set the change*d* booleans
+		// somehow check if we're done with the polygon array
+		// use the previous change booleans to set opengl state for draw call
+		// execute draw call
+		// reset write positions
+		// move change*d* booleans to change booleans
+		// update currentTexture and currentPolyFlags as needed
+	}
+	// reset the arrays (set sizes to 0)
+}
+
+void wip_batch_drawpolygon(FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUINT iNumPts, FBITFIELD PolyFlags)
+{
+	// TODO init the arrays, maybe in the gl init code
+	if (polygonArraySize == polygonArrayAllocSize)
+	{
+		// ran out of space, make new array double the size
+		polygonArrayAllocSize *= 2;
+		PolygonArrayEntry* new_array = Z_Malloc(polygonArrayAllocSize * sizeof(PolygonArrayEntry), PU_STATIC, NULL);
+		memcpy(new_array, polygonArray, polygonArraySize * sizeof(PolygonArrayEntry));
+		Z_Free(polygonArray);
+		polygonArray = new_array;
+		// also need to redo the index array, dont need to copy it though
+		Z_Free(polygonIndexArray);
+		polygonIndexArray = Z_Malloc(polygonArrayAllocSize * sizeof(unsigned int), PU_STATIC, NULL);
+	}
+
+	if (unsortedVertexArraySize + iNumPts > unsortedVertexArrayAllocSize)
+	{
+		// need more space for vertices in unsortedVertexArray
+		unsortedVertexArrayAllocSize *= 2;
+		FOutVector* new_array = Z_Alloc(unsortedVertexArrayAllocSize * sizeof(FOutVector), PU_STATIC, NULL);
+		memcpy(new_array, unsortedVertexArray, unsortedVertexArraySize * sizeof(FOutVector));
+		Z_Free(unsortedVertexArray);
+		unsortedVertexArray = new_array;
+	}	
+
+	polygonArray[polygonArraySize].surf = *pSurf;
+	polygonArray[polygonArraySize].vertsIndex = vertexArraySize;
+	polygonArray[polygonArraySize].numVerts = iNumPts;
+	polygonArray[polygonArraySize].polyFlags = PolyFlags
+	polygonArray[polygonArraySize].texNum = batch_current_texture;// TODO this var
+	polygonArraySize++;
+
+	memcpy(&unsortedVertexArray[unsortedVertexArraySize], pOutVerts, iNumPts * sizeof(FOutVector));
+	unsortedVertexArraySize += iNumPts;
+}
+
 // -----------------+
 // DrawPolygon      : Render a polygon, set the texture, set render mode
 // -----------------+
@@ -1774,7 +1878,7 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 	pglVertexPointer(3, GL_FLOAT, sizeof(FOutVector), &pOutVerts[0].x);
 	pglTexCoordPointer(2, GL_FLOAT, sizeof(FOutVector), &pOutVerts[0].s);
 	pglDrawArrays(GL_TRIANGLE_FAN, 0, iNumPts);
-
+/*
 	if (PolyFlags & PF_RemoveYWrap)
 		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
@@ -1782,7 +1886,7 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 		Clamp2D(GL_TEXTURE_WRAP_S);
 
 	if (PolyFlags & PF_ForceWrapY)
-		Clamp2D(GL_TEXTURE_WRAP_T);
+		Clamp2D(GL_TEXTURE_WRAP_T);*/// test: remove these and see if they are important
 
 #ifdef GL_SHADERS
 	//pglUseProgram(0);// test: removed this, trying to improve performance
