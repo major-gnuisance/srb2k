@@ -109,6 +109,10 @@ void *hwSym(const char *funcName,void *handle)
 
 	GETFUNC(LoadCustomShader);
 	GETFUNC(InitCustomShaders);
+	
+	// batching
+	GETFUNC(StartBatching);
+	GETFUNC(RenderBatches);
 
 #else //HWRENDER
 	if (0 == strcmp("FinishUpdate", funcName))

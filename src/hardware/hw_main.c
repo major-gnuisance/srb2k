@@ -97,6 +97,7 @@ int hrs_numpolyobjects = 0;
 
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_try_optimization = {"try_optimization", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // used to make it so that skybox drawing is not taken into account
 // thought the stats could overwrite on that but not sure ...
@@ -4972,6 +4973,7 @@ void HWR_SetViewSize(void)
 // ==========================================================================
 void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean do_stats)
 {
+	//CONS_Printf("RenderFrame begin\n");
 	angle_t a1;
 	const float fpov = FIXED_TO_FLOAT(cv_fov.value+player->fovadd);
 	postimg_t *postprocessor = &postimgtype[0];
@@ -5090,13 +5092,17 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	else
 		HWD.pfnSetSpecialState(HWD_SET_FOG_MODE, 0); // Turn it off
 
+	//CONS_Printf("About to call StartBatching\n");
+	if (cv_enable_batching.value)
+		HWD.pfnStartBatching();
+	
 	drawcount = 0;
 	validcount++;
 
 	if (do_stats) hrs_bsptime = I_GetTimeMillis();
 	hrs_numpolyobjects = 0;
 	// Recursively "render" the BSP tree.
-	if (cv_try_optimization.value)
+	if (cv_try_optimization.value)// should probably remove this optimization attempt since batching now exists
 	{
 		// try rendering in separate phases, to reduce opengl state changes
 		gr_render_phase = RENDER_PHASE_WALL_TP_POLY;
@@ -5135,6 +5141,9 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	}
 
 	if (do_stats) hrs_bsptime = I_GetTimeMillis() - hrs_bsptime;
+	
+	if (cv_enable_batching.value)
+		HWD.pfnRenderBatches();
 
 	// Check for new console commands.
 	NetUpdate();
