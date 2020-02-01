@@ -168,6 +168,16 @@ extern int hrs_numbspcalls;
 extern int hrs_numsprites;
 extern int hrs_numpolyobjects;
 
+// render stats for batching
+extern int hrs_numpolys;
+extern int hrs_numcalls;
+extern int hrs_numshaders;
+extern int hrs_numtextures;
+extern int hrs_numpolyflags;
+extern int hrs_numcolors;
+extern int hrs_batchsorttime;
+extern int hrs_batchdrawtime;
+
 
 extern consvar_t cv_test_disable_something;
 extern consvar_t cv_try_optimization;

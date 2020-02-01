@@ -95,6 +95,16 @@ int hrs_numbspcalls = 0;
 int hrs_numsprites = 0;
 int hrs_numpolyobjects = 0;
 
+// render stats for batching
+int hrs_numpolys = 0;
+int hrs_numcalls = 0;
+int hrs_numshaders = 0;
+int hrs_numtextures = 0;
+int hrs_numpolyflags = 0;
+int hrs_numcolors = 0;
+int hrs_batchsorttime = 0;
+int hrs_batchdrawtime = 0;
+
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_try_optimization = {"try_optimization", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -5143,7 +5153,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	if (do_stats) hrs_bsptime = I_GetTimeMillis() - hrs_bsptime;
 	
 	if (cv_enable_batching.value)
-		HWD.pfnRenderBatches();
+		HWD.pfnRenderBatches(&hrs_numpolys, &hrs_numcalls, &hrs_numshaders, &hrs_numtextures, &hrs_numpolyflags, &hrs_numcolors, &hrs_batchsorttime, &hrs_batchdrawtime);
 
 	// Check for new console commands.
 	NetUpdate();

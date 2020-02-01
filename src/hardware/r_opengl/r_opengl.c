@@ -1794,7 +1794,14 @@ static int comparePolygons(const void *p1, const void *p2)
 	int diff;
 	INT64 diff64;
 	
-	diff = poly1->shader - poly2->shader;
+	int shader1 = poly1->shader;
+	int shader2 = poly2->shader;
+	// make skywalls first in order
+	if (poly1->polyFlags & PF_NoTexture)
+		shader1 = -1;
+	if (poly2->polyFlags & PF_NoTexture)
+		shader2 = -1;
+	diff = shader1 - shader2;
 	if (diff != 0) return diff;
 	
 	diff = poly1->texNum - poly2->texNum;
@@ -1812,10 +1819,20 @@ static int comparePolygons(const void *p1, const void *p2)
 	return diff;
 }
 
-EXPORT void HWRAPI(RenderBatches) (void)
+// the parameters for this functions (numPolys etc.) are used to return rendering stats
+EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime)
 {
 	//CONS_Printf("RenderBatches\n");
 	gl_batching = false;// no longer collecting batches
+	if (!polygonArraySize)
+	{
+		*sNumPolys = *sNumCalls = *sNumShaders = *sNumTextures = *sNumPolyFlags = *sNumColors = 0;
+		return;// nothing to draw
+	}
+	// init stats vars
+	*sNumPolys = polygonArraySize;
+	*sNumCalls = 0;
+	*sNumShaders = *sNumTextures = *sNumPolyFlags = *sNumColors = 1;
 	// init polygonIndexArray
 	for (int i = 0; i < polygonArraySize; i++)
 	{
@@ -1824,7 +1841,9 @@ EXPORT void HWRAPI(RenderBatches) (void)
 
 	// sort polygons
 	//CONS_Printf("qsort polys\n");
+	*sSortTime = I_GetTimeMillis();// Using this function gives a compiler warning but works anyway...
 	qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygons);
+	*sSortTime = I_GetTimeMillis() - *sSortTime;
 	//CONS_Printf("sort done\n");
 	// sort order
 	// 1. shader
@@ -1832,6 +1851,8 @@ EXPORT void HWRAPI(RenderBatches) (void)
 	// 3. polyflags
 	// 4. colors + light level
 	// not sure about order of last 2, or if it even matters
+
+	*sDrawTime = I_GetTimeMillis();
 
 	int finalVertexWritePos = 0;// position in finalVertexArray
 	int finalIndexWritePos = 0;// position in finalVertexIndexArray
@@ -1868,6 +1889,8 @@ EXPORT void HWRAPI(RenderBatches) (void)
 	
 	load_shaders(&currentSurfaceInfo, &firstMix, &firstFade);
 	
+	if (currentPolyFlags & PF_NoTexture)
+		currentTexture = 0;
 	pglBindTexture(GL_TEXTURE_2D, currentTexture);
 	tex_downloaded = currentTexture;
 	
@@ -1995,6 +2018,8 @@ EXPORT void HWRAPI(RenderBatches) (void)
 			// reset write positions
 			finalVertexWritePos = 0;
 			finalIndexWritePos = 0;
+			// update stats
+			(*sNumCalls)++;
 		}
 		else continue;
 		
@@ -2027,6 +2052,8 @@ EXPORT void HWRAPI(RenderBatches) (void)
 			load_shaders(&nextSurfaceInfo, &mix, &fade);
 			currentShader = nextShader;
 			changeShader = false;
+
+			(*sNumShaders)++;
 		}
 		if (changeTexture)
 		{
@@ -2035,12 +2062,16 @@ EXPORT void HWRAPI(RenderBatches) (void)
 			tex_downloaded = nextTexture;
 			currentTexture = nextTexture;
 			changeTexture = false;
+
+			(*sNumTextures)++;
 		}
 		if (changePolyFlags)
 		{
 			SetBlend(nextPolyFlags);
 			currentPolyFlags = nextPolyFlags;
 			changePolyFlags = false;
+
+			(*sNumPolyFlags)++;
 		}
 		if (changeSurfaceInfo)
 		{
@@ -2065,12 +2096,16 @@ EXPORT void HWRAPI(RenderBatches) (void)
 			load_shaders(&nextSurfaceInfo, &mix, &fade);
 			currentSurfaceInfo = nextSurfaceInfo;
 			changeSurfaceInfo = false;
+
+			(*sNumColors)++;
 		}
 		// and that should be it?
 	}
 	// reset the arrays (set sizes to 0)
 	polygonArraySize = 0;
 	unsortedVertexArraySize = 0;
+	
+	*sDrawTime = I_GetTimeMillis() - *sDrawTime;
 }
 
 // -----------------+

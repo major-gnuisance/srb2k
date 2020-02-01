@@ -674,30 +674,52 @@ static boolean D_Display(void)
 			hrs_prevframetime = I_GetTimeMillis();
 			
 			snprintf(s, sizeof s - 1, "ft   %d", frametime);
-			V_DrawThinString(50, 20, V_MONOSPACE | V_YELLOWMAP, s);
+			V_DrawThinString(30, 10, V_MONOSPACE | V_YELLOWMAP, s);
 			snprintf(s, sizeof s - 1, "rtot %d", hrs_rendercalltime);
-			V_DrawThinString(50, 30, V_MONOSPACE | V_YELLOWMAP, s);
-			snprintf(s, sizeof s - 1, "bsp  %d", hrs_bsptime);
-			V_DrawThinString(50, 40, V_MONOSPACE | V_YELLOWMAP, s);
-			snprintf(s, sizeof s - 1, "ntot %d", hrs_nodetime);
-			V_DrawThinString(50, 50, V_MONOSPACE | V_YELLOWMAP, s);
-			snprintf(s, sizeof s - 1, "nsrt %d", hrs_nodesorttime);
-			V_DrawThinString(50, 60, V_MONOSPACE | V_YELLOWMAP, s);
-			snprintf(s, sizeof s - 1, "ndrw %d", hrs_nodedrawtime);
-			V_DrawThinString(50, 70, V_MONOSPACE | V_YELLOWMAP, s);
-			snprintf(s, sizeof s - 1, "ssrt %d", hrs_spritesorttime);
-			V_DrawThinString(50, 80, V_MONOSPACE | V_YELLOWMAP, s);
-			snprintf(s, sizeof s - 1, "sdrw %d", hrs_spritedrawtime);
-			V_DrawThinString(50, 90, V_MONOSPACE | V_YELLOWMAP, s);
+			V_DrawThinString(30, 20, V_MONOSPACE | V_YELLOWMAP, s);
+			if (rendermode == render_opengl)// dont show unimplemented stats
+			{
+				snprintf(s, sizeof s - 1, "bsp  %d", hrs_bsptime);
+				V_DrawThinString(30, 30, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "nsrt %d", hrs_nodesorttime);
+				V_DrawThinString(30, 40, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "ndrw %d", hrs_nodedrawtime);
+				V_DrawThinString(30, 50, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "ssrt %d", hrs_spritesorttime);
+				V_DrawThinString(30, 60, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "sdrw %d", hrs_spritedrawtime);
+				V_DrawThinString(30, 70, V_MONOSPACE | V_YELLOWMAP, s);
 
-			snprintf(s, sizeof s - 1, "nbsp %d", hrs_numbspcalls);
-			V_DrawThinString(50, 105, V_MONOSPACE | V_BLUEMAP, s);
-			snprintf(s, sizeof s - 1, "nnod %d", hrs_numdrawnodes);
-			V_DrawThinString(50, 115, V_MONOSPACE | V_BLUEMAP, s);
-			snprintf(s, sizeof s - 1, "nspr %d", hrs_numsprites);
-			V_DrawThinString(50, 125, V_MONOSPACE | V_BLUEMAP, s);
-			snprintf(s, sizeof s - 1, "npol %d", hrs_numpolyobjects);
-			V_DrawThinString(50, 135, V_MONOSPACE | V_BLUEMAP, s);
+				snprintf(s, sizeof s - 1, "nbsp %d", hrs_numbspcalls);
+				V_DrawThinString(75, 10, V_MONOSPACE | V_BLUEMAP, s);
+				snprintf(s, sizeof s - 1, "nnod %d", hrs_numdrawnodes);
+				V_DrawThinString(75, 20, V_MONOSPACE | V_BLUEMAP, s);
+				snprintf(s, sizeof s - 1, "nspr %d", hrs_numsprites);
+				V_DrawThinString(75, 30, V_MONOSPACE | V_BLUEMAP, s);
+				snprintf(s, sizeof s - 1, "npob %d", hrs_numpolyobjects);
+				V_DrawThinString(75, 40, V_MONOSPACE | V_BLUEMAP, s);
+
+				if (cv_enable_batching.value)
+				{
+					snprintf(s, sizeof s - 1, "bsrt %d", hrs_batchsorttime);
+					V_DrawThinString(130, 10, V_MONOSPACE | V_REDMAP, s);
+					snprintf(s, sizeof s - 1, "bdrw %d", hrs_batchdrawtime);
+					V_DrawThinString(130, 20, V_MONOSPACE | V_REDMAP, s);
+
+					snprintf(s, sizeof s - 1, "npol %d", hrs_numpolys);
+					V_DrawThinString(130, 35, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "ndc  %d", hrs_numcalls);
+					V_DrawThinString(130, 45, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "nshd %d", hrs_numshaders);
+					V_DrawThinString(130, 55, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "ntex %d", hrs_numtextures);
+					V_DrawThinString(130, 65, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "npf  %d", hrs_numpolyflags);
+					V_DrawThinString(130, 75, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "ncol %d", hrs_numcolors);
+					V_DrawThinString(130, 85, V_MONOSPACE | V_PURPLEMAP, s);
+				}
+			}
 		}
 
 		if (cv_dynamicres.value && rendermode == render_soft)
