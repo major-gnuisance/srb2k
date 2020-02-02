@@ -128,4 +128,6 @@ extern hudinfo_t hudinfo[NUMHUDITEMS];
 
 extern UINT16 objectsdrawn;
 
+extern consvar_t cv_lessflicker;
+
 #endif
