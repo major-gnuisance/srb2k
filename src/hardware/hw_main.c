@@ -3743,8 +3743,48 @@ static inline void HWR_DrawPrecipitationSprite(gr_vissprite_t *spr)
 // --------------------------------------------------------------------------
 static gr_vissprite_t gr_vsprsortedhead;
 
+gr_vissprite_t* gr_vsprorder[MAXVISSPRITES];
+
+// A further improved sort would probably only sort the transparent sprites
+// and put them to the end of the list and leave the opaque sprites unsorted.
+// For more correct transparency the transparent sprites would need to be
+// sorted and drawn together with transparent surfaces.
+static int CompareVisSprites(const void *p1, const void *p2)
+{
+	gr_vissprite_t* spr1 = *(gr_vissprite_t**)p1;
+	gr_vissprite_t* spr2 = *(gr_vissprite_t**)p2;
+	int idiff;
+	float fdiff;
+	
+	// make transparent sprites last
+	// "boolean to int"
+	int transparency1 = (spr1->mobj->flags2 & MF2_SHADOW) || (spr1->mobj->frame & FF_TRANSMASK);
+	int transparency2 = (spr2->mobj->flags2 & MF2_SHADOW) || (spr2->mobj->frame & FF_TRANSMASK);
+	idiff = transparency1 - transparency2;
+	if (idiff != 0) return idiff;
+
+	fdiff = spr2->tz - spr1->tz;// todo check if this order is correct
+	if (fabsf(fdiff) < 1.0E-36f)
+		return spr1->dispoffset - spr2->dispoffset;
+	else if (fdiff > 0)
+		return 1;
+	else
+		return -1;
+}
+
 static void HWR_SortVisSprites(void)
 {
+	// new sort
+	for (int i = 0; i < gr_visspritecount; i++)
+	{
+		gr_vsprorder[i] = HWR_GetVisSprite(i);
+	}
+	qsort(gr_vsprorder, gr_visspritecount, sizeof(gr_vissprite_t*), CompareVisSprites);
+
+
+	
+	// old sort
+/*
 	UINT32 i;
 	gr_vissprite_t *ds, *dsprev, *dsnext, *dsfirst;
 	gr_vissprite_t *best = NULL;
@@ -3830,7 +3870,7 @@ static void HWR_SortVisSprites(void)
 		}
 		else
 			best = best->next;
-	}
+	}*/
 }
 
 // A drawnode is something that points to a 3D floor, 3D side, or masked
@@ -4325,6 +4365,32 @@ void HWR_RenderDrawNodes(void)
 // --------------------------------------------------------------------------
 void HWR_DrawSprites(void)
 {
+	// new draw for pointer array produced by new sort
+	for (int i = 0; i < gr_visspritecount; i++)
+	{
+		gr_vissprite_t *spr;
+		spr = gr_vsprorder[i];
+		if (spr->precip)
+			HWR_DrawPrecipitationSprite(spr);
+		else
+			if (spr->mobj && spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
+			{
+				// 8/1/19: Only don't display player models if no default SPR_PLAY is found.
+				if (!cv_grmdls.value || ((md2_playermodels[(skin_t*)spr->mobj->skin-skins].notfound || md2_playermodels[(skin_t*)spr->mobj->skin-skins].scale < 0.0f) && ((!cv_grfallbackplayermodel.value) || md2_models[SPR_PLAY].notfound || md2_models[SPR_PLAY].scale < 0.0f)))
+					HWR_DrawSprite(spr);
+				else
+					HWR_DrawMD2(spr);
+			}
+			else
+			{
+				if (!cv_grmdls.value || md2_models[spr->mobj->sprite].notfound || md2_models[spr->mobj->sprite].scale < 0.0f)
+					HWR_DrawSprite(spr);
+				else
+					HWR_DrawMD2(spr);
+			}
+	}
+	// old draw for linked list produced by old sort
+/*
 	if (gr_visspritecount > 0)
 	{
 		gr_vissprite_t *spr;
@@ -4353,7 +4419,7 @@ void HWR_DrawSprites(void)
 						HWR_DrawMD2(spr);
 				}
 		}
-	}
+	}*/
 }
 
 // --------------------------------------------------------------------------
