@@ -1819,6 +1819,32 @@ static int comparePolygons(const void *p1, const void *p2)
 	return diff;
 }
 
+static int comparePolygonsNoShaders(const void *p1, const void *p2)
+{
+	PolygonArrayEntry* poly1 = &polygonArray[*(unsigned int*)p1];
+	PolygonArrayEntry* poly2 = &polygonArray[*(unsigned int*)p2];
+	int diff;
+	INT64 diff64;
+	
+	GLuint texNum1 = poly1->texNum;
+	GLuint texNum2 = poly2->texNum;
+	if (poly1->polyFlags & PF_NoTexture)
+		texNum1 = 0;
+	if (poly2->polyFlags & PF_NoTexture)
+		texNum2 = 0;
+	diff = texNum1 - texNum2;
+	if (diff != 0) return diff;
+	
+	diff = poly1->polyFlags - poly2->polyFlags;
+	if (diff != 0) return diff;
+	
+	diff64 = poly1->surf.PolyColor.rgba - poly2->surf.PolyColor.rgba;
+	if (diff64 < 0) return -1; else if (diff64 > 0) return 1;
+
+	return 0;
+}
+
+
 // the parameters for this functions (numPolys etc.) are used to return rendering stats
 EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime)
 {
@@ -1842,7 +1868,10 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	// sort polygons
 	//CONS_Printf("qsort polys\n");
 	*sSortTime = I_GetTimeMillis();// Using this function gives a compiler warning but works anyway...
-	qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygons);
+	if (gl_allowshaders)
+		qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygons);
+	else
+		qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygonsNoShaders);
 	*sSortTime = I_GetTimeMillis() - *sSortTime;
 	//CONS_Printf("sort done\n");
 	// sort order
@@ -1887,7 +1916,8 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	firstFade.blue  = byte2float[currentSurfaceInfo.FadeColor.s.blue];
 	firstFade.alpha = byte2float[currentSurfaceInfo.FadeColor.s.alpha];
 	
-	load_shaders(&currentSurfaceInfo, &firstMix, &firstFade);
+	if (gl_allowshaders)
+		load_shaders(&currentSurfaceInfo, &firstMix, &firstFade);
 	
 	if (currentPolyFlags & PF_NoTexture)
 		currentTexture = 0;
@@ -1993,12 +2023,23 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 				changeState = true;
 				changePolyFlags = true;
 			}
-			if (currentSurfaceInfo.PolyColor.rgba != nextSurfaceInfo.PolyColor.rgba ||
-				currentSurfaceInfo.FadeColor.rgba != nextSurfaceInfo.FadeColor.rgba ||
-				currentSurfaceInfo.LightInfo.light_level != nextSurfaceInfo.LightInfo.light_level)
+			if (gl_allowshaders)
 			{
-				changeState = true;
-				changeSurfaceInfo = true;
+				if (currentSurfaceInfo.PolyColor.rgba != nextSurfaceInfo.PolyColor.rgba ||
+					currentSurfaceInfo.FadeColor.rgba != nextSurfaceInfo.FadeColor.rgba ||
+					currentSurfaceInfo.LightInfo.light_level != nextSurfaceInfo.LightInfo.light_level)
+				{
+					changeState = true;
+					changeSurfaceInfo = true;
+				}
+			}
+			else
+			{
+				if (currentSurfaceInfo.PolyColor.rgba != nextSurfaceInfo.PolyColor.rgba)
+				{
+					changeState = true;
+					changeSurfaceInfo = true;
+				}
 			}
 		}
 		
@@ -2087,13 +2128,16 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 				mix.alpha  = byte2float[nextSurfaceInfo.PolyColor.s.alpha];
 				pglColor4ubv((GLubyte*)&nextSurfaceInfo.PolyColor.s);
 			}
-			// Fade color
-			fade.red   = byte2float[nextSurfaceInfo.FadeColor.s.red];
-			fade.green = byte2float[nextSurfaceInfo.FadeColor.s.green];
-			fade.blue  = byte2float[nextSurfaceInfo.FadeColor.s.blue];
-			fade.alpha = byte2float[nextSurfaceInfo.FadeColor.s.alpha];
-			
-			load_shaders(&nextSurfaceInfo, &mix, &fade);
+			if (gl_allowshaders)
+			{
+				// Fade color
+				fade.red   = byte2float[nextSurfaceInfo.FadeColor.s.red];
+				fade.green = byte2float[nextSurfaceInfo.FadeColor.s.green];
+				fade.blue  = byte2float[nextSurfaceInfo.FadeColor.s.blue];
+				fade.alpha = byte2float[nextSurfaceInfo.FadeColor.s.alpha];
+				
+				load_shaders(&nextSurfaceInfo, &mix, &fade);
+			}
 			currentSurfaceInfo = nextSurfaceInfo;
 			changeSurfaceInfo = false;
 
