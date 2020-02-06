@@ -15,7 +15,12 @@
 #define __R_MAIN__
 
 #include "d_player.h"
+#include "p_local.h"
 #include "r_data.h"
+
+// trying out mix and match frame interp code
+extern tic_t prev_tics;
+
 
 //
 // POV related.
@@ -67,6 +72,11 @@ subsector_t *R_PointInSubsector(fixed_t x, fixed_t y);
 subsector_t *R_IsPointInSubsector(fixed_t x, fixed_t y);
 
 boolean R_DoCulling(line_t *cullheight, line_t *viewcullheight, fixed_t vz, fixed_t bottomh, fixed_t toph);
+
+void R_LerpMobjPosition(mobj_t *mo, vector3_t *pos);
+void R_LerpCameraPosition(camera_t *thiscam, vector3_t *pos);
+#define R_LerpAngle(ob, var) ({int32_t diff = (ob)->var - (ob)->lerp.var; (ob)->var + FixedMul(diff, lerp_fractic);})
+#define R_LerpAngleVar(a, b) ((a) + FixedMul((int32_t)((b) - (a)), lerp_fractic))
 
 //
 // REFRESH - the actual rendering functions.

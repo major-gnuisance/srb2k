@@ -53,8 +53,8 @@
 #define MAXVIDWIDTH 640
 #define MAXVIDHEIGHT 480
 #else
-#define MAXVIDWIDTH 1920 // don't set this too high because actually
-#define MAXVIDHEIGHT 1200 // lots of tables are allocated with the MAX size.
+#define MAXVIDWIDTH 2560//1920 // don't set this too high because actually
+#define MAXVIDHEIGHT 1440//1200 // lots of tables are allocated with the MAX size.
 #endif
 #define BASEVIDWIDTH 320 // NEVER CHANGE THIS! This is the original
 #define BASEVIDHEIGHT 200 // resolution of the graphics.
@@ -79,6 +79,10 @@ typedef struct viddef_s
 	INT32 bpp; // BYTES per pixel: 1 = 256color, 2 = highcolor
 
 	INT32 baseratio; // Used to get the correct value for lighting walls
+
+	INT32 pickedwidth, pickedheight; // Actual chosen video size, for dynamic res
+	INT32 pickeddup; // dupx/dupy of picked size
+	float yscale; // Y scale of resolution when distorted by dynamic res
 
 	// for Win32 version
 	DNWH WndParent; // handle of the application's window
@@ -159,6 +163,11 @@ extern INT32 scr_bpp;
 extern UINT8 *scr_borderpatch; // patch used to fill the view borders
 
 extern consvar_t cv_scr_width, cv_scr_height, cv_scr_depth, cv_renderview, cv_fullscreen, cv_vhseffect, cv_shittyscreen;
+extern consvar_t cv_framerate, cv_extrapolation;
+
+extern consvar_t cv_dynamicres, cv_dynamicresorder, cv_dynamicminx, cv_dynamicminy,
+	cv_dynamicdowntime, cv_dynamicdownticsover, cv_dynamicdowntictime,
+	cv_dynamicuptime, cv_dynamicupticsover, cv_dynamicuptictime;
 // wait for page flipping to end or not
 extern consvar_t cv_vidwait;
 

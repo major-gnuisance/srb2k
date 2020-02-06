@@ -31,13 +31,18 @@ struct aatree_s
 {
 	aatree_node_t	*root;
 	UINT32		flags;
+	void** array;// test: replace aa-tree functionality with arrays
+	INT32 size;//
 };
 
-aatree_t *M_AATreeAlloc(UINT32 flags)
+aatree_t *M_AATreeAlloc(UINT32 flags, INT32 size)
 {
 	aatree_t *aatree = Z_Malloc(sizeof (aatree_t), PU_STATIC, NULL);
 	aatree->root = NULL;
 	aatree->flags = flags;
+	aatree->size = size;//
+	aatree->array = Z_Calloc(sizeof(void*) * size, PU_STATIC, NULL);//
+	printf("ALLOCATED ARRAY OF SIZE %d\n", size);//
 	return aatree;
 }
 
@@ -50,9 +55,10 @@ static void M_AATreeFree_Node(aatree_node_t *node)
 
 void M_AATreeFree(aatree_t *aatree)
 {
-	if (aatree->root)
-		M_AATreeFree_Node(aatree->root);
+//	if (aatree->root)
+//		M_AATreeFree_Node(aatree->root);
 
+	Z_Free(aatree->array);//
 	Z_Free(aatree);
 }
 
@@ -127,7 +133,9 @@ static aatree_node_t *M_AATreeSet_Node(aatree_node_t *node, UINT32 flags, INT32 
 
 void M_AATreeSet(aatree_t *aatree, INT32 key, void* value)
 {
-	aatree->root = M_AATreeSet_Node(aatree->root, aatree->flags, key, value);
+	//aatree->root = M_AATreeSet_Node(aatree->root, aatree->flags, key, value);
+	if (value && (aatree->flags & AATREE_ZUSER)) Z_SetUser(value, &aatree->array[key]);//
+	else aatree->array[key] = value;//
 }
 
 // Caveat: we don't distinguish between nodes that don't exists
@@ -149,7 +157,8 @@ static void *M_AATreeGet_Node(aatree_node_t *node, INT32 key)
 
 void *M_AATreeGet(aatree_t *aatree, INT32 key)
 {
-	return M_AATreeGet_Node(aatree->root, key);
+	//return M_AATreeGet_Node(aatree->root, key);
+	return aatree->array[key];//
 }
 
 
@@ -162,6 +171,10 @@ static void M_AATreeIterate_Node(aatree_node_t *node, aatree_iter_t callback)
 
 void M_AATreeIterate(aatree_t *aatree, aatree_iter_t callback)
 {
-	if (aatree->root)
-		M_AATreeIterate_Node(aatree->root, callback);
+//	if (aatree->root)
+//		M_AATreeIterate_Node(aatree->root, callback);
+	for (INT32 i = 0; i < aatree->size; i++)//
+	{//
+		if (aatree->array[i]) callback(i, aatree->array[i]);//
+	}//
 }

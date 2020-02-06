@@ -1352,7 +1352,7 @@ static void HU_drawMiniChat(void)
 
 	for (; i>0; i--)
 	{
-		const char *msg = CHAT_WordWrap(x+2, boxw-(charwidth*2), V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_ALLOWLOWERCASE, chat_mini[i-1]);
+		char *msg = CHAT_WordWrap(x+2, boxw-(charwidth*2), V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_ALLOWLOWERCASE, chat_mini[i-1]);
 		size_t j = 0;
 		INT32 linescount = 0;
 
@@ -1394,6 +1394,8 @@ static void HU_drawMiniChat(void)
 		dy = 0;
 		dx = 0;
 		msglines += linescount+1;
+		if (msg)
+			Z_Free(msg);
 	}
 
 	y = chaty - charheight*(msglines+1);
@@ -1420,7 +1422,7 @@ static void HU_drawMiniChat(void)
 		INT32 timer = ((cv_chattime.value*TICRATE)-chat_timers[i]) - cv_chattime.value*TICRATE+9; // see below...
 		INT32 transflag = (timer >= 0 && timer <= 9) ? (timer*V_10TRANS) : 0; // you can make bad jokes out of this one.
 		size_t j = 0;
-		const char *msg = CHAT_WordWrap(x+2, boxw-(charwidth*2), V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_ALLOWLOWERCASE, chat_mini[i]); // get the current message, and word wrap it.
+		char *msg = CHAT_WordWrap(x+2, boxw-(charwidth*2), V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_ALLOWLOWERCASE, chat_mini[i]); // get the current message, and word wrap it.
 		UINT8 *colormap = NULL;
 
 		while(msg[j]) // iterate through msg
@@ -1466,6 +1468,8 @@ static void HU_drawMiniChat(void)
 		}
 		dy += charheight;
 		dx = 0;
+		if (msg)
+			Z_Free(msg);
 	}
 
 	// decrement addy and make that shit smooth:
@@ -1521,7 +1525,7 @@ static void HU_drawChatLog(INT32 offset)
 	{
 		INT32 clrflag = 0;
 		INT32 j = 0;
-		const char *msg = CHAT_WordWrap(x+2, boxw-(charwidth*2), V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_ALLOWLOWERCASE, chat_log[i]); // get the current message, and word wrap it.
+		char *msg = CHAT_WordWrap(x+2, boxw-(charwidth*2), V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_ALLOWLOWERCASE, chat_log[i]); // get the current message, and word wrap it.
 		UINT8 *colormap = NULL;
 		while(msg[j]) // iterate through msg
 		{
@@ -1561,6 +1565,8 @@ static void HU_drawChatLog(INT32 offset)
 		}
 		dy += charheight;
 		dx = 0;
+		if (msg)
+			Z_Free(msg);
 	}
 
 
@@ -1793,7 +1799,7 @@ static void HU_DrawChat_Old(void)
 	const char *ntalk = "Say: ", *ttalk = "Say-Team: ";
 	const char *talk = ntalk;
 	INT32 charwidth = 8 * con_scalefactor; //SHORT(hu_font['A'-HU_FONTSTART]->width) * con_scalefactor;
-	INT32 charheight = 8 * con_scalefactor; //SHORT(hu_font['A'-HU_FONTSTART]->height) * con_scalefactor;
+	INT32 charheight = 8 * con_yscalefactor; //SHORT(hu_font['A'-HU_FONTSTART]->height) * con_scalefactor;
 	if (teamtalk)
 	{
 		talk = ttalk;
@@ -1821,7 +1827,7 @@ static void HU_DrawChat_Old(void)
 	}
 
 	if ((strlen(w_chat) == 0 || c_input == 0) && hu_tick < 4)
-		V_DrawCharacter(HU_INPUTX+c, y+2*con_scalefactor, '_' |cv_constextsize.value | V_NOSCALESTART|t, !cv_allcaps.value);
+		V_DrawCharacter(HU_INPUTX+c, y+2*con_yscalefactor, '_' |cv_constextsize.value | V_NOSCALESTART|t, !cv_allcaps.value);
 
 	i = 0;
 	while (w_chat[i])
@@ -1831,7 +1837,7 @@ static void HU_DrawChat_Old(void)
 		{
 			INT32 cursorx = (HU_INPUTX+c+charwidth < vid.width) ? (HU_INPUTX + c + charwidth) : (HU_INPUTX); // we may have to go down.
 			INT32 cursory = (cursorx != HU_INPUTX) ? (y) : (y+charheight);
-			V_DrawCharacter(cursorx, cursory+2*con_scalefactor, '_' |cv_constextsize.value | V_NOSCALESTART|t, !cv_allcaps.value);
+			V_DrawCharacter(cursorx, cursory+2*con_yscalefactor, '_' |cv_constextsize.value | V_NOSCALESTART|t, !cv_allcaps.value);
 		}
 
 		//Hurdler: isn't it better like that?
@@ -2068,8 +2074,9 @@ static void HU_DrawCEcho(void)
 		echoptr = line;
 		echoptr++;
 	}
-
-	--cechotimer;
+	
+	if (!lerp_sameframe)
+		--cechotimer;
 }
 
 //
@@ -2130,24 +2137,27 @@ void HU_DrawSongCredits(void)
 	len = V_ThinStringWidth(str, V_ALLOWLOWERCASE|V_6WIDTHSPACE);
 	destx = (len+7);
 
-	if (cursongcredit.anim)
+	if (!lerp_sameframe)
 	{
-		if (cursongcredit.trans > 0)
-			cursongcredit.trans--;
-		if (cursongcredit.x < destx)
-			cursongcredit.x += (destx - cursongcredit.x) / 2;
-		if (cursongcredit.x > destx)
-			cursongcredit.x = destx;
-		cursongcredit.anim--;
-	}
-	else
-	{
-		if (cursongcredit.trans < NUMTRANSMAPS)
-			cursongcredit.trans++;
-		if (cursongcredit.x > 0)
-			cursongcredit.x /= 2;
-		if (cursongcredit.x < 0)
-			cursongcredit.x = 0;
+		if (cursongcredit.anim)
+		{
+			if (cursongcredit.trans > 0)
+				cursongcredit.trans--;
+			if (cursongcredit.x < destx)
+				cursongcredit.x += (destx - cursongcredit.x) / 2;
+			if (cursongcredit.x > destx)
+				cursongcredit.x = destx;
+			cursongcredit.anim--;
+		}
+		else
+		{
+			if (cursongcredit.trans < NUMTRANSMAPS)
+				cursongcredit.trans++;
+			if (cursongcredit.x > 0)
+				cursongcredit.x /= 2;
+			if (cursongcredit.x < 0)
+				cursongcredit.x = 0;
+		}
 	}
 
 	bgt = (NUMTRANSMAPS/2)+(cursongcredit.trans/2);
@@ -2170,7 +2180,7 @@ void HU_Drawer(void)
 	if (chat_on)
 	{
 		// count down the scroll timer.
-		if (chat_scrolltime > 0)
+		if (chat_scrolltime > 0 && lerp_sameframe)
 			chat_scrolltime--;
 		if (!OLDCHAT)
 			HU_DrawChat();
@@ -2200,7 +2210,10 @@ void HU_Drawer(void)
 		for (i=0; (i<chat_nummsg_min); i++)
 		{
 			if (chat_timers[i] > 0)
-				chat_timers[i]--;
+			{
+				if (!lerp_sameframe)
+					chat_timers[i]--;
+			}
 			else
 				HU_removeChatText_Mini();
 		}

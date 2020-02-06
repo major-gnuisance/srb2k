@@ -52,6 +52,9 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #endif
 #if defined (__unix__) || defined (UNIXCOMMON)
 #include <fcntl.h>
+#ifndef __MACH__
+#include <time.h>
+#endif/*__MACH__*/
 #endif
 
 #include <stdio.h>
@@ -184,6 +187,10 @@ static char returnWadPath[256];
 #include "../d_clisrv.h"
 #include "../byteptr.h"
 #endif
+
+
+// need to get prev_tics somehow
+#include "../r_main.h"
 
 /**	\brief	The JoyReset function
 
@@ -2916,9 +2923,9 @@ static p_timeGetTime pfntimeGetTime = NULL;
 // but lower precision on Windows NT
 // ---------
 
-tic_t I_GetTime(void)
+static DWORD TimeMillis(void)
 {
-	tic_t newtics = 0;
+	DWORD newtics = 0;
 
 	if (!starttickcount) // high precision timer
 	{
@@ -2938,7 +2945,7 @@ tic_t I_GetTime(void)
 
 		if (frequency.LowPart && QueryPerformanceCounter(&currtime))
 		{
-			newtics = (INT32)((currtime.QuadPart - basetime.QuadPart) * NEWTICRATE
+			newtics = (INT32)((currtime.QuadPart - basetime.QuadPart) * 1000
 				/ frequency.QuadPart);
 		}
 		else if (pfntimeGetTime)
@@ -2946,13 +2953,20 @@ tic_t I_GetTime(void)
 			currtime.LowPart = pfntimeGetTime();
 			if (!basetime.LowPart)
 				basetime.LowPart = currtime.LowPart;
-			newtics = ((currtime.LowPart - basetime.LowPart)/(1000/NEWTICRATE));
+			newtics = ((currtime.LowPart - basetime.LowPart));
 		}
 	}
 	else
-		newtics = (GetTickCount() - starttickcount)/(1000/NEWTICRATE);
+		newtics = (GetTickCount() - starttickcount);
 
 	return newtics;
+}
+
+tic_t I_GetTime(void)
+{
+	//return TimeMillis() / (1000/NEWTICRATE);
+	// how about this
+	return (TimeMillis() * NEWTICRATE) / 1000;
 }
 
 static void I_ShutdownTimer(void)
@@ -2968,27 +2982,79 @@ static void I_ShutdownTimer(void)
 	}
 }
 #else
+#ifndef __MACH__
+struct timespec clk_basetime;
+
+static int TimeMillis(void)
+{
+	struct timespec ts;
+	int ms;
+
+	/* clock_gettime won't fail if its arguments are correct */
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	/* nanoseconds to milliseconds */
+	ms  = ( ts.tv_nsec - clk_basetime.tv_nsec )/ 1000000;
+	ms +=   ts.tv_sec  * 1000;
+
+	return ms;
+}
+#endif/*__MACH__*/
+
+
 //
 // I_GetTime
 // returns time in 1/TICRATE second tics
 //
 tic_t I_GetTime (void)
 {
-	static Uint64 basetime = 0;
-		   Uint64 ticks = SDL_GetTicks();
+//	static Uint64 basetime = 0;
+		   Uint64 ticks = TimeMillis();//SDL_GetTicks();
 
-	if (!basetime)
-		basetime = ticks;
+//	if (!basetime)
+//		basetime = ticks;
 
-	ticks -= basetime;
+//	ticks -= basetime;
 
-	ticks = (ticks*TICRATE);
+	ticks = (ticks*NEWTICRATE);
 
 	ticks = (ticks/1000);
 
 	return (tic_t)ticks;
 }
 #endif
+
+#ifndef __MACH__
+/*fixed_t I_GetFracTime(void)
+{
+	return TimeMillis() % (1000/NEWTICRATE) * (FRACUNIT / NEWTICRATE);
+}*/
+// how about this
+fixed_t I_GetFracTime(void)
+{
+	Uint64 ticks;
+	Uint64 prevticks;
+	fixed_t frac;
+
+	ticks = TimeMillis();
+	prevticks = prev_tics * 1000 / TICRATE;
+
+	frac = FixedDiv((ticks - prevticks) * FRACUNIT, (int)lroundf((1.f/TICRATE)*1000 * FRACUNIT));
+	return frac > FRACUNIT ? FRACUNIT : frac;
+}
+
+
+int I_GetTimeMillis(void)
+{
+	return TimeMillis();
+}
+
+
+UINT16 I_GetFrameReference(UINT16 fps)
+{
+	return (TimeMillis() % 1000) * fps / 1000;
+}
+#endif/*__MACH__*/
 
 //
 //I_StartupTimer
@@ -3011,6 +3077,8 @@ void I_StartupTimer(void)
 		pfntimeGetTime = (p_timeGetTime)GetProcAddress(winmm, "timeGetTime");
 	}
 	I_AddExitFunc(I_ShutdownTimer);
+#else
+	clock_gettime(CLOCK_MONOTONIC, &clk_basetime);
 #endif
 }
 
@@ -3646,7 +3714,7 @@ const char *I_LocateWad(void)
 	I_OutputMsg("Looking for WADs in: ");
 	waddir = locateWad();
 	I_OutputMsg("\n");
-
+/*// removed the chdir so it does not try to write to it. Seems like the game still works fine without this
 	if (waddir)
 	{
 		// change to the directory where we found srb2.srb
@@ -3656,7 +3724,7 @@ const char *I_LocateWad(void)
 		if (chdir(waddir) == -1)
 			I_OutputMsg("Couldn't change working directory\n");
 #endif
-	}
+	}*/
 	return waddir;
 }
 

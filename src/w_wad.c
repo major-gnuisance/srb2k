@@ -206,6 +206,7 @@ static inline void W_LoadDehackedLumpsPK3(UINT16 wadnum)
 			LUA_LoadLump(wadnum, posStart);
 	}
 #endif
+
 	posStart = W_CheckNumForFolderStartPK3("SOC/", wadnum, 0);
 	if (posStart != INT16_MAX)
 	{
@@ -222,7 +223,6 @@ static inline void W_LoadDehackedLumpsPK3(UINT16 wadnum)
 			DEH_LoadDehackedLumpPwad(wadnum, posStart);
 			free(name);
 		}
-
 	}
 }
 
@@ -924,7 +924,7 @@ UINT16 W_InitFile(const char *filename, const char *lumpname, UINT16 *wadnump)
 
 #ifdef HWRENDER
 		// allocates GLPatch info structures and store them in a tree
-		wadfile->hwrcache = M_AATreeAlloc(AATREE_ZUSER);
+		wadfile->hwrcache = M_AATreeAlloc(AATREE_ZUSER, numlumps);// added size for the array test
 #endif
 	}
 
@@ -944,19 +944,24 @@ UINT16 W_InitFile(const char *filename, const char *lumpname, UINT16 *wadnump)
 			(*wadnump) = numwadfiles;
 		numwadfiles++; // must come BEFORE W_LoadDehackedLumps, so any addfile called by COM_BufInsertText called by Lua doesn't overwrite what we just loaded
 
-		// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
-		switch (wadfile->type)
-		{
-			case RET_WAD:
-				W_LoadDehackedLumps(numwadfiles - 1);
-				break;
-			case RET_PK3:
-				W_LoadDehackedLumpsPK3(numwadfiles - 1);
-				break;
-			case RET_SOC:
-				CONS_Printf(M_GetText("Loading SOC from %s\n"), wadfile->filename);
-				DEH_LoadDehackedLumpPwad(numwadfiles - 1, 0);
-				break;
+#ifdef HWRENDER
+	if (rendermode == render_opengl)
+		HWR_LoadShaders(numwadfiles - 1, (wadfile->type == RET_PK3));
+#endif
+
+	// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
+	switch (wadfile->type)
+	{
+	case RET_WAD:
+		W_LoadDehackedLumps(numwadfiles - 1);
+		break;
+	case RET_PK3:
+		W_LoadDehackedLumpsPK3(numwadfiles - 1);
+		break;
+	case RET_SOC:
+		CONS_Printf(M_GetText("Loading SOC from %s\n"), wadfile->filename);
+		DEH_LoadDehackedLumpPwad(numwadfiles - 1, 0);
+		break;
 #ifdef HAVE_BLUA
 			case RET_LUA:
 				LUA_LoadLump(numwadfiles - 1, 0);
@@ -1745,6 +1750,7 @@ void *W_CachePatchName(const char *name, INT32 tag)
 		return W_CachePatchNum(W_GetNumForName("MISSING"), tag);
 	return W_CachePatchNum(num, tag);
 }
+
 #ifndef NOMD5
 
 /**
@@ -1934,11 +1940,14 @@ int W_VerifyNMUSlumps(const char *filename)
 		{"RRINGS", 6}, // Rings HUD (not named as SBO)
 		{"YB_", 3}, // Intermission graphics, goes with the above
 		{"M_", 2}, // As does menu stuff
-
 		{"MKFNT", 5}, // Kart font changes
 		{"K_", 2}, // Kart graphic changes
 		{"MUSICDEF", 8}, // Kart song definitions
 
+#ifdef HWRENDER
+		{"SHADERS", 7},
+		{"SH_", 3},
+#endif
 		{NULL, 0},
 	};
 	return W_VerifyFile(filename, NMUSlist, false);

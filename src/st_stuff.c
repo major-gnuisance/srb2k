@@ -170,6 +170,9 @@ hudinfo_t hudinfo[NUMHUDITEMS] =
 	{ 240, 160}, // HUD_LAP
 };
 
+
+consvar_t cv_lessflicker = {"lessflicker", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
 //
 // STATUS BAR CODE
 //
@@ -203,7 +206,7 @@ void ST_Ticker(void)
 }
 
 // 0 is default, any others are special palettes.
-static INT32 st_palette = 0;
+INT32 st_palette = 0;
 
 void ST_doPaletteStuff(void)
 {
@@ -614,9 +617,7 @@ static void ST_drawDebugInfo(void)
 	}
 
 	if (cv_debug & DBG_MEMORY)
-	{
 		V_DrawRightAlignedString(320, height,     V_MONOSPACE, va("Heap used: %7sKB", sizeu1(Z_TagsUsage(0, INT32_MAX)>>10)));
-	}
 }
 
 /*
@@ -2039,8 +2040,6 @@ static void ST_overlayDrawer(void)
 			break;
 		}
 	}
-
-	ST_drawDebugInfo();
 }
 
 void ST_DrawDemoTitleEntry(void)
@@ -2076,7 +2075,11 @@ void ST_DrawDemoTitleEntry(void)
 // MayonakaStatic: draw Midnight Channel's TV-like borders
 static void ST_MayonakaStatic(void)
 {
-	INT32 flag = (leveltime%2) ? V_90TRANS : V_70TRANS;
+	INT32 flag;
+	if (cv_lessflicker.value)
+		flag = V_70TRANS;
+	else
+		flag = (leveltime%2) ? V_90TRANS : V_70TRANS;
 
 	V_DrawFixedPatch(0, 0, FRACUNIT, V_SNAPTOTOP|V_SNAPTOLEFT|flag, hud_tv1, NULL);
 	V_DrawFixedPatch(320<<FRACBITS, 0, FRACUNIT, V_SNAPTOTOP|V_SNAPTORIGHT|V_FLIP|flag, hud_tv1, NULL);
@@ -2142,4 +2145,5 @@ void ST_Drawer(void)
 		else
 			V_DrawFadeScreen(120, 15-timeinmap); // Then gradually fade out from there
 	}
+	ST_drawDebugInfo();
 }

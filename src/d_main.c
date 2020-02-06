@@ -76,6 +76,9 @@ int	snprintf(char *str, size_t n, const char *fmt, ...);
 #include "keys.h"
 #include "filesrch.h" // refreshdirmenu
 
+// for render stats
+#include "hardware/hw_main.h"
+
 #ifdef CMAKECONFIG
 #include "config.h"
 #else
@@ -180,6 +183,7 @@ void D_PostEvent_end(void) {};
 #endif
 
 // modifier keys
+// Now handled in I_OsPolling
 UINT8 shiftdown = 0; // 0x1 left, 0x2 right
 UINT8 ctrldown = 0; // 0x1 left, 0x2 right
 UINT8 altdown = 0; // 0x1 left, 0x2 right
@@ -226,9 +230,6 @@ void D_ProcessEvents(void)
 	{
 		ev = &events[eventtail];
 
-		// Set global shift/ctrl/alt down variables
-		D_ModifierKeyResponder(ev); // never eats events
-
 		// Screenshots over everything so that they can be taken anywhere.
 		if (M_ScreenshotResponder(ev))
 			continue; // ate the event
@@ -269,18 +270,40 @@ void D_ProcessEvents(void)
 // added comment : there is a wipe eatch change of the gamestate
 gamestate_t wipegamestate = GS_LEVEL;
 
-static void D_Display(void)
+// added this debug var
+boolean h_debug_var = false;
+
+static boolean D_Display(void)
 {
 	boolean forcerefresh = false;
 	static boolean wipe = false;
 	INT32 wipedefindex = 0;
 	UINT8 i;
+	INT16 startms = 0; // dynamic res
 
 	if (dedicated)
-		return;
+		return false;
 
 	if (nodrawers)
-		return; // for comparative timing/profiling
+		return false; // for comparative timing/profiling
+
+	if (cv_framerate.value != 35 && cv_framerate.value != 1000)
+	{
+		static UINT16 frame = 0;
+		UINT16 newframe = I_GetFrameReference(cv_framerate.value);
+
+		if (newframe == frame)
+		{
+			I_Sleep();// Sleep in main loop now only happens in 35 fps mode, so sleep here to avoid a full busy loop
+			return false;
+		}
+
+		frame = newframe;
+	}
+
+	// dynamic res profiling
+	if (cv_dynamicres.value && rendermode == render_soft)
+		startms = I_GetFrameReference(1000);
 
 	// check for change of screen size (video mode)
 	if (setmodeneeded && !wipe)
@@ -423,6 +446,7 @@ static void D_Display(void)
 		// draw the view directly
 		if (cv_renderview.value && !automapactive)
 		{
+			hrs_rendercalltime = I_GetTimeMillis();
 			for (i = 0; i <= splitscreen; i++)
 			{
 				if (players[displayplayers[i]].mo || players[displayplayers[i]].playerstate == PST_DEAD)
@@ -447,7 +471,7 @@ static void D_Display(void)
 					{
 						if (i > 0) // Splitscreen-specific
 						{
-							switch (i) 
+							switch (i)
 							{
 								case 1:
 									if (splitscreen > 1)
@@ -475,7 +499,7 @@ static void D_Display(void)
 									break;
 							}
 
-							
+
 							topleft = screens[0] + viewwindowy*vid.width + viewwindowx;
 						}
 
@@ -495,6 +519,7 @@ static void D_Display(void)
 						V_DoPostProcessor(i, postimgtype[i], postimgparam[i]);
 				}
 			}
+			hrs_rendercalltime = I_GetTimeMillis() - hrs_rendercalltime;
 		}
 
 		if (lastdraw)
@@ -574,6 +599,8 @@ static void D_Display(void)
 	//
 	if (!wipe)
 	{
+		boolean scaling = false;
+
 		if (cv_netstat.value)
 		{
 			char s[50];
@@ -593,20 +620,242 @@ static void D_Display(void)
 
 		if (cv_shittyscreen.value)
 			V_DrawVhsEffect(cv_shittyscreen.value == 2);
+/*
+		{
+			// lerp time graph
+			static fixed_t graph[120];
+			static boolean sameframe[120];
+			static UINT8 index = 0;
+			UINT8 i, j;
+
+			index++; index %= 120;
+			graph[index] = lerp_fractic;
+			sameframe[index] = lerp_sameframe;
+
+			for (i = (index+1)%120, j = 0; j < 120; i = (i+1)%120, j++)
+			{
+				V_DrawFill(j, 100 - FixedMul(max(graph[i], graph[(i+119)%120]), 100), 1, FixedMul(abs(graph[i] - graph[(i+119)%120]), 100), 10);
+				V_DrawFill(j, 99 - FixedMul(graph[i], 100), 1, 3, sameframe[i] ? 128 : 161);
+				V_DrawFill(0, 100, 3, 1, 160);
+				V_DrawFill(0, 1, 3, 1, 159);
+			}
+			// own additions for testing
+			char s[50];
+			static DWORD prev_t = 0;
+			DWORD curr_t = I_GetTimeMillis();
+			int t_diff = curr_t - prev_t;
+			prev_t = curr_t;
+
+			static fixed_t prev_ft = 0;// prev lerp fractic
+			fixed_t curr_ft = lerp_fractic;
+			fixed_t ft_diff = curr_ft - prev_ft;
+			prev_ft = curr_ft;
+
+			s[sizeof s - 1] = '\0';
+			snprintf(s, sizeof s - 1, "diff %d", t_diff);
+			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-ST_HEIGHT-50, V_YELLOWMAP, s);
+			snprintf(s, sizeof s - 1, "%d", lerp_fractic);
+			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-ST_HEIGHT-60, V_YELLOWMAP, s);
+
+			if (t_diff == 0)
+				CONS_Printf("t Diff was zero!\n");
+			if (t_diff < 0)
+				CONS_Printf("t Diff was negative!\n");
+
+			if (ft_diff == 0)
+				CONS_Printf("ft diff zero! t diff %d, h_debug_var %s\n", t_diff, h_debug_var ? "TRUE" : "FALSE");
+		}
+*/
+		// render stats
+		if (cv_hrenderstats.value)
+		{
+			char s[50];
+			int frametime = I_GetTimeMillis() - hrs_prevframetime;
+			hrs_prevframetime = I_GetTimeMillis();
+			
+			snprintf(s, sizeof s - 1, "ft   %d", frametime);
+			V_DrawThinString(30, 10, V_MONOSPACE | V_YELLOWMAP, s);
+			snprintf(s, sizeof s - 1, "rtot %d", hrs_rendercalltime);
+			V_DrawThinString(30, 20, V_MONOSPACE | V_YELLOWMAP, s);
+			if (rendermode == render_opengl)// dont show unimplemented stats
+			{
+				snprintf(s, sizeof s - 1, "bsp  %d", hrs_bsptime);
+				V_DrawThinString(30, 30, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "nsrt %d", hrs_nodesorttime);
+				V_DrawThinString(30, 40, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "ndrw %d", hrs_nodedrawtime);
+				V_DrawThinString(30, 50, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "ssrt %d", hrs_spritesorttime);
+				V_DrawThinString(30, 60, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "sdrw %d", hrs_spritedrawtime);
+				V_DrawThinString(30, 70, V_MONOSPACE | V_YELLOWMAP, s);
+
+				snprintf(s, sizeof s - 1, "nbsp %d", hrs_numbspcalls);
+				V_DrawThinString(75, 10, V_MONOSPACE | V_BLUEMAP, s);
+				snprintf(s, sizeof s - 1, "nnod %d", hrs_numdrawnodes);
+				V_DrawThinString(75, 20, V_MONOSPACE | V_BLUEMAP, s);
+				snprintf(s, sizeof s - 1, "nspr %d", hrs_numsprites);
+				V_DrawThinString(75, 30, V_MONOSPACE | V_BLUEMAP, s);
+				snprintf(s, sizeof s - 1, "npob %d", hrs_numpolyobjects);
+				V_DrawThinString(75, 40, V_MONOSPACE | V_BLUEMAP, s);
+
+				if (cv_enable_batching.value)
+				{
+					snprintf(s, sizeof s - 1, "bsrt %d", hrs_batchsorttime);
+					V_DrawThinString(130, 10, V_MONOSPACE | V_REDMAP, s);
+					snprintf(s, sizeof s - 1, "bdrw %d", hrs_batchdrawtime);
+					V_DrawThinString(130, 20, V_MONOSPACE | V_REDMAP, s);
+
+					snprintf(s, sizeof s - 1, "npol %d", hrs_numpolys);
+					V_DrawThinString(130, 35, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "ndc  %d", hrs_numcalls);
+					V_DrawThinString(130, 45, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "nshd %d", hrs_numshaders);
+					V_DrawThinString(130, 55, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "ntex %d", hrs_numtextures);
+					V_DrawThinString(130, 65, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "npf  %d", hrs_numpolyflags);
+					V_DrawThinString(130, 75, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "ncol %d", hrs_numcolors);
+					V_DrawThinString(130, 85, V_MONOSPACE | V_PURPLEMAP, s);
+				}
+			}
+		}
+
+		if (cv_dynamicres.value && rendermode == render_soft)
+		{
+			// DYNAMIC RES STUFF
+			static boolean downscale[30], upscale[30];
+			static UINT8 downscalei = 0, upscalei = 0;
+			UINT8 i, downscalecount = 0, upscalecount = 0;
+
+			startms = I_GetFrameReference(1000) - startms;
+			if (startms < 0)
+				startms += 1000;
+
+			downscale[downscalei] = startms > cv_dynamicdowntime.value;
+			upscale[upscalei] = startms < cv_dynamicuptime.value;
+			downscalei++; upscalei++;
+			downscalei %= cv_dynamicdowntictime.value;
+			upscalei %= cv_dynamicuptictime.value;
+
+			for (i = 0; i < cv_dynamicdowntictime.value; i++)
+				if (downscale[i])
+					downscalecount++;
+
+			for (i = 0; i < cv_dynamicuptictime.value; i++)
+				if (upscale[i])
+					upscalecount++;
+
+			if (cv_dynamicres.value == 2)
+			{
+				V_DrawString(2, 2, V_SNAPTOLEFT|V_SNAPTOTOP|V_ALLOWLOWERCASE, va("Dyn. Res: %4dx%4d (Set Res: %4dx%4d)", vid.width, vid.height, vid.pickedwidth, vid.pickedheight));
+				V_DrawString(44, 12, V_SNAPTOLEFT|V_SNAPTOTOP|V_ALLOWLOWERCASE, va("Frame Time: %2d (%2dD %2dU)", startms, downscalecount, upscalecount));
+			}
+
+			I_FinishUpdate(); // page flip or blit buffer
+
+			if (downscalecount >= cv_dynamicdownticsover.value)
+			{
+				// DOWNSCALE
+				memset(downscale, 0, sizeof downscale);
+				scaling = true;
+
+				switch (cv_dynamicresorder.value)
+				{
+				case 0: // X then Y
+					if (vid.dupx > cv_dynamicminx.value)
+						vid.dupx--;
+					else if (vid.dupy > cv_dynamicminy.value)
+						vid.dupy--;
+					else
+						scaling = false;
+					break;
+
+				case 1: // Alternating
+					if (vid.dupx >= vid.dupy && vid.dupx > cv_dynamicminx.value)
+						vid.dupx--;
+					else if (vid.dupy > cv_dynamicminy.value)
+						vid.dupy--;
+					else
+						scaling = false;
+					break;
+
+				case 2: // Square pixels
+				default:
+					if (vid.dupx > cv_dynamicminx.value)
+						vid.dupx--;
+					else
+						scaling = false;
+					vid.dupy = vid.dupx;
+					break;
+				}
+			}
+			else if (upscalecount >= cv_dynamicupticsover.value)
+			{
+				// UPSCALE
+				memset(upscale, 0, sizeof upscale);
+				scaling = true;
+
+				switch (cv_dynamicresorder.value)
+				{
+				case 0: // X then Y
+					if (vid.dupy < vid.pickeddup)
+						vid.dupy++;
+					else if (vid.dupx < vid.pickeddup)
+						vid.dupx++;
+					else
+						scaling = false;
+					break;
+
+				case 1: // Alternating
+					if (vid.dupy <= vid.dupx && vid.dupy < vid.pickeddup)
+						vid.dupy++;
+					else if (vid.dupx < vid.pickeddup)
+						vid.dupx++;
+					else
+						scaling = false;
+					break;
+
+				case 2: // Square pixels
+				default:
+					if (vid.dupx < vid.pickeddup)
+						vid.dupx++;
+					else
+						scaling = false;
+					vid.dupy = vid.dupx;
+					break;
+				}
+			}
+		} else
 
 		I_FinishUpdate(); // page flip or blit buffer
+
+		if (scaling)
+		{
+			vid.width = vid.pickedwidth * vid.dupx / vid.pickeddup;
+			vid.height = vid.pickedheight * vid.dupy / vid.pickeddup;
+			vid.yscale = vid.dupy / (float) vid.dupx;
+			VID_SetMode(-1);
+			R_SetViewSize();
+		}
 	}
+
+	return true;
 }
 
 // =========================================================================
 // D_SRB2Loop
 // =========================================================================
 
+tic_t lerp_currenttic = 0; fixed_t lerp_fractic; boolean lerp_sameframe;
 tic_t rendergametic;
 
 void D_SRB2Loop(void)
 {
 	tic_t oldentertics = 0, entertic = 0, realtics = 0, rendertimeout = INFTICS;
+	// init frame time var
+	hrs_prevframetime = I_GetTimeMillis();
 
 	if (dedicated)
 		server = true;
@@ -666,11 +915,62 @@ void D_SRB2Loop(void)
 				debugload--;
 #endif
 
-		if (!realtics && !singletics)
+		if (demo.playback && gamestate == GS_LEVEL)
 		{
-			I_Sleep();
+			static fixed_t oldlerp = 0;
+			fixed_t lerp = I_GetFracTime();
+			realtics = realtics * cv_playbackspeed.value;// + FixedMul(lerp, cv_playbackspeed.value) - FixedMul(oldlerp, cv_playbackspeed.value);
+			oldlerp = lerp;
+		}
+
+		if (!realtics && !singletics)// ?? if no tic progression has happened
+		{
+			//I_Sleep();//test
+			if (cv_framerate.value != 35 && gamestate == GS_LEVEL)
+			{
+				if (rendertimeout == entertic+TICRATE/17)
+				{
+					h_debug_var = true;
+					fixed_t old = lerp_fractic;
+
+					if (demo.playback && gamestate == GS_LEVEL)
+						lerp_fractic = (I_GetFracTime() * cv_playbackspeed.value) % FRACUNIT - cv_extrapolation.value;
+					else
+						lerp_fractic = I_GetFracTime() - cv_extrapolation.value;
+
+					//if (lerp_fractic < old)
+						//CONS_Printf("lerp_fractic < old\n");
+					int i = 0;
+					while (lerp_fractic < old)
+					{
+						i++;
+						//CONS_Printf("Increment lerp_fractic by fu, i %d\n", i);
+						lerp_fractic += FRACUNIT;
+						//break;// test: always only do once
+					}
+				}
+				else
+				{
+					h_debug_var = false;
+				}
+
+				if (D_Display())
+				{
+					lerp_sameframe = true;
+
+					if (moviemode)
+						M_SaveFrame();
+					if (takescreenshot) // Only take screenshots after drawing.
+						M_DoScreenShot();
+				}
+			}
+			else
+				I_Sleep();// only sleep in 35 fps mode. Frame rate cap has a separate sleep
+
 			continue;
 		}
+
+		lerp_sameframe = false;
 
 #ifdef HW3SOUND
 		HW3S_BeginFrameUpdate();
@@ -690,21 +990,37 @@ void D_SRB2Loop(void)
 			rendertimeout = entertic+TICRATE/17;
 
 			// Update display, next frame, with current state.
-			D_Display();
+			if (cv_framerate.value == 35)
+				lerp_fractic = 0;
+			else if (demo.playback && gamestate == GS_LEVEL)
+				lerp_fractic = (I_GetFracTime() * cv_playbackspeed.value) % FRACUNIT - cv_extrapolation.value;
+			else
+				lerp_fractic = I_GetFracTime() - cv_extrapolation.value;
+			if (D_Display())
+			{
+				lerp_sameframe = true;
 
-			if (moviemode)
-				M_SaveFrame();
-			if (takescreenshot) // Only take screenshots after drawing.
-				M_DoScreenShot();
+				if (moviemode)
+					M_SaveFrame();
+				if (takescreenshot) // Only take screenshots after drawing.
+					M_DoScreenShot();
+			}
 		}
 		else if (rendertimeout < entertic) // in case the server hang or netsplit
 		{
-			D_Display();
+			lerp_fractic = FRACUNIT - cv_extrapolation.value;
 
-			if (moviemode)
-				M_SaveFrame();
-			if (takescreenshot) // Only take screenshots after drawing.
-				M_DoScreenShot();
+			if (D_Display())
+			{
+				lerp_sameframe = true;
+
+				//CONS_Printf("Hang part got run!\n");
+
+				if (moviemode)
+					M_SaveFrame();
+				if (takescreenshot) // Only take screenshots after drawing.
+					M_DoScreenShot();
+			}
 		}
 
 		// consoleplayer -> displayplayers (hear sounds from viewpoint)
@@ -1328,6 +1644,15 @@ void D_SRB2Main(void)
 
 	CONS_Printf("I_StartupGraphics()...\n");
 	I_StartupGraphics();
+
+#ifdef HWRENDER
+	if (rendermode == render_opengl)
+	{
+		INT32 i;
+		for (i = 0; i < numwadfiles; i++)
+			HWR_LoadShaders(i, (wadfiles[i]->type == RET_PK3));
+	}
+#endif
 
 	//--------------------------------------------------------- CONSOLE
 	// setup loading screen
