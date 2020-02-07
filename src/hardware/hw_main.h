@@ -183,6 +183,8 @@ extern consvar_t cv_test_disable_something;
 extern consvar_t cv_try_optimization;
 extern consvar_t cv_enable_batching;
 
+extern consvar_t cv_enable_screen_textures;
+
 
 extern CV_PossibleValue_t granisotropicmode_cons_t[];
 

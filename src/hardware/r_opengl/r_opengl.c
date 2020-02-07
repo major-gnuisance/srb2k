@@ -561,6 +561,8 @@ static INT32 gl_test_disable_something = 0;
 
 static boolean gl_batching = false;// are we currently collecting batches?
 
+static INT32 gl_enable_screen_textures = 1;
+
 // 13062019
 typedef enum
 {
@@ -2272,6 +2274,10 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 			pglPolygonMode(GL_FRONT_AND_BACK, Value ? GL_LINE : GL_FILL);
 			break;
 		
+		case HWD_SET_SCREEN_TEXTURES:
+			gl_enable_screen_textures = Value;
+			break;
+		
 		case HWD_SET_TEST_DISABLE_SOMETHING:
 			gl_test_disable_something = Value;
 			break;
@@ -2820,6 +2826,7 @@ EXPORT INT32  HWRAPI(GetTextureUsed) (void)
 
 EXPORT void HWRAPI(PostImgRedraw) (float points[SCREENVERTS][SCREENVERTS][2])
 {
+	if (!gl_enable_screen_textures) return;
 	INT32 x, y;
 	float float_x, float_y, float_nextx, float_nexty;
 	float xfix, yfix;
@@ -3148,6 +3155,7 @@ EXPORT void HWRAPI(DoScreenWipe)(void)
 // Create a texture from the screen.
 EXPORT void HWRAPI(MakeScreenTexture) (void)
 {
+	if (!gl_enable_screen_textures) return;
 	//INT32 texsize = 2048;
 	INT32 texsize = 512;
 	boolean firstTime = (screentexture == 0);
@@ -3185,6 +3193,7 @@ EXPORT void HWRAPI(MakeScreenTexture) (void)
 
 EXPORT void HWRAPI(RenderVhsEffect) (INT16 upbary, INT16 downbary, UINT8 updistort, UINT8 downdistort, UINT8 barsize)
 {
+	if (!gl_enable_screen_textures) return;
 	//INT32 texsize = 2048;
 	INT32 texsize = 512;
 	float xfix, yfix;
@@ -3298,6 +3307,7 @@ EXPORT void HWRAPI(RenderVhsEffect) (INT16 upbary, INT16 downbary, UINT8 updisto
 
 EXPORT void HWRAPI(MakeScreenFinalTexture) (void)
 {
+	if (!gl_enable_screen_textures) return;
 	//INT32 texsize = 2048;
 	INT32 texsize = 512;
 	boolean firstTime = (finalScreenTexture == 0);
@@ -3335,6 +3345,7 @@ EXPORT void HWRAPI(MakeScreenFinalTexture) (void)
 
 EXPORT void HWRAPI(DrawScreenFinalTexture)(int width, int height)
 {
+	if (!gl_enable_screen_textures) return;
 	float xfix, yfix;
 	float origaspect, newaspect;
 	float xoff = 1, yoff = 1; // xoffset and yoffset for the polygon to have black bars around the screen

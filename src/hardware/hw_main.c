@@ -109,6 +109,9 @@ consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, 
 consvar_t cv_try_optimization = {"try_optimization", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
+static void CV_screentextures_ONChange(void);
+consvar_t cv_enable_screen_textures = {"gr_screen_textures", "On", CV_CALL, CV_OnOff, CV_screentextures_ONChange, 0, NULL, NULL, 0, 0, NULL};
+
 // used to make it so that skybox drawing is not taken into account
 // thought the stats could overwrite on that but not sure ...
 boolean hrs_do_stats = false;
@@ -121,6 +124,12 @@ static void CV_filtermode_ONChange(void)
 static void CV_anisotropic_ONChange(void)
 {
 	HWD.pfnSetSpecialState(HWD_SET_TEXTUREANISOTROPICMODE, cv_granisotropicmode.value);
+}
+
+
+static void CV_screentextures_ONChange(void)
+{
+	HWD.pfnSetSpecialState(HWD_SET_SCREEN_TEXTURES, cv_enable_screen_textures.value);
 }
 
 // ==========================================================================
@@ -5261,7 +5270,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 		HWD.pfnSetSpecialState(HWD_SET_TEST_DISABLE_SOMETHING, 0);
 
 	// Run post processor effects
-	if (!skybox)
+	if (!skybox && cv_enable_screen_textures.value)
 		HWR_DoPostProcessor(player);
 
 	// Check for new console commands.

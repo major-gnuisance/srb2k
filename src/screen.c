@@ -428,7 +428,7 @@ boolean SCR_IsAspectCorrect(INT32 width, INT32 height)
 // XMOD FPS display
 // moved out of os-specific code for consistency
 #define FPSRATE 20
-static uint8_t fpsgraph[FPSRATE];
+static uint16_t fpsgraph[FPSRATE];
 static tic_t lasttic, totaltics;
 
 void SCR_DisplayTicRate(void)
