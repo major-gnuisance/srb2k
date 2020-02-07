@@ -1848,6 +1848,7 @@ static int comparePolygonsNoShaders(const void *p1, const void *p2)
 // the parameters for this functions (numPolys etc.) are used to return rendering stats
 EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime)
 {
+	int i;
 	//CONS_Printf("RenderBatches\n");
 	gl_batching = false;// no longer collecting batches
 	if (!polygonArraySize)
@@ -1860,7 +1861,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	*sNumCalls = 0;
 	*sNumShaders = *sNumTextures = *sNumPolyFlags = *sNumColors = 1;
 	// init polygonIndexArray
-	for (int i = 0; i < polygonArraySize; i++)
+	for (i = 0; i < polygonArraySize; i++)
 	{
 		polygonIndexArray[i] = i;
 	}

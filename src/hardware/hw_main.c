@@ -3774,8 +3774,9 @@ static int CompareVisSprites(const void *p1, const void *p2)
 
 static void HWR_SortVisSprites(void)
 {
+	int i;
 	// new sort
-	for (int i = 0; i < gr_visspritecount; i++)
+	for (i = 0; i < gr_visspritecount; i++)
 	{
 		gr_vsprorder[i] = HWR_GetVisSprite(i);
 	}
@@ -4365,8 +4366,9 @@ void HWR_RenderDrawNodes(void)
 // --------------------------------------------------------------------------
 void HWR_DrawSprites(void)
 {
+	int i;
 	// new draw for pointer array produced by new sort
-	for (int i = 0; i < gr_visspritecount; i++)
+	for (i = 0; i < gr_visspritecount; i++)
 	{
 		gr_vissprite_t *spr;
 		spr = gr_vsprorder[i];

@@ -171,9 +171,10 @@ static void M_AATreeIterate_Node(aatree_node_t *node, aatree_iter_t callback)
 
 void M_AATreeIterate(aatree_t *aatree, aatree_iter_t callback)
 {
+	INT32 i;
 //	if (aatree->root)
 //		M_AATreeIterate_Node(aatree->root, callback);
-	for (INT32 i = 0; i < aatree->size; i++)//
+	for (i = 0; i < aatree->size; i++)//
 	{//
 		if (aatree->array[i]) callback(i, aatree->array[i]);//
 	}//
