@@ -1090,7 +1090,7 @@ void Y_VoteDrawer(void)
 				sizeadd--;
 			}
 
-			if (!levelinfo[i].encore)
+			if (!levelinfo[i].encore || cv_karthideencorevote.value)
 				V_DrawSmallScaledPatch(BASEVIDWIDTH-100, y, V_SNAPTORIGHT, pic);
 			else
 			{
@@ -1114,7 +1114,7 @@ void Y_VoteDrawer(void)
 		}
 		else
 		{
-			if (!levelinfo[i].encore)
+			if (!levelinfo[i].encore || cv_karthideencorevote.value)
 				V_DrawTinyScaledPatch(BASEVIDWIDTH-60, y, V_SNAPTORIGHT, pic);
 			else
 			{
@@ -1159,7 +1159,7 @@ void Y_VoteDrawer(void)
 					V_DrawFill(x-1, y-1, 42, 27, levelinfo[votes[i]].gtc|V_SNAPTOLEFT);
 			}
 
-			if (!levelinfo[votes[i]].encore)
+			if (!levelinfo[votes[i]].encore || cv_karthideencorevote.value)
 				V_DrawTinyScaledPatch(x, y, V_SNAPTOLEFT, pic);
 			else
 			{
