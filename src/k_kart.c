@@ -576,6 +576,8 @@ void K_RegisterKartStuff(void)
 	CV_RegisterVar(&cv_kartcomeback);
 	CV_RegisterVar(&cv_kartencore);
 	CV_RegisterVar(&cv_kartvoterulechanges);
+	CV_RegisterVar(&cv_kartgametypechanges);
+	CV_RegisterVar(&cv_kartencorechance);
 	CV_RegisterVar(&cv_kartspeedometer);
 	CV_RegisterVar(&cv_kartvoices);
 	CV_RegisterVar(&cv_karteliminatelast);
@@ -4346,6 +4348,25 @@ static void K_UpdateEngineSounds(player_t *player, ticcmd_t *cmd)
 		player->kartstuff[k_enginesnd] = 0;
 	if (player->kartstuff[k_enginesnd] > 12)
 		player->kartstuff[k_enginesnd] = 12;
+
+	if (cv_playenginesounds.value == -1)
+		return;
+
+	if (!( cv_playenginesounds.value & 1 ))/* not during start */
+	{
+		if (leveltime < (starttime + (TICRATE/2)))
+			return;
+	}
+	if (!( cv_playenginesounds.value & 2 ))/* not during race */
+	{
+		if (leveltime >= (starttime + (TICRATE/2)) && !player->exiting)
+			return;
+	}
+	if (!( cv_playenginesounds.value & 4 ))/* not during finish */
+	{
+		if (player->exiting)
+			return;
+	}
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
@@ -8632,6 +8653,9 @@ static void K_drawLapStartAnim(void)
 void K_drawKartFreePlay(UINT32 flashtime)
 {
 	// no splitscreen support because it's not FREE PLAY if you have more than one player in-game
+
+	if (! cv_showfreeplay.value)
+		return;
 
 	if ((flashtime % TICRATE) < TICRATE/2)
 		return;

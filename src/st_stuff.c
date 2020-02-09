@@ -1908,7 +1908,7 @@ static void ST_overlayDrawer(void)
 				V_DrawCenteredString((BASEVIDWIDTH/2), BASEVIDHEIGHT-32, V_ALLOWLOWERCASE, player_names[stplyr-players]);
 			}
 		}
-		else if (!demo.title)
+		else if (!demo.title && cv_showviewpoint.value)
 		{
 
 			if (!splitscreen)

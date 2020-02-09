@@ -106,6 +106,13 @@ extern INT16 rw_maximums[NUM_WEAPONS];
 // used in game menu
 extern consvar_t cv_chatwidth, cv_chatnotifications, cv_chatheight, cv_chattime, cv_consolechat, cv_chatbacktint, cv_chatspamprotection/*, cv_compactscoreboard*/;
 extern consvar_t cv_songcredits;
+extern consvar_t cv_showviewpoint;
+extern consvar_t cv_showfreeplay;
+extern consvar_t cv_playendingmusic;
+extern consvar_t cv_playenginesounds;
+extern consvar_t cv_growmusic, cv_supermusic;
+extern consvar_t cv_growmusicfadein, cv_supermusicfadein, cv_defaultmusicfadein;
+extern consvar_t cv_resumemusic, cv_crossovermusic;
 extern consvar_t cv_pauseifunfocused;
 //extern consvar_t cv_crosshair, cv_crosshair2, cv_crosshair3, cv_crosshair4;
 extern consvar_t cv_invertmouse/*, cv_alwaysfreelook, cv_chasefreelook, cv_mousemove*/;
@@ -165,6 +172,27 @@ void G_PlayerReborn(INT32 player);
 void G_InitNew(UINT8 pencoremode, const char *mapname, boolean resetplayer,
 	boolean skipprecutscene);
 char *G_BuildMapTitle(INT32 mapnum);
+
+struct searchdim
+{
+	UINT8 pos;
+	UINT8 siz;
+};
+
+typedef struct
+{
+	INT16  mapnum;
+	UINT8  matchc;
+	struct searchdim *matchd;/* offset that a pattern was matched */
+	UINT8  keywhc;
+	struct searchdim *keywhd;/* ...in KEYWORD */
+	UINT8  total;/* total hits */
+}
+mapsearchfreq_t;
+
+INT32 G_FindMap(const char *query, char **foundmapnamep,
+		mapsearchfreq_t **freqp, INT32 *freqc);
+void G_FreeMapSearch(mapsearchfreq_t *freq, INT32 freqc);
 
 // XMOD spawning
 mapthing_t *G_FindCTFStart(INT32 playernum);

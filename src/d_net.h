@@ -18,6 +18,8 @@
 #ifndef __D_NET__
 #define __D_NET__
 
+#include "w_wad.h"
+
 // Max computers in a game
 #define MAXNETNODES (MAXPLAYERS+4)
 #define BROADCASTADDR MAXNETNODES
@@ -40,6 +42,10 @@ extern SINT8 nodetoplayer3[MAXNETNODES]; // Say the numplayer for this node if a
 extern SINT8 nodetoplayer4[MAXNETNODES]; // Say the numplayer for this node if any (splitscreen == 3)
 extern UINT8 playerpernode[MAXNETNODES]; // Used specially for splitscreen
 extern boolean nodeingame[MAXNETNODES]; // Set false as nodes leave game
+
+extern boolean     nodedownloadrefuse[MAXNETNODES];
+extern int         nodedownloads     [MAXNETNODES];
+extern const char *nodedownloadfiles [MAXNETNODES][MAX_WADFILES];
 
 INT32 Net_GetFreeAcks(boolean urgent);
 void Net_AckTicker(void);

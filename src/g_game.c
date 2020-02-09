@@ -450,6 +450,67 @@ consvar_t cv_pauseifunfocused = {"pauseifunfocused", "Yes", CV_SAVE, CV_YesNo, N
 // Display song credits
 consvar_t cv_songcredits = {"songcredits", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
+// Show "VIEWPOINT:" annonation on HUD
+consvar_t cv_showviewpoint = {"showviewpoint", "Yes", CV_SAVE, CV_YesNo, };
+
+// Show "FREE PLAY" when you're alone. :(
+consvar_t cv_showfreeplay = { "showfreeplay", "Yes", CV_SAVE, CV_YesNo, };
+
+// Play race finished and battle over music
+static CV_PossibleValue_t playendingmusic_cons_t[] = {{0, "Both"}, {1, "Race"}, {2,"Battle"}, {3, "Never"}, {0, NULL}};
+consvar_t cv_playendingmusic = {"playendingmusic", "Both", CV_SAVE, playendingmusic_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+// whirrrr
+static CV_PossibleValue_t playenginesounds_cons_t[] =
+{
+	{0, "Never"},
+	{1, "Rev"},
+	{2, "Race"},
+	{3, "Rev+Race"},
+	{4, "Finish"},
+	{5, "Rev+Finish"},
+	{6, "Race+Finish"},
+	{7, "Always"},
+	{0, NULL}
+};
+consvar_t cv_playenginesounds = {"playenginesounds", "Always", CV_SAVE, playenginesounds_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+// We can disable special tunes!
+consvar_t cv_growmusic  = {"growmusic",  "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_supermusic = {"supermusic", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+/*
+Power-ups can fade in!
+
+I made Grow longer than Invinc. because of the shrink.
+I made Invinc. shorter than Grow because of the fast paced tune.
+*/
+
+consvar_t cv_growmusicfadein =
+{
+	"growmusicfadein", "500",
+	CV_SAVE, CV_Unsigned,
+};
+
+consvar_t cv_supermusicfadein =
+{
+	"supermusicfadein", "300",
+	CV_SAVE, CV_Unsigned,
+};
+
+/* For any other music taking over. (Probably Lua!) */
+consvar_t cv_defaultmusicfadein =
+{
+	"defaultfadein", "0",
+	CV_SAVE, CV_Unsigned,
+};
+
+/* Resume level music to the position where it was stopped. */
+consvar_t cv_resumemusic = { "resumemusic", "Yes", CV_SAVE, CV_YesNo };
+
+/* Resume from where last level's music left off, if it's the same song. */
+consvar_t cv_crossovermusic = { "crossovermusic", "Off", CV_SAVE, CV_OnOff };
+
 /*consvar_t cv_crosshair = {"crosshair", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_crosshair2 = {"crosshair2", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_crosshair3 = {"crosshair3", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -3402,26 +3463,29 @@ INT16 G_SometimesGetDifferentGametype(void)
 {
 	boolean encorepossible = (M_SecretUnlocked(SECRET_ENCORE) && G_RaceGametype());
 
-	if (!cv_kartvoterulechanges.value) // never
-		return gametype;
-
-	if (randmapbuffer[NUMMAPS] > 0 && (encorepossible || cv_kartvoterulechanges.value != 3))
+	if (( randmapbuffer[NUMMAPS] > 0 || cv_kartgametypechanges.value == 0 ) &&
+			encorepossible)
 	{
-		randmapbuffer[NUMMAPS]--;
+		if (cv_kartgametypechanges.value == 3)
+			randmapbuffer[NUMMAPS] = 0;/* may not be set from cvar change */
+		else
+			randmapbuffer[NUMMAPS]--;
+
 		if (encorepossible)
 		{
-			switch (cv_kartvoterulechanges.value)
+			switch (cv_kartencorechance.value)
 			{
 				case 3: // always
-					randmapbuffer[NUMMAPS] = 0; // gotta prep this in case it isn't already set
+					encorepossible = true;
 					break;
 				case 2: // frequent
 					encorepossible = M_RandomChance(FRACUNIT>>1);
 					break;
 				case 1: // sometimes
-				default:
 					encorepossible = M_RandomChance(FRACUNIT>>2);
 					break;
+				default:
+					encorepossible = false;
 			}
 			if (encorepossible != (boolean)cv_kartencore.value)
 				return (gametype|0x80);
@@ -3429,7 +3493,7 @@ INT16 G_SometimesGetDifferentGametype(void)
 		return gametype;
 	}
 
-	switch (cv_kartvoterulechanges.value) // okay, we're having a gametype change! when's the next one, luv?
+	switch (cv_kartgametypechanges.value) // okay, we're having a gametype change! when's the next one, luv?
 	{
 		case 3: // always
 			randmapbuffer[NUMMAPS] = 1; // every other vote (or always if !encorepossible)
@@ -3442,6 +3506,8 @@ INT16 G_SometimesGetDifferentGametype(void)
 		case 2: // frequent
 			randmapbuffer[NUMMAPS] = 2; // ...every 1/2th-ish cup?
 			break;
+		case 0: /* never */
+			return gametype;
 	}
 
 	if (gametype == GT_MATCH)
@@ -4681,6 +4747,9 @@ void G_InitNew(UINT8 pencoremode, const char *mapname, boolean resetplayer, bool
 	automapactive = false;
 	imcontinuing = false;
 
+	if (server)
+		alreadyresetdownloads = false;
+
 	if (!skipprecutscene && mapheaderinfo[gamemap-1]->precutscenenum && !modeattacking) // Start a custom cutscene.
 		F_StartCustomCutscene(mapheaderinfo[gamemap-1]->precutscenenum-1, true, resetplayer);
 	else
@@ -4744,6 +4813,190 @@ char *G_BuildMapTitle(INT32 mapnum)
 	}
 
 	return title;
+}
+
+static void measurekeywords(mapsearchfreq_t *fr,
+		struct searchdim **dimp, UINT8 *cuntp,
+		const char *s, const char *q, boolean wanttable)
+{
+	char *qp;
+	char *sp;
+	if (wanttable)
+		(*dimp) = Z_Realloc((*dimp), 255 * sizeof (struct searchdim),
+				PU_STATIC, NULL);
+	for (qp = strtok(va("%s", q), " ");
+			qp && fr->total < 255;
+			qp = strtok(0, " "))
+	{
+		if (( sp = strcasestr(s, qp) ))
+		{
+			if (wanttable)
+			{
+				(*dimp)[(*cuntp)].pos = sp - s;
+				(*dimp)[(*cuntp)].siz = strlen(qp);
+			}
+			(*cuntp)++;
+			fr->total++;
+		}
+	}
+	if (wanttable)
+		(*dimp) = Z_Realloc((*dimp), (*cuntp) * sizeof (struct searchdim),
+				PU_STATIC, NULL);
+}
+
+static void writesimplefreq(mapsearchfreq_t *fr, INT32 *frc,
+		INT32 mapnum, UINT8 pos, UINT8 siz)
+{
+	fr[(*frc)].mapnum = mapnum;
+	fr[(*frc)].matchd = ZZ_Alloc(sizeof (struct searchdim));
+	fr[(*frc)].matchd[0].pos = pos;
+	fr[(*frc)].matchd[0].siz = siz;
+	fr[(*frc)].matchc = 1;
+	fr[(*frc)].total = 1;
+	(*frc)++;
+}
+
+INT32 G_FindMap(const char *mapname, char **foundmapnamep,
+		mapsearchfreq_t **freqp, INT32 *freqcp)
+{
+	INT32 newmapnum = 0;
+	INT32 mapnum;
+	INT32 apromapnum = 0;
+
+	size_t      mapnamelen;
+	char   *realmapname = NULL;
+	char   *newmapname = NULL;
+	char   *apromapname = NULL;
+	char   *aprop = NULL;
+
+	mapsearchfreq_t *freq;
+	boolean wanttable;
+	INT32 freqc;
+	UINT8 frequ;
+
+	INT32 i;
+
+	mapnamelen = strlen(mapname);
+
+	/* Count available maps; how ugly. */
+	for (i = 0, freqc = 0; i < NUMMAPS; ++i)
+	{
+		if (mapheaderinfo[i])
+			freqc++;
+	}
+
+	freq = ZZ_Calloc(freqc * sizeof (mapsearchfreq_t));
+
+	wanttable = !!( freqp );
+
+	freqc = 0;
+	for (i = 0, mapnum = 1; i < NUMMAPS; ++i, ++mapnum)
+		if (mapheaderinfo[i])
+	{
+		if (!( realmapname = G_BuildMapTitle(mapnum) ))
+			continue;
+
+		aprop = realmapname;
+
+		/* Now that we found a perfect match no need to fucking guess. */
+		if (strnicmp(realmapname, mapname, mapnamelen) == 0)
+		{
+			if (wanttable)
+			{
+				writesimplefreq(freq, &freqc, mapnum, 0, mapnamelen);
+			}
+			if (newmapnum == 0)
+			{
+				newmapnum = mapnum;
+				newmapname = realmapname;
+				realmapname = 0;
+				Z_Free(apromapname);
+				if (!wanttable)
+					break;
+			}
+		}
+		else
+		if (apromapnum == 0 || wanttable)
+		{
+			/* LEVEL 1--match keywords verbatim */
+			if (( aprop = strcasestr(realmapname, mapname) ))
+			{
+				if (wanttable)
+				{
+					writesimplefreq(freq, &freqc,
+							mapnum, aprop - realmapname, mapnamelen);
+				}
+				if (apromapnum == 0)
+				{
+					apromapnum = mapnum;
+					apromapname = realmapname;
+					realmapname = 0;
+				}
+			}
+			else/* ...match individual keywords */
+			{
+				freq[freqc].mapnum = mapnum;
+				measurekeywords(&freq[freqc],
+						&freq[freqc].matchd, &freq[freqc].matchc,
+						realmapname, mapname, wanttable);
+				measurekeywords(&freq[freqc],
+						&freq[freqc].keywhd, &freq[freqc].keywhc,
+						mapheaderinfo[i]->keyword, mapname, wanttable);
+				if (freq[freqc].total)
+					freqc++;
+			}
+		}
+
+		Z_Free(realmapname);/* leftover old name */
+	}
+
+	if (newmapnum == 0)/* no perfect match--try a substring */
+	{
+		newmapnum = apromapnum;
+		newmapname = apromapname;
+	}
+
+	if (newmapnum == 0)/* calculate most queries met! */
+	{
+		frequ = 0;
+		for (i = 0; i < freqc; ++i)
+		{
+			if (freq[i].total > frequ)
+			{
+				frequ = freq[i].total;
+				newmapnum = freq[i].mapnum;
+			}
+		}
+		if (newmapnum)
+		{
+			newmapname = G_BuildMapTitle(newmapnum);
+		}
+	}
+
+	if (freqp)
+		(*freqp) = freq;
+	else
+		Z_Free(freq);
+
+	if (freqcp)
+		(*freqcp) = freqc;
+
+	if (foundmapnamep)
+		(*foundmapnamep) = newmapname;
+	else
+		Z_Free(newmapname);
+
+	return newmapnum;
+}
+
+void G_FreeMapSearch(mapsearchfreq_t *freq, INT32 freqc)
+{
+	INT32 i;
+	for (i = 0; i < freqc; ++i)
+	{
+		Z_Free(freq[i].matchd);
+	}
+	Z_Free(freq);
 }
 
 //
@@ -6637,7 +6890,7 @@ static void G_LoadDemoExtraFiles(UINT8 **pp)
 			}
 			else
 			{
-				P_AddWadFile(filename);
+				P_AddWadFile(filename, 0);
 			}
 		}
 	}

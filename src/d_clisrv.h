@@ -541,7 +541,8 @@ extern consvar_t
 #ifdef VANILLAJOINNEXTROUND
 	cv_joinnextround,
 #endif
-	cv_netticbuffer, cv_allownewplayer, cv_maxplayers, cv_resynchattempts, cv_blamecfail, cv_maxsend, cv_noticedownload, cv_downloadspeed;
+	cv_netticbuffer, cv_allownewplayer, cv_maxplayers, cv_resynchattempts, cv_blamecfail, cv_maxsend, cv_noticedownload, cv_downloadspeed,
+	cv_autoresetdownloads;
 
 // Used in d_net, the only dependence
 tic_t ExpandTics(INT32 low);
@@ -579,6 +580,8 @@ void D_QuitNetGame(void);
 
 //? How many ticks to run?
 void TryRunTics(tic_t realtic);
+
+void CopyCaretColors(char *p, const char *s, int n);
 
 // extra data for lmps
 // these functions scare me. they contain magic.

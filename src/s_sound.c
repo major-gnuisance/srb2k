@@ -1550,6 +1550,7 @@ static char      music_name[7]; // up to 6-character name
 static void      *music_data;
 static UINT16    music_flags;
 static boolean   music_looping;
+static UINT32    music_position;/* for resuming */
 
 static char      queue_name[7];
 static UINT16    queue_flags;
@@ -1977,7 +1978,10 @@ static void S_ChangeMusicToQueue(void)
 
 void S_ChangeMusicEx(const char *mmusic, UINT16 mflags, boolean looping, UINT32 position, UINT32 prefadems, UINT32 fadeinms)
 {
+	char oldmusic[7];
 	char newmusic[7];
+
+	boolean resume;
 
 #if defined (DC) || defined (_WIN32_WCE) || defined (PSP) || defined(GP2X)
 	S_ClearSfx();
@@ -2014,6 +2018,39 @@ void S_ChangeMusicEx(const char *mmusic, UINT16 mflags, boolean looping, UINT32 
 	}
 	else if (strnicmp(music_name, newmusic, 6) || (mflags & MUSIC_FORCERESET))
  	{
+		strcpy(oldmusic, music_name);
+
+		resume = false;
+
+		/* Set resume position for later, if we switch from map music. */
+		if (
+				strcasecmp(oldmusic, mapmusname) == 0 &&
+				strcasecmp(newmusic, mapmusname))
+		{
+			music_position = I_GetSongPosition();
+		}
+		/* Resume map music */
+		else if (
+				strcasecmp(oldmusic, mapmusname) &&
+				strcasecmp(newmusic, mapmusname) == 0)
+		{
+			if (
+					strcasecmp(oldmusic, "kinvnc") == 0)
+			{
+				fadeinms = cv_supermusicfadein.value;
+			}
+			else if (
+					strcasecmp(oldmusic, "kgrow") == 0)
+			{
+				fadeinms = cv_growmusicfadein.value;
+			}
+			else
+				fadeinms = cv_defaultmusicfadein.value;
+
+			if (cv_resumemusic.value)
+				resume = true;
+		}
+
 		CONS_Debug(DBG_DETAILED, "Now playing song %s\n", newmusic);
 
 		S_StopMusic();
@@ -2033,8 +2070,13 @@ void S_ChangeMusicEx(const char *mmusic, UINT16 mflags, boolean looping, UINT32 
 			return;
 		}
 
-		if (position)
-			I_SetSongPosition(position);
+		if (resume)
+			I_SetSongPosition(music_position);
+		else
+		{
+			if (position)
+				I_SetSongPosition(position);
+		}
 
 		I_SetSongTrack(mflags & MUSIC_TRACKMASK);
 	}
@@ -2194,6 +2236,11 @@ void S_Start(void)
 {
 	if (mapmusflags & MUSIC_RELOADRESET)
 	{
+		if (! cv_crossovermusic.value ||
+				strcasecmp(mapmusname, mapheaderinfo[gamemap-1]->musname))
+		{
+			music_position = 0;
+		}
 		strncpy(mapmusname, mapheaderinfo[gamemap-1]->musname, 7);
 		mapmusname[6] = 0;
 		mapmusflags = (mapheaderinfo[gamemap-1]->mustrack & MUSIC_TRACKMASK);

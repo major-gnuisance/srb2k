@@ -114,12 +114,15 @@ static void BaseNumLaps_OnChange(void);
 static void KartFrantic_OnChange(void);
 static void KartSpeed_OnChange(void);
 static void KartEncore_OnChange(void);
+static void KartVoteRuleChanges_OnChange(void);
 static void KartComeback_OnChange(void);
 static void KartEliminateLast_OnChange(void);
 
 #ifdef NETGAME_DEVMODE
 static void Fishcake_OnChange(void);
 #endif
+
+static void Command_resetdownloads_f (void);
 
 static void Command_Playdemo_f(void);
 static void Command_Timedemo_f(void);
@@ -133,6 +136,7 @@ static void Command_View_f (void);
 static void Command_SetViews_f(void);
 
 static void Command_Addfile(void);
+static void Command_Addmusic(void);
 static void Command_ListWADS_f(void);
 #ifdef DELFILE
 static void Command_Delfile(void);
@@ -364,7 +368,9 @@ consvar_t cv_kartfrantic = {"kartfrantic", "Off", CV_NETVAR|CV_CHEAT|CV_CALL|CV_
 consvar_t cv_kartcomeback = {"kartcomeback", "On", CV_NETVAR|CV_CHEAT|CV_CALL|CV_NOINIT, CV_OnOff, KartComeback_OnChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartencore = {"kartencore", "Off", CV_NETVAR|CV_CALL|CV_NOINIT, CV_OnOff, KartEncore_OnChange, 0, NULL, NULL, 0, 0, NULL};
 static CV_PossibleValue_t kartvoterulechanges_cons_t[] = {{0, "Never"}, {1, "Sometimes"}, {2, "Frequent"}, {3, "Always"}, {0, NULL}};
-consvar_t cv_kartvoterulechanges = {"kartvoterulechanges", "Frequent", CV_NETVAR, kartvoterulechanges_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_kartvoterulechanges = {"kartvoterulechanges", "Frequent", CV_NETVAR|CV_CALL|CV_NOINIT, kartvoterulechanges_cons_t, KartVoteRuleChanges_OnChange, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_kartgametypechanges = {"kartgametypechanges", "Frequent", 0, kartvoterulechanges_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_kartencorechance = {"kartencorechance", "Frequent", 0, kartvoterulechanges_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 static CV_PossibleValue_t kartspeedometer_cons_t[] = {{0, "Off"}, {1, "Kilometers"}, {2, "Miles"}, {3, "Fracunits"}, {0, NULL}};
 consvar_t cv_kartspeedometer = {"kartdisplayspeed", "Off", CV_SAVE, kartspeedometer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL}; // use tics in display
 static CV_PossibleValue_t kartvoices_cons_t[] = {{0, "Never"}, {1, "Tasteful"}, {2, "Meme"}, {0, NULL}};
@@ -463,12 +469,19 @@ consvar_t cv_mute = {"mute", "Off", CV_NETVAR|CV_CALL, CV_OnOff, Mute_OnChange, 
 
 consvar_t cv_sleep = {"cpusleep", "1", CV_SAVE, sleeping_cons_t, NULL, -1, NULL, NULL, 0, 0, NULL};
 
+consvar_t cv_nodownloads = { "downloadnotice", "", CV_SAVE };
+
+consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo};
+consvar_t cv_lessencorevotes = {"lessencorevotes", "No", CV_SAVE, CV_YesNo};
+
 INT16 gametype = GT_RACE; // SRB2kart
 boolean forceresetplayers = false;
 boolean deferencoremode = false;
 UINT8 splitscreen = 0;
 boolean circuitmap = true; // SRB2kart
 INT32 adminplayers[MAXPLAYERS];
+
+boolean alreadyresetdownloads;
 
 /// \warning Keep this up-to-date if you add/remove/rename net text commands
 const char *netxcmdnames[MAXNETXCMD - 1] =
@@ -553,6 +566,10 @@ void D_RegisterServerCommands(void)
 	RegisterNetXCmd(XD_MODIFYVOTE, Got_ModifyVotecmd);
 	RegisterNetXCmd(XD_PICKVOTE, Got_PickVotecmd);
 
+	COM_AddCommand("resetdownloads", Command_resetdownloads_f);
+
+	CV_RegisterVar(&cv_nodownloads);
+
 	// Remote Administration
 	CV_RegisterVar(&cv_dummyjoinpassword);
 	COM_AddCommand("joinpassword", Command_ChangeJoinPassword_f);
@@ -581,6 +598,7 @@ void D_RegisterServerCommands(void)
 	COM_AddCommand("mapmd5", Command_Mapmd5_f);
 
 	COM_AddCommand("addfile", Command_Addfile);
+	COM_AddCommand("addmusic", Command_Addmusic);
 	COM_AddCommand("listwad", Command_ListWADS_f);
 
 #ifdef DELFILE
@@ -686,6 +704,7 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_maxsend);
 	CV_RegisterVar(&cv_noticedownload);
 	CV_RegisterVar(&cv_downloadspeed);
+	CV_RegisterVar(&cv_autoresetdownloads);
 #ifndef NONET
 	CV_RegisterVar(&cv_allownewplayer);
 #ifdef VANILLAJOINNEXTROUND
@@ -710,6 +729,9 @@ void D_RegisterServerCommands(void)
 #endif
 
 	CV_RegisterVar(&cv_dummyconsvar);
+
+	CV_RegisterVar(&cv_lessbattlevotes);
+	CV_RegisterVar(&cv_lessencorevotes);
 }
 
 // =========================================================================
@@ -848,6 +870,17 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_chatnotifications);
 	CV_RegisterVar(&cv_chatbacktint);
 	CV_RegisterVar(&cv_songcredits);
+	CV_RegisterVar(&cv_showviewpoint);
+	CV_RegisterVar(&cv_showfreeplay);
+	CV_RegisterVar(&cv_playendingmusic);
+	CV_RegisterVar(&cv_playenginesounds);
+	CV_RegisterVar(&cv_growmusic);
+	CV_RegisterVar(&cv_supermusic);
+	CV_RegisterVar(&cv_growmusicfadein);
+	CV_RegisterVar(&cv_supermusicfadein);
+	CV_RegisterVar(&cv_defaultmusicfadein);
+	CV_RegisterVar(&cv_resumemusic);
+	CV_RegisterVar(&cv_crossovermusic);
 	//CV_RegisterVar(&cv_crosshair);
 	//CV_RegisterVar(&cv_crosshair2);
 	//CV_RegisterVar(&cv_crosshair3);
@@ -2361,14 +2394,33 @@ void D_SetupVote(void)
 	UINT8 buf[6*2]; // five UINT16 maps (at twice the width of a UINT8), and two gametypes
 	UINT8 *p = buf;
 	INT32 i;
-	UINT8 secondgt = G_SometimesGetDifferentGametype();
+	UINT8 gt;
+	UINT8 secondgt;
 	INT16 votebuffer[3] = {-1,-1,-1};
 
-	if (cv_kartencore.value && G_RaceGametype())
-		WRITEUINT8(p, (gametype|0x80));
+	if (cv_lessbattlevotes.value && G_BattleGametype())
+	{
+		gt = GT_RACE;
+		secondgt = GT_MATCH;
+	}
 	else
-		WRITEUINT8(p, gametype);
+	{
+		gt = gametype;
+		secondgt = G_SometimesGetDifferentGametype();
+		if (cv_lessencorevotes.value)
+		{
+			if (secondgt == GT_RACE)
+				secondgt |= 0x80;
+		}
+		else
+		{
+			if (cv_kartencore.value && G_RaceGametype())
+				gt |= 0x80;
+		}
+	}
+	WRITEUINT8(p, gt);
 	WRITEUINT8(p, secondgt);
+	gt       &= ~0x80;
 	secondgt &= ~0x80;
 
 	for (i = 0; i < 5; i++)
@@ -2377,9 +2429,9 @@ void D_SetupVote(void)
 		if (i == 2) // sometimes a different gametype
 			m = G_RandMap(G_TOLFlag(secondgt), prevmap, false, 0, true, votebuffer);
 		else if (i >= 3) // unknown-random and force-unknown MAP HELL
-			m = G_RandMap(G_TOLFlag(gametype), prevmap, false, (i-2), (i < 4), votebuffer);
+			m = G_RandMap(G_TOLFlag(gt), prevmap, false, (i-2), (i < 4), votebuffer);
 		else
-			m = G_RandMap(G_TOLFlag(gametype), prevmap, false, 0, true, votebuffer);
+			m = G_RandMap(G_TOLFlag(gt), prevmap, false, 0, true, votebuffer);
 		if (i < 3)
 			votebuffer[min(i, 2)] = m; // min() is a dumb workaround for gcc 4.4 array-bounds error
 		WRITEUINT16(p, m);
@@ -2448,27 +2500,48 @@ void D_PickVote(void)
 	SendNetXCmd(XD_PICKVOTE, &buf, 2);
 }
 
+/*
+Easy macro; declare parm_*id* and define acceptableargc; put in the parameter
+to match as a string as *name*. Set *argn* to the number of extra arguments
+following the parameter. parm_*id* is filled with the index of the parameter
+found and acceptableargc is incremented to match the macro parameters.
+Returned is whether the parameter was found.
+*/
+#define CHECKPARM( id, name, argn ) \
+( (( parm_ ## id = COM_CheckParm(name) )) &&\
+		( acceptableargc += 1 + argn ) )
+//
 // Warp to map code.
 // Called either from map <mapname> console command, or idclev cheat.
 //
+// Largely rewritten by James.
+//
 static void Command_Map_f(void)
 {
-	const char *mapname;
-	size_t i;
-	INT32 newmapnum;
-	boolean newresetplayers, newencoremode;
-	INT32 newgametype = gametype;
+	size_t acceptableargc;
+	size_t parm_force;
+	size_t parm_gametype;
+	size_t parm_encore;
+	const char *arg_gametype;
+	/* debug? */
+	size_t parm_noresetplayers;
+	boolean newresetplayers;
 
-	// max length of command: map map03 -gametype race -noresetplayers -force -encore
-	//                         1    2       3       4         5           6      7
-	// = 8 arg max
-	// i don't know whether this is intrinsic to the system or just someone being weird but
-	// "noresetplayers" is pretty useless for kart if it turns out this is too close to the limit
-	if (COM_Argc() < 2 || COM_Argc() > 8)
-	{
-		CONS_Printf(M_GetText("map <mapname> [-gametype <type> [-force]: warp to map\n"));
-		return;
-	}
+	boolean mustmodifygame;
+	boolean usemapcode = false;
+
+	INT32 newmapnum;
+
+	const char *mapname;
+	size_t      mapnamelen;
+	char   *realmapname = NULL;
+
+	INT32   newgametype   = gametype;
+	boolean newencoremode = cv_kartencore.value;
+
+	INT32 i;
+	INT32 d;
+	char *p;
 
 	if (client && !IsPlayerAdmin(consoleplayer))
 	{
@@ -2476,27 +2549,38 @@ static void Command_Map_f(void)
 		return;
 	}
 
-	// internal wad lump always: map command doesn't support external files as in doom legacy
-	if (W_CheckNumForName(COM_Argv(1)) == LUMPERROR)
+	acceptableargc = 2;/* map name */
+
+	(void)
+		(
+				CHECKPARM (force,    "-force",    0) ||
+				CHECKPARM (force,    "-f",        0)
+		);
+	(void)
+		(
+				CHECKPARM (gametype, "-gametype", 1) ||
+				CHECKPARM (gametype, "-g",        1) ||
+				CHECKPARM (gametype, "-gt",       1)
+		);
+	(void)
+		(
+				CHECKPARM (encore,   "-encore",   0) ||
+				CHECKPARM (encore,   "-en",       0) ||
+				CHECKPARM (encore,   "-e",        0)
+		);
+
+	(void)CHECKPARM (noresetplayers, "-noresetplayers", 0);
+
+	newresetplayers = !parm_noresetplayers;
+
+	mustmodifygame = !( netgame || multiplayer || majormods );
+
+	if (mustmodifygame && !parm_force)
 	{
-		CONS_Alert(CONS_ERROR, M_GetText("Internal game level '%s' not found\n"), COM_Argv(1));
+		/* May want to be more descriptive? */
+		CONS_Printf(M_GetText("Sorry, level change disabled in single player.\n"));
 		return;
 	}
-
-	if (!(netgame || multiplayer) && !majormods)
-	{
-		if (COM_CheckParm("-force"))
-		{
-			G_SetGameModified(false, true);
-		}
-		else
-		{
-			CONS_Printf(M_GetText("Sorry, level change disabled in single player.\n"));
-			return;
-		}
-	}
-
-	newresetplayers = !COM_CheckParm("-noresetplayers");
 
 	if (!newresetplayers && !cv_debug)
 	{
@@ -2504,71 +2588,124 @@ static void Command_Map_f(void)
 		return;
 	}
 
-	mapname = COM_Argv(1);
-	if (strlen(mapname) != 5
-	|| (newmapnum = M_MapNumber(mapname[3], mapname[4])) == 0)
+	if (parm_gametype && !multiplayer)
 	{
-		CONS_Alert(CONS_ERROR, M_GetText("Invalid level name %s\n"), mapname);
+		CONS_Printf(M_GetText("You can't switch gametypes in single player!\n"));
 		return;
+	}
+
+	if (COM_Argc() != acceptableargc)
+	{
+		/* I'm going over the fucking lines and I DON'T CAREEEEE */
+		CONS_Printf("map <name / [MAP]code / number> [-gametype <type>] [-encore] [-force]:\n");
+		CONS_Printf(M_GetText(
+					"Warp to a map, by its name, two character code, with optional \"MAP\" prefix, or by its number (though why would you).\n"
+					"All parameters are case-insensitive.\n"
+					"* \"-force\" may be shortened to \"-f\".\n"
+					"* \"-gametype\" may be shortened to \"-g\" or \"-gt\".\n"
+					"* \"-encore\" may be shortened to \"-e\" or \"-en\".\n"));
+		return;
+	}
+
+	mapname = COM_Argv(1);
+	mapnamelen = strlen(mapname);
+
+	if (mapnamelen == 2)/* maybe two digit code */
+	{
+		if (( newmapnum = M_MapNumber(mapname[0], mapname[1]) ))
+			usemapcode = true;
+	}
+	else if (mapnamelen == 5 && strnicmp(mapname, "MAP", 3) == 0)
+	{
+		if (( newmapnum = M_MapNumber(mapname[3], mapname[4]) ) == 0)
+		{
+			CONS_Alert(CONS_ERROR, M_GetText("Invalid map code '%s'.\n"), mapname);
+			return;
+		}
+		usemapcode = true;
+	}
+
+	if (!usemapcode)
+	{
+		/* Now detect map number in base 10, which no one asked for. */
+		newmapnum = strtol(mapname, &p, 10);
+		if (*p == '\0')/* we got it */
+		{
+			if (newmapnum < 1 || newmapnum > NUMMAPS)
+			{
+				CONS_Alert(CONS_ERROR, M_GetText("Invalid map number %d.\n"), newmapnum);
+				return;
+			}
+			usemapcode = true;
+		}
+		else
+		{
+			newmapnum = G_FindMap(mapname, &realmapname, NULL, NULL);
+		}
+	}
+
+	if (newmapnum == 0 || !mapheaderinfo[newmapnum-1])
+	{
+		CONS_Alert(CONS_ERROR, M_GetText("Could not find any map described as '%s'.\n"), mapname);
+		return;
+	}
+
+	if (usemapcode)
+	{
+		realmapname = G_BuildMapTitle(newmapnum);
+	}
+
+	if (mustmodifygame && parm_force)
+	{
+		G_SetGameModified(false, true);
 	}
 
 	// new gametype value
 	// use current one by default
-	i = COM_CheckParm("-gametype");
-	if (i)
+	if (parm_gametype)
 	{
-		if (!multiplayer)
-		{
-			CONS_Printf(M_GetText("You can't switch gametypes in single player!\n"));
-			return;
-		}
+		arg_gametype = COM_Argv(parm_gametype + 1);
 
-		newgametype = G_GetGametypeByName(COM_Argv(i+1));
-		if (newgametype == -1) // reached end of the list with no match
+		for (i = 0; gametype_cons_t[i].strvalue; i++)
+			if (!strcasecmp(gametype_cons_t[i].strvalue, arg_gametype))
+			{
+				// Don't do any variable setting here. Wait until you get your
+				// map packet first to avoid sending the same info twice!
+				newgametype = gametype_cons_t[i].value;
+				break;
+			}
+
+		if (!gametype_cons_t[i].strvalue) // reached end of the list with no match
 		{
-			INT32 j = atoi(COM_Argv(i+1)); // assume they gave us a gametype number, which is okay too
-			if (j >= 0 && j < NUMGAMETYPES)
-				newgametype = (INT16)j;
+			d = atoi(arg_gametype);
+			// assume they gave us a gametype number, which is okay too
+			for (i = 0; gametype_cons_t[i].strvalue != NULL; i++)
+			{
+				if (d == gametype_cons_t[i].value)
+				{
+					newgametype = gametype_cons_t[i].value;
+					break;
+				}
+			}
 		}
 	}
 
-	// new encoremode value
-	// use cvar by default
-
-	newencoremode = (boolean)cv_kartencore.value;
-
-	if (COM_CheckParm("-encore"))
-	{
-		if (!M_SecretUnlocked(SECRET_ENCORE) && !newencoremode)
-		{
-			CONS_Alert(CONS_NOTICE, M_GetText("You haven't unlocked Encore Mode yet!\n"));
-			return;
-		}
-		newencoremode = !newencoremode;
-	}
-
-	if (!(i = COM_CheckParm("-force")) && newgametype == gametype) // SRB2Kart
+	if (!parm_force && newgametype == gametype) // SRB2Kart
 		newresetplayers = false; // if not forcing and gametypes is the same
 
 	// don't use a gametype the map doesn't support
-	if (cv_debug || i || cv_skipmapcheck.value)
+	if (cv_debug || parm_force || cv_skipmapcheck.value)
 		; // The player wants us to trek on anyway.  Do so.
 	// G_TOLFlag handles both multiplayer gametype and ignores it for !multiplayer
-	// Alternatively, bail if the map header is completely missing anyway.
-	else if (!mapheaderinfo[newmapnum-1]
-	 || !(mapheaderinfo[newmapnum-1]->typeoflevel & G_TOLFlag(newgametype)))
+	else
 	{
-		char gametypestring[32] = "Single Player";
-
-		if (multiplayer)
+		if (!(mapheaderinfo[newmapnum-1]->typeoflevel & G_TOLFlag(newgametype)))
 		{
-			if (newgametype >= 0 && newgametype < NUMGAMETYPES
-			&& Gametype_Names[newgametype])
-				strcpy(gametypestring, Gametype_Names[newgametype]);
+			CONS_Alert(CONS_WARNING, M_GetText("Course %s (%s) doesn't support %s mode!\n(Use -force to override)\n"), realmapname, G_BuildMapName(newmapnum),
+				(multiplayer ? gametype_cons_t[newgametype].strvalue : "Single Player"));
+			Z_Free(realmapname);
+			return;
 		}
-
-		CONS_Alert(CONS_WARNING, M_GetText("%s doesn't support %s mode!\n(Use -force to override)\n"), mapname, gametypestring);
-		return;
 	}
 
 	// Prevent warping to locked levels
@@ -2578,12 +2715,26 @@ static void Command_Map_f(void)
 	if (!dedicated && M_MapLocked(newmapnum))
 	{
 		CONS_Alert(CONS_NOTICE, M_GetText("You need to unlock this level before you can warp to it!\n"));
+		Z_Free(realmapname);
 		return;
+	}
+
+	if (parm_encore)
+	{
+		newencoremode = ! newencoremode;
+		if (! M_SecretUnlocked(SECRET_ENCORE) && newencoremode)
+		{
+			CONS_Alert(CONS_NOTICE, M_GetText("You haven't unlocked Encore Mode yet!\n"));
+			return;
+		}
 	}
 
 	fromlevelselect = false;
 	D_MapChange(newmapnum, newgametype, newencoremode, newresetplayers, 0, false, false);
+
+	Z_Free(realmapname);
 }
+#undef CHECKPARM
 
 /** Receives a map command and changes the map.
   *
@@ -3872,7 +4023,7 @@ static void Command_Verify_f(void)
 
 	if (COM_Argc() != 2)
 	{
-		CONS_Printf(M_GetText("promote <node>: give admin privileges to a node\n"));
+		CONS_Printf(M_GetText("promote <playernum>: give admin privileges to a player\n"));
 		return;
 	}
 
@@ -3928,7 +4079,7 @@ static void Command_RemoveAdmin_f(void)
 
 	if (COM_Argc() != 2)
 	{
-		CONS_Printf(M_GetText("demote <node>: remove admin privileges from a node\n"));
+		CONS_Printf(M_GetText("demote <playernum>: remove admin privileges from a player\n"));
 		return;
 	}
 
@@ -4298,7 +4449,7 @@ static void Command_Addfile(void)
 	// Add file on your client directly if it is trivial, or you aren't in a netgame.
 	if (!(netgame || multiplayer) || musiconly)
 	{
-		P_AddWadFile(fn);
+		P_AddWadFile(fn, 0);
 		return;
 	}
 
@@ -4345,6 +4496,20 @@ static void Command_Addfile(void)
 		SendNetXCmd(XD_REQADDFILE, buf, buf_p - buf);
 	else
 		SendNetXCmd(XD_ADDFILE, buf, buf_p - buf);
+}
+
+/** Adds a music pwad at runtime.
+  */
+static void
+Command_Addmusic (void)
+{
+	if (COM_Argc() != 3)
+	{
+		CONS_Printf(
+				"addmusic <file> <name>: load music file, use 6 char. name\n");
+		return;
+	}
+	P_AddWadFile(COM_Argv(1), COM_Argv(2));
 }
 
 #ifdef DELFILE
@@ -4503,7 +4668,7 @@ static void Got_Addfilecmd(UINT8 **cp, INT32 playernum)
 
 	ncs = findfile(filename,md5sum,true);
 
-	if (ncs != FS_FOUND || !P_AddWadFile(filename))
+	if (ncs != FS_FOUND || !P_AddWadFile(filename, 0))
 	{
 		Command_ExitGame_f();
 		if (ncs == FS_FOUND)
@@ -4536,6 +4701,7 @@ static void Command_ListWADS_f(void)
 {
 	INT32 i = numwadfiles;
 	char *tempname;
+	lumpinfo_t *p;
 	CONS_Printf(M_GetText("There are %d wads loaded:\n"),numwadfiles);
 	for (i--; i >= 0; i--)
 	{
@@ -4546,6 +4712,19 @@ static void Command_ListWADS_f(void)
 			CONS_Printf("\x82 * %.2d\x80: %s\n", i, tempname);
 		else
 			CONS_Printf("   %.2d: %s\n", i, tempname);
+	}
+	if (wadfiles[WAD_MUSIC])
+	{
+		CONS_Printf("There are also %d music files:\n",
+				wadfiles[WAD_MUSIC]->numlumps);
+		for (i = 0; i < wadfiles[WAD_MUSIC]->numlumps; ++i)
+		{
+			p = &wadfiles[WAD_MUSIC]->lumpinfo[i];
+			if (strcmp(p->name, p->name2) == 0)
+				CONS_Printf("%02d: %-8s\n", i, p->name);
+			else
+				CONS_Printf("%02d: %-8s (%s)\n", i, p->name, p->name2);
+		}
 	}
 }
 
@@ -5775,6 +5954,14 @@ static void KartEncore_OnChange(void)
 	}
 }
 
+static void KartVoteRuleChanges_OnChange(void)
+{
+	const char *s;
+	s = cv_kartvoterulechanges.string;
+	CV_StealthSet(&cv_kartgametypechanges, s);
+	CV_StealthSet(&cv_kartencorechance, s);
+}
+
 static void KartComeback_OnChange(void)
 {
 	if (G_BattleGametype())
@@ -5793,4 +5980,15 @@ static void KartEliminateLast_OnChange(void)
 {
 	if (G_RaceGametype() && cv_karteliminatelast.value)
 		P_CheckRacers();
+}
+
+static void
+Command_resetdownloads_f (void)
+{
+	CloseNetFile();
+	if (server)
+	{
+		COM_ImmedExecute("say \"Downloads have been reset.\"");
+		alreadyresetdownloads = true;
+	}
 }
