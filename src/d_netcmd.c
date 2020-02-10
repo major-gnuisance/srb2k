@@ -738,6 +738,8 @@ void D_RegisterServerCommands(void)
 
 	CV_RegisterVar(&cv_lessbattlevotes);
 	CV_RegisterVar(&cv_lessencorevotes);
+
+	CV_RegisterVar(&cv_midgamejoin);
 }
 
 // =========================================================================
