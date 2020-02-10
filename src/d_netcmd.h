@@ -124,7 +124,7 @@ extern consvar_t cv_kartgametypechanges;
 extern consvar_t cv_kartencorechance;;
 extern consvar_t cv_kartspeedometer;
 extern consvar_t cv_kartvoices;
-
+extern consvar_t cv_kartscalingshrink;
 extern consvar_t cv_karteliminatelast;
 extern consvar_t cv_midgamejoin;
 extern consvar_t cv_votetime;

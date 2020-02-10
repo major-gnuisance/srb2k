@@ -597,6 +597,7 @@ void K_RegisterKartStuff(void)
 
 	CV_RegisterVar(&cv_karthideencorevote);
 	CV_RegisterVar(&cv_kartitemtable);
+	CV_RegisterVar(&cv_kartscalingshrink);
 }
 
 //}
@@ -3655,10 +3656,6 @@ static void K_DoShrink(player_t *user)
 	INT32 i;
 	INT32 activeplayers = 0;
 
-	//Scale the duration of Shrink based on the total number of racers, 3D plot below
-	//https://www.monroecc.edu/faculty/paulseeburger/calcnsf/CalcPlot3D/?type=z;z=(120((y+12)/46))/((x-1)/(y-1)*9+4);visible=true;umin=1;umax=16;vmin=2;vmax=16;grid=30;format=normal;alpha=-1;constcol=rgb(255,0,0);view=0;contourcolor=red;fixdomain=false&type=window;hsrmode=3;nomidpts=false;anaglyph=-1;center=-1.178986762210643,-9.686750695069962,2.1856008752900307,1;focus=0,0,0,1;up=0.10411409889240611,0.20682405579520133,0.9728227301807075,1;transparent=false;alpha=140;twoviews=false;unlinkviews=false;axisextension=0.7;xaxislabel=x;yaxislabel=y;zaxislabel=z;edgeson=true;faceson=true;showbox=true;showaxes=true;showticks=true;perspective=true;centerxpercent=0.1682799215173318;centerypercent=0.7848151062155786;rotationsteps=30;autospin=true;xygrid=false;yzgrid=false;xzgrid=false;gridsonbox=true;gridplanes=false;gridcolor=rgb(128,128,128);xmin=1;xmax=16;ymin=2;ymax=16;zmin=0;zmax=30;xscale=1;yscale=1;zscale=2;zcmin=0;zcmax=24;zoom=0.225244;xscalefactor=4;yscalefactor=4;zscalefactor=1
-	fixed_t fixedBaseTics = (120*TICRATE)<<FRACBITS;
-	fixed_t fixedScaledDurationTics = FixedMul( FixedDiv((activeplayers+12)<<FRACBITS, 46<<FRACBITS), fixedBaseTics);
 	S_StartSound(user->mo, sfx_kc46); // Sound the BANG!
 	user->pflags |= PF_ATTACKDOWN;
 
@@ -3668,6 +3665,9 @@ static void K_DoShrink(player_t *user)
 			continue;
 		activeplayers++;
 	}
+
+	fixed_t fixedBaseTics = (120*TICRATE)<<FRACBITS;
+	fixed_t fixedScaledDurationTics = FixedMul( FixedDiv((activeplayers+12)<<FRACBITS, 46<<FRACBITS), fixedBaseTics);
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
@@ -3690,13 +3690,19 @@ static void K_DoShrink(player_t *user)
 				// Start shrinking!
 				K_DropItems(&players[i]);
 
-				//Changed to shrink higher position players less than the frontrunner
-				fixed_t fixedPos = (players[i].kartstuff[k_position] - 1) << FRACBITS;
-				fixed_t fixedMax = (activeplayers - 1) << FRACBITS;
-				fixed_t normalizedPos = FixedDiv(fixedPos, fixedMax);
-				fixed_t divisor = FixedMul(normalizedPos, 9<<FRACBITS) + (4<<FRACBITS);
-				fixed_t fixedShrinkTics = FixedDiv(fixedScaledDurationTics, divisor);
-				players[i].kartstuff[k_growshrinktimer] = -(fixedShrinkTics >> FRACBITS);
+				if (!cv_kartscalingshrink.value)
+					players[i].kartstuff[k_growshrinktimer] = -(20*TICRATE);
+				else
+				{
+					//Scale the duration of Shrink based on the total number of racers, 3D plot below
+					//https://www.monroecc.edu/faculty/paulseeburger/calcnsf/CalcPlot3D/?type=z;z=(120((y+12)/46))/((x-1)/(y-1)*9+4);visible=true;umin=1;umax=16;vmin=2;vmax=16;grid=30;format=normal;alpha=-1;constcol=rgb(255,0,0);view=0;contourcolor=red;fixdomain=false&type=window;hsrmode=3;nomidpts=false;anaglyph=-1;center=-1.178986762210643,-9.686750695069962,2.1856008752900307,1;focus=0,0,0,1;up=0.10411409889240611,0.20682405579520133,0.9728227301807075,1;transparent=false;alpha=140;twoviews=false;unlinkviews=false;axisextension=0.7;xaxislabel=x;yaxislabel=y;zaxislabel=z;edgeson=true;faceson=true;showbox=true;showaxes=true;showticks=true;perspective=true;centerxpercent=0.1682799215173318;centerypercent=0.7848151062155786;rotationsteps=30;autospin=true;xygrid=false;yzgrid=false;xzgrid=false;gridsonbox=true;gridplanes=false;gridcolor=rgb(128,128,128);xmin=1;xmax=16;ymin=2;ymax=16;zmin=0;zmax=30;xscale=1;yscale=1;zscale=2;zcmin=0;zcmax=24;zoom=0.225244;xscalefactor=4;yscalefactor=4;zscalefactor=1
+					fixed_t fixedPos = (players[i].kartstuff[k_position] - 1) << FRACBITS;
+					fixed_t fixedMax = (activeplayers - 1) << FRACBITS;
+					fixed_t normalizedPos = FixedDiv(fixedPos, fixedMax);
+					fixed_t divisor = FixedMul(normalizedPos, 9<<FRACBITS) + (4<<FRACBITS);
+					fixed_t fixedShrinkTics = FixedDiv(fixedScaledDurationTics, divisor);
+					players[i].kartstuff[k_growshrinktimer] = -(fixedShrinkTics >> FRACBITS);
+				}
 
 				if (players[i].mo && !P_MobjWasRemoved(players[i].mo))
 				{

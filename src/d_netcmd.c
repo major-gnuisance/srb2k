@@ -371,6 +371,7 @@ consvar_t cv_karthideencorevote = {"karthideencorevote", "Off", CV_NETVAR, CV_On
 static CV_PossibleValue_t kartitemtable_cons_t[] = { {0, "Classic"}, {1, "New"}, {2, "Boost"}, {3, "RNGesus"}, {0, NULL}};
 consvar_t cv_kartitemtable = { "kartitemtable", "Classic", CV_NETVAR, kartitemtable_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL };
 consvar_t cv_midgamejoin = {"midgamejoin", "On", CV_NETVAR, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_kartscalingshrink = {"kartscalingshrink", "off", CV_NETVAR, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 static CV_PossibleValue_t kartvoterulechanges_cons_t[] = {{0, "Never"}, {1, "Sometimes"}, {2, "Frequent"}, {3, "Always"}, {0, NULL}};
 consvar_t cv_kartvoterulechanges = {"kartvoterulechanges", "Frequent", CV_NETVAR|CV_CALL|CV_NOINIT, kartvoterulechanges_cons_t, KartVoteRuleChanges_OnChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartgametypechanges = {"kartgametypechanges", "Frequent", 0, kartvoterulechanges_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
