@@ -116,6 +116,8 @@ consvar_t cv_enable_screen_textures = {"gr_screen_textures", "On", CV_CALL, CV_O
 // thought the stats could overwrite on that but not sure ...
 boolean hrs_do_stats = false;
 
+const boolean FAST_SPRITES = false;
+
 static void CV_filtermode_ONChange(void)
 {
 	HWD.pfnSetSpecialState(HWD_SET_TEXTUREFILTERMODE, cv_grfiltermode.value);
@@ -3750,12 +3752,11 @@ static inline void HWR_DrawPrecipitationSprite(gr_vissprite_t *spr)
 // --------------------------------------------------------------------------
 // Sort vissprites by distance
 // --------------------------------------------------------------------------
-static gr_vissprite_t gr_vsprsortedhead;
+//static gr_vissprite_t gr_vsprsortedhead;
 
-gr_vissprite_t* gr_vsprorder[MAXVISSPRITES];
+gr_vissprite_t* gr_tvsprorder[MAXVISSPRITES];
+int gr_tvisspritecount = 0;
 
-// A further improved sort would probably only sort the transparent sprites
-// and put them to the end of the list and leave the opaque sprites unsorted.
 // For more correct transparency the transparent sprites would need to be
 // sorted and drawn together with transparent surfaces.
 static int CompareVisSprites(const void *p1, const void *p2)
@@ -3767,6 +3768,7 @@ static int CompareVisSprites(const void *p1, const void *p2)
 	
 	// make transparent sprites last
 	// "boolean to int"
+	
 	int transparency1 = (spr1->mobj->flags2 & MF2_SHADOW) || (spr1->mobj->frame & FF_TRANSMASK);
 	int transparency2 = (spr2->mobj->flags2 & MF2_SHADOW) || (spr2->mobj->frame & FF_TRANSMASK);
 	idiff = transparency1 - transparency2;
@@ -3784,11 +3786,14 @@ static int CompareVisSprites(const void *p1, const void *p2)
 static void HWR_SortVisSprites(void)
 {
 	// new sort
+	gr_tvisspritecount = 0;
 	for (int i = 0; i < gr_visspritecount; i++)
 	{
-		gr_vsprorder[i] = HWR_GetVisSprite(i);
+		gr_vissprite_t* spr = HWR_GetVisSprite(i);
+		if (!FAST_SPRITES || (spr->mobj->flags2 & MF2_SHADOW) || (spr->mobj->frame & FF_TRANSMASK))
+			gr_tvsprorder[gr_tvisspritecount++] = spr;
 	}
-	qsort(gr_vsprorder, gr_visspritecount, sizeof(gr_vissprite_t*), CompareVisSprites);
+	qsort(gr_tvsprorder, gr_tvisspritecount, sizeof(gr_vissprite_t*), CompareVisSprites);
 
 
 	
@@ -4145,8 +4150,8 @@ static int CompareDrawNodePlanes(const void *p1, const void *p2)
 // Creates, sorts and renders a list of drawnodes for the current frame.
 void HWR_RenderDrawNodes(void)
 {
-	UINT32 i = 0, p = 0, prev = 0, loop;
-	const fixed_t pviewz = viewz;
+	UINT32 i = 0, p = 0;//, prev = 0, loop;
+	//const fixed_t pviewz = viewz;
 
 	// Dump EVERYTHING into a huge drawnode list. Then we'll sort it!
 	// Could this be optimized into _AddTransparentWall/_AddTransparentPlane?
@@ -4161,7 +4166,7 @@ void HWR_RenderDrawNodes(void)
 	sortindex = Z_Calloc(sizeof(size_t) * (numplanes + numpolyplanes + numwalls), PU_STATIC, NULL);
 
 	// If true, swap the draw order.
-	boolean shift = false;
+	//boolean shift = false;
 
 	for (i = 0; i < numplanes; i++, p++)
 	{
@@ -4374,11 +4379,78 @@ void HWR_RenderDrawNodes(void)
 // --------------------------------------------------------------------------
 void HWR_DrawSprites(void)
 {
-	// new draw for pointer array produced by new sort
-	for (int i = 0; i < gr_visspritecount; i++)
+	// this is a bit repetitive. one other option would be to create arrays for these three stages
+	// and iterate them with simple for loops.
+	
+	// first draw solid sprites that dont have models
+	// separated from solid models to allow batching to work
+	
+	if (FAST_SPRITES)
 	{
-		gr_vissprite_t *spr;
-		spr = gr_vsprorder[i];
+		if (cv_enable_batching.value)
+			HWD.pfnStartBatching();
+		
+		for (int i = 0; i < gr_visspritecount; i++)
+		{
+			gr_vissprite_t *spr = HWR_GetVisSprite(i);
+			if ((spr->mobj->flags2 & MF2_SHADOW) || (spr->mobj->frame & FF_TRANSMASK))
+				continue;
+			if (spr->precip)
+				HWR_DrawPrecipitationSprite(spr);
+			else
+				if (spr->mobj && spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
+				{
+					// 8/1/19: Only don't display player models if no default SPR_PLAY is found.
+					if (!cv_grmdls.value || ((md2_playermodels[(skin_t*)spr->mobj->skin-skins].notfound || md2_playermodels[(skin_t*)spr->mobj->skin-skins].scale < 0.0f) && ((!cv_grfallbackplayermodel.value) || md2_models[SPR_PLAY].notfound || md2_models[SPR_PLAY].scale < 0.0f)))
+						HWR_DrawSprite(spr);
+					else
+						continue;
+				}
+				else
+				{
+					if (!cv_grmdls.value || md2_models[spr->mobj->sprite].notfound || md2_models[spr->mobj->sprite].scale < 0.0f)
+						HWR_DrawSprite(spr);
+					else
+						continue;
+				}
+		}
+		
+		int dummy = 0;// no stats for now at least
+		if (cv_enable_batching.value)
+			HWD.pfnRenderBatches(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
+		
+		// then solid models
+		for (int i = 0; i < gr_visspritecount; i++)
+		{
+			gr_vissprite_t *spr = HWR_GetVisSprite(i);
+			if ((spr->mobj->flags2 & MF2_SHADOW) || (spr->mobj->frame & FF_TRANSMASK))
+				continue;
+			if (spr->precip)
+				continue;//HWR_DrawPrecipitationSprite(spr);
+			else
+				if (spr->mobj && spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
+				{
+					// 8/1/19: Only don't display player models if no default SPR_PLAY is found.
+					if (!cv_grmdls.value || ((md2_playermodels[(skin_t*)spr->mobj->skin-skins].notfound || md2_playermodels[(skin_t*)spr->mobj->skin-skins].scale < 0.0f) && ((!cv_grfallbackplayermodel.value) || md2_models[SPR_PLAY].notfound || md2_models[SPR_PLAY].scale < 0.0f)))
+						continue;
+					else
+						HWR_DrawMD2(spr);
+				}
+				else
+				{
+					if (!cv_grmdls.value || md2_models[spr->mobj->sprite].notfound || md2_models[spr->mobj->sprite].scale < 0.0f)
+						continue;
+					else
+						HWR_DrawMD2(spr);
+				}
+		}
+	}
+	
+	// then transparent sprites and models, which have been sorted
+	// if !FAST_SPRITES then this also includes everything else
+	for (int i = 0; i < gr_tvisspritecount; i++)
+	{
+		gr_vissprite_t *spr = gr_tvsprorder[i];
 		if (spr->precip)
 			HWR_DrawPrecipitationSprite(spr);
 		else
@@ -4398,6 +4470,10 @@ void HWR_DrawSprites(void)
 					HWR_DrawMD2(spr);
 			}
 	}
+	
+	
+	
+	
 	// old draw for linked list produced by old sort
 /*
 	if (gr_visspritecount > 0)
