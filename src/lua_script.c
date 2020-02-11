@@ -1026,7 +1026,7 @@ void LUA_Archive(void)
 		ArchiveExtVars(&players[i], "player");
 	}
 
-	if (gamestate == GS_LEVEL)
+	if (gamestate == GS_LEVEL && cv_midgamejoin.value)
 	{
 		for (th = thinkercap.next; th != &thinkercap; th = th->next)
 			if (th->function.acp1 == (actionf_p1)P_MobjThinker)
