@@ -160,7 +160,7 @@ static sector_t *gr_backsector;
 #define RENDER_PHASE_FFLOOR_TOP 16
 // first phase has all walls, all transparent stuff and polyobjects
 
-#define RENDER_PHASE_FFLOOR RENDER_PHASE_FFLOOR_BOTTOM+RENDER_PHASE_FFLOOR_TOP
+#define RENDER_PHASE_FFLOOR (RENDER_PHASE_FFLOOR_BOTTOM+RENDER_PHASE_FFLOOR_TOP)
 static UINT8 gr_render_phase;
 
 // ==========================================================================
@@ -219,14 +219,17 @@ void HWR_Lighting(FSurfaceInfo *Surface, INT32 light_level, UINT32 mixcolor, UIN
 
 	if (cv_grfog.value)
 	{
+		float red;
+		float green;
+		float blue;
 		// be careful, this may get negative for high lightlevel values.
 		float fog = (fog_alpha - (light_level/255.0f))*3/2;
 		if (fog < 0)
 			fog = 0;
 
-		float red = ((fog_color.s.red/255.0f) * fog) + ((final_color.s.red/255.0f) * (1.0f - fog));
-		float green = ((fog_color.s.green/255.0f) * fog) + ((final_color.s.green/255.0f) * (1.0f - fog));
-		float blue = ((fog_color.s.blue/255.0f) * fog) + ((final_color.s.blue/255.0f) * (1.0f - fog));
+		red = ((fog_color.s.red/255.0f) * fog) + ((final_color.s.red/255.0f) * (1.0f - fog));
+		green = ((fog_color.s.green/255.0f) * fog) + ((final_color.s.green/255.0f) * (1.0f - fog));
+		blue = ((fog_color.s.blue/255.0f) * fog) + ((final_color.s.blue/255.0f) * (1.0f - fog));
 		final_color.s.red = (UINT8)(red*255.0f);
 		final_color.s.green = (UINT8)(green*255.0f);
 		final_color.s.blue = (UINT8)(blue*255.0f);
@@ -1948,7 +1951,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 boolean checkforemptylines = true;
 // Don't modify anything here, just check
 // Kalaron: Modified for sloped linedefs
-static boolean CheckClip(seg_t * seg, sector_t * afrontsector, sector_t * abacksector)
+static boolean CheckClip(sector_t * afrontsector, sector_t * abacksector)
 {
 	fixed_t frontf1,frontf2, frontc1, frontc2; // front floor/ceiling ends
 	fixed_t backf1, backf2, backc1, backc2; // back floor ceiling ends
@@ -2083,7 +2086,7 @@ void HWR_AddLine(seg_t *line)
 	else
 	{
 		gr_backsector = R_FakeFlat(gr_backsector, &tempsec, NULL, NULL, true);
-		if (CheckClip(line, gr_frontsector, gr_backsector))
+		if (CheckClip(gr_frontsector, gr_backsector))
 		{
 			gld_clipper_SafeAddClipRange(angle2, angle1);
 			checkforemptylines = false;
@@ -2804,14 +2807,14 @@ void HWR_Subsector(size_t num)
 
 void HWR_RenderBSPNode(INT32 bspnum)
 {
-	hrs_numbspcalls++;
-	// fun test
-	//if (hrs_numbspcalls > 500) return;
-
 	node_t *bsp = &nodes[bspnum];
 
 	// Decide which side the view point is on
 	INT32 side;
+
+	hrs_numbspcalls++;
+	// fun test
+	//if (hrs_numbspcalls > 500) return;
 
 	// Found a subsector?
 	if (bspnum & NF_SUBSECTOR)
@@ -3224,7 +3227,6 @@ static void HWR_SplitSprite(gr_vissprite_t *spr)
 	{
 		float sprdist = sqrtf((spr->x1 - gr_viewx)*(spr->x1 - gr_viewx) + (spr->z1 - gr_viewy)*(spr->z1 - gr_viewy) + (spr->ty - gr_viewz)*(spr->ty - gr_viewz));
 		float distfact = ((2.0f*spr->dispoffset) + 20.0f) / sprdist;
-		size_t i;
 		for (i = 0; i < 4; i++)
 		{
 			baseWallVerts[i].x += (gr_viewx - baseWallVerts[i].x)*distfact;
@@ -3741,8 +3743,6 @@ static inline void HWR_DrawPrecipitationSprite(gr_vissprite_t *spr)
 // --------------------------------------------------------------------------
 // Sort vissprites by distance
 // --------------------------------------------------------------------------
-static gr_vissprite_t gr_vsprsortedhead;
-
 gr_vissprite_t* gr_vsprorder[MAXVISSPRITES];
 
 // A further improved sort would probably only sort the transparent sprites
@@ -3751,8 +3751,8 @@ gr_vissprite_t* gr_vsprorder[MAXVISSPRITES];
 // sorted and drawn together with transparent surfaces.
 static int CompareVisSprites(const void *p1, const void *p2)
 {
-	gr_vissprite_t* spr1 = *(gr_vissprite_t**)p1;
-	gr_vissprite_t* spr2 = *(gr_vissprite_t**)p2;
+	gr_vissprite_t* spr1 = *(gr_vissprite_t*const*)p1;
+	gr_vissprite_t* spr2 = *(gr_vissprite_t*const*)p2;
 	int idiff;
 	float fdiff;
 	
@@ -3774,7 +3774,7 @@ static int CompareVisSprites(const void *p1, const void *p2)
 
 static void HWR_SortVisSprites(void)
 {
-	int i;
+	UINT32 i;
 	// new sort
 	for (i = 0; i < gr_visspritecount; i++)
 	{
@@ -4002,8 +4002,8 @@ size_t *sortindex;
 
 static int CompareDrawNodes(const void *p1, const void *p2)
 {
-	size_t n1 = *(size_t*)p1;
-	size_t n2 = *(size_t*)p2;
+	size_t n1 = *(const size_t*)p1;
+	size_t n2 = *(const size_t*)p2;
 	INT32 v1 = 0;
 	INT32 v2 = 0;
 	INT32 diff;
@@ -4126,8 +4126,8 @@ static int CompareDrawNodes(const void *p1, const void *p2)
 
 static int CompareDrawNodePlanes(const void *p1, const void *p2)
 {
-	size_t n1 = *(size_t*)p1;
-	size_t n2 = *(size_t*)p2;
+	size_t n1 = *(const size_t*)p1;
+	size_t n2 = *(const size_t*)p2;
 	if (!sortnode[n1].plane) I_Error("Uh.. This isn't a plane! (n1)");
 	if (!sortnode[n2].plane) I_Error("Uh.. This isn't a plane! (n2)");
 	return ABS(sortnode[n2].plane->fixedheight - viewz) - ABS(sortnode[n1].plane->fixedheight - viewz);
@@ -4137,8 +4137,9 @@ static int CompareDrawNodePlanes(const void *p1, const void *p2)
 // Creates, sorts and renders a list of drawnodes for the current frame.
 void HWR_RenderDrawNodes(void)
 {
-	UINT32 i = 0, p = 0, prev = 0, loop;
-	const fixed_t pviewz = viewz;
+	UINT32 i = 0, p = 0;
+
+	size_t run_start = 0;
 
 	// Dump EVERYTHING into a huge drawnode list. Then we'll sort it!
 	// Could this be optimized into _AddTransparentWall/_AddTransparentPlane?
@@ -4151,9 +4152,6 @@ void HWR_RenderDrawNodes(void)
 	// However, in reality we shouldn't be re-copying and shifting all this information
 	// that is already lying around. This should all be in some sort of linked list or lists.
 	sortindex = Z_Calloc(sizeof(size_t) * (numplanes + numpolyplanes + numwalls), PU_STATIC, NULL);
-
-	// If true, swap the draw order.
-	boolean shift = false;
 
 	for (i = 0; i < numplanes; i++, p++)
 	{
@@ -4284,7 +4282,6 @@ void HWR_RenderDrawNodes(void)
 	qsort(sortindex, p, sizeof(size_t), CompareDrawNodes);
 
 	// try solving floor order here. for each consecutive run of floors in the list, sort that run.
-	size_t run_start = 0;
 	while (run_start < p-1)// p-1 because a 1 plane run at the end of the list does not count
 	{
 		// locate run start
@@ -4366,7 +4363,7 @@ void HWR_RenderDrawNodes(void)
 // --------------------------------------------------------------------------
 void HWR_DrawSprites(void)
 {
-	int i;
+	UINT32 i;
 	// new draw for pointer array produced by new sort
 	for (i = 0; i < gr_visspritecount; i++)
 	{

@@ -451,10 +451,10 @@ consvar_t cv_pauseifunfocused = {"pauseifunfocused", "Yes", CV_SAVE, CV_YesNo, N
 consvar_t cv_songcredits = {"songcredits", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // Show "VIEWPOINT:" annonation on HUD
-consvar_t cv_showviewpoint = {"showviewpoint", "Yes", CV_SAVE, CV_YesNo, };
+consvar_t cv_showviewpoint = {"showviewpoint", "Yes", CV_SAVE, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // Show "FREE PLAY" when you're alone. :(
-consvar_t cv_showfreeplay = { "showfreeplay", "Yes", CV_SAVE, CV_YesNo, };
+consvar_t cv_showfreeplay = { "showfreeplay", "Yes", CV_SAVE, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // Play race finished and battle over music
 static CV_PossibleValue_t playendingmusic_cons_t[] = {{0, "Both"}, {1, "Race"}, {2,"Battle"}, {3, "Never"}, {0, NULL}};
@@ -490,12 +490,14 @@ consvar_t cv_growmusicfadein =
 {
 	"growmusicfadein", "500",
 	CV_SAVE, CV_Unsigned,
+	NULL, 0, NULL, NULL, 0, 0, NULL
 };
 
 consvar_t cv_supermusicfadein =
 {
 	"supermusicfadein", "300",
 	CV_SAVE, CV_Unsigned,
+	NULL, 0, NULL, NULL, 0, 0, NULL
 };
 
 /* For any other music taking over. (Probably Lua!) */
@@ -503,13 +505,14 @@ consvar_t cv_defaultmusicfadein =
 {
 	"defaultfadein", "0",
 	CV_SAVE, CV_Unsigned,
+	NULL, 0, NULL, NULL, 0, 0, NULL
 };
 
 /* Resume level music to the position where it was stopped. */
-consvar_t cv_resumemusic = { "resumemusic", "Yes", CV_SAVE, CV_YesNo };
+consvar_t cv_resumemusic = { "resumemusic", "Yes", CV_SAVE, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL };
 
 /* Resume from where last level's music left off, if it's the same song. */
-consvar_t cv_crossovermusic = { "crossovermusic", "Off", CV_SAVE, CV_OnOff };
+consvar_t cv_crossovermusic = { "crossovermusic", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL };
 
 /*consvar_t cv_crosshair = {"crosshair", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_crosshair2 = {"crosshair2", "Off", CV_SAVE, crosshair_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};

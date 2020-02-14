@@ -579,7 +579,7 @@ static void HWR_CacheFlat(GLMipmap_t *grMipmap, lumpnum_t flatlumpnum)
 {
 #ifdef GLENCORE
 	UINT8 *flat;
-	INT32 steppy;
+	size_t steppy;
 #endif
 	size_t size, pflatsize;
 
