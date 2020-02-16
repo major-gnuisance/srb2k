@@ -113,8 +113,8 @@ UINT8 window_notinfocus = false;
 //
 //static INT32 demosequence;
 static const char *pagename = "MAP1PIC";
-static char *startupwadfiles[MAX_WADFILES];
-static char *startuppwads[MAX_WADFILES];
+static char *startupwadfiles[MAX_WADFILES][2];
+static char *startuppwads[MAX_WADFILES][2];
 
 boolean devparm = false; // started game with -devparm
 
@@ -727,7 +727,7 @@ static boolean D_Display(void)
 			// DYNAMIC RES STUFF
 			static boolean downscale[30], upscale[30];
 			static UINT8 downscalei = 0, upscalei = 0;
-			UINT8 i, downscalecount = 0, upscalecount = 0;
+			UINT8 downscalecount = 0, upscalecount = 0;
 
 			startms = I_GetFrameReference(1000) - startms;
 			if (startms < 0)
@@ -917,10 +917,10 @@ void D_SRB2Loop(void)
 
 		if (demo.playback && gamestate == GS_LEVEL)
 		{
-			static fixed_t oldlerp = 0;
-			fixed_t lerp = I_GetFracTime();
+			//static fixed_t oldlerp = 0;
+			//fixed_t lerp = I_GetFracTime();
 			realtics = realtics * cv_playbackspeed.value;// + FixedMul(lerp, cv_playbackspeed.value) - FixedMul(oldlerp, cv_playbackspeed.value);
-			oldlerp = lerp;
+			//oldlerp = lerp;
 		}
 
 		if (!realtics && !singletics)// ?? if no tic progression has happened
@@ -930,8 +930,9 @@ void D_SRB2Loop(void)
 			{
 				if (rendertimeout == entertic+TICRATE/17)
 				{
-					h_debug_var = true;
 					fixed_t old = lerp_fractic;
+					int i = 0;
+					h_debug_var = true;
 
 					if (demo.playback && gamestate == GS_LEVEL)
 						lerp_fractic = (I_GetFracTime() * cv_playbackspeed.value) % FRACUNIT - cv_extrapolation.value;
@@ -940,7 +941,6 @@ void D_SRB2Loop(void)
 
 					//if (lerp_fractic < old)
 						//CONS_Printf("lerp_fractic < old\n");
-					int i = 0;
 					while (lerp_fractic < old)
 					{
 						i++;
@@ -1115,34 +1115,46 @@ void D_StartTitle(void)
 		V_SetPaletteLump("PLAYPAL");*/
 }
 
+static char *
+Daddfilestrdup (const char *s)
+{
+	char *p;
+	if (!( p = strdup(s) ))
+	{
+		I_Error("No more free memory to AddFile %s",s);
+	}
+	return p;
+}
+
 //
 // D_AddFile
 //
-static void D_AddFile(const char *file, char **filearray)
+static void D_AddFile2(const char *file, const char *lumpname, char *(*filearray)[2])
 {
 	size_t pnumwadfiles;
-	char *newfile;
 
-	for (pnumwadfiles = 0; filearray[pnumwadfiles]; pnumwadfiles++)
+	for (pnumwadfiles = 0; filearray[pnumwadfiles][0]; pnumwadfiles++)
 		;
 
-	newfile = malloc(strlen(file) + 1);
-	if (!newfile)
-	{
-		I_Error("No more free memory to AddFile %s",file);
-	}
-	strcpy(newfile, file);
-
-	filearray[pnumwadfiles] = newfile;
+	filearray[pnumwadfiles][0] = Daddfilestrdup(file);
+	filearray[pnumwadfiles][1] = ( (lumpname) ? Daddfilestrdup(lumpname) : 0 );
 }
 
-static inline void D_CleanFile(char **filearray)
+static void
+D_AddFile (const char *file, char *(*filearray)[2])
+{
+	D_AddFile2(file, 0, filearray);
+}
+
+static inline void D_CleanFile(char *(*filearray)[2])
 {
 	size_t pnumwadfiles;
-	for (pnumwadfiles = 0; filearray[pnumwadfiles]; pnumwadfiles++)
+	for (pnumwadfiles = 0; filearray[pnumwadfiles][0]; pnumwadfiles++)
 	{
-		free(filearray[pnumwadfiles]);
-		filearray[pnumwadfiles] = NULL;
+		free(filearray[pnumwadfiles][0]);
+		free(filearray[pnumwadfiles][1]);
+		filearray[pnumwadfiles][0] = NULL;
+		filearray[pnumwadfiles][1] = NULL;
 	}
 }
 
@@ -1460,6 +1472,22 @@ void D_SRB2Main(void)
 					D_AddFile(s, startuppwads);
 			}
 		}
+
+		if (M_CheckParm("-musicfile"))
+		{
+			while (M_IsNextParm())
+			{
+				const char *f;
+				const char *u;
+				f = M_GetNextParm();
+				u = M_GetNextParm();
+				if (!u)
+				{
+					I_Error("-musicfile missing second name: -musicfile <file> <name>");
+				}
+				D_AddFile2(f, u, startuppwads);
+			}
+		}
 	}
 
 	// get map from parms
@@ -1620,7 +1648,6 @@ void D_SRB2Main(void)
 #ifdef HWRENDER
 	if (rendermode == render_opengl)
 	{
-		INT32 i;
 		for (i = 0; i < numwadfiles; i++)
 			HWR_LoadShaders(i, (wadfiles[i]->type == RET_PK3));
 	}

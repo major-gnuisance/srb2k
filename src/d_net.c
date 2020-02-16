@@ -714,7 +714,10 @@ void Net_CloseConnection(INT32 node)
 		}
 
 	InitNode(&nodes[node]);
-	SV_AbortSendFiles(node);
+	if (cv_autoresetdownloads.value)
+		CloseNetFile();/* Hack to hopefully reduce lock outs. */
+	else
+		SV_AbortSendFiles(node);
 	I_NetFreeNodenum(node);
 #endif
 }

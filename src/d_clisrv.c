@@ -102,6 +102,11 @@ SINT8 nodetoplayer3[MAXNETNODES]; // say the numplayer for this node if any (spl
 SINT8 nodetoplayer4[MAXNETNODES]; // say the numplayer for this node if any (splitscreen == 3)
 UINT8 playerpernode[MAXNETNODES]; // used specialy for splitscreen
 boolean nodeingame[MAXNETNODES]; // set false as nodes leave game
+
+boolean     nodedownloadrefuse[MAXNETNODES];
+int         nodedownloads     [MAXNETNODES];
+const char *nodedownloadfiles [MAXNETNODES][MAX_WADFILES];
+
 static tic_t nettics[MAXNETNODES]; // what tic the client have received
 static tic_t supposedtics[MAXNETNODES]; // nettics prevision for smaller packet
 static UINT8 nodewaiting[MAXNETNODES];
@@ -1332,6 +1337,70 @@ static boolean CL_SendJoin(void)
 	return HSendPacket(servernode, true, 0, sizeof (clientconfig_pak));
 }
 
+void
+CopyCaretColors (char *p, const char *s, int n)
+{
+	char *t;
+	int   m;
+	int   c;
+	if (!n)
+		return;
+	while (( t = strchr(s, '^') ))
+	{
+		m = ( t - s );
+
+		if (m >= n)
+		{
+			memcpy(p, s, n);
+			return;
+		}
+		else
+			memcpy(p, s, m);
+
+		p += m;
+		n -= m;
+		s += m;
+
+		if (!n)
+			return;
+
+		if (s[1])
+		{
+			c = toupper(s[1]);
+			if (isdigit(c))
+				c = 0x80 + ( c - '0' );
+			else if (c >= 'A' && c <= 'F')
+				c = 0x80 + ( c - 'A' );
+			else
+				c = 0;
+
+			if (c)
+			{
+				*p++ = c;
+				n--;
+
+				if (!n)
+					return;
+			}
+			else
+			{
+				if (n < 2)
+					break;
+
+				memcpy(p, s, 2);
+
+				p += 2;
+				n -= 2;
+			}
+
+			s += 2;
+		}
+		else
+			break;
+	}
+	strncpy(p, s, n);
+}
+
 static void SV_SendServerInfo(INT32 node, tic_t servertime)
 {
 	UINT8 *p;
@@ -1355,7 +1424,7 @@ static void SV_SendServerInfo(INT32 node, tic_t servertime)
 		(D_IsJoinPasswordOn() ? SV_PASSWORD : 0)
 	);
 
-	strncpy(netbuffer->u.serverinfo.servername, cv_servername.string,
+	CopyCaretColors(netbuffer->u.serverinfo.servername, cv_servername.string,
 		MAXSERVERNAME);
 	strncpy(netbuffer->u.serverinfo.mapname, G_BuildMapName(gamemap), 7);
 
@@ -2756,20 +2825,6 @@ void CL_Reset(void)
 }
 
 #ifndef NONET
-static void Command_GetPlayerNum(void)
-{
-	INT32 i;
-
-	for (i = 0; i < MAXPLAYERS; i++)
-		if (playeringame[i])
-		{
-			if (serverplayer == i)
-				CONS_Printf(M_GetText("num:%2d  node:%2d  %s\n"), i, playernode[i], player_names[i]);
-			else
-				CONS_Printf(M_GetText("\x82num:%2d  node:%2d  %s\n"), i, playernode[i], player_names[i]);
-		}
-}
-
 SINT8 nametonum(const char *name)
 {
 	INT32 playernum, i;
@@ -2799,41 +2854,145 @@ SINT8 nametonum(const char *name)
 	return -1;
 }
 
-/** Lists all players and their player numbers.
+/** List all players along with a short status.
   *
-  * \sa Command_GetPlayerNum
+  * \sa Command_NodeTree
   */
-static void Command_Nodes(void)
+/*
+Formatted like so, with each element separated by space and written on lines:
+Two digit player number, colon (:), colored player name, left-aligned.
+Then a "status" which is delimited by a double dash (--).
+If available, an IP address and port.
+Admin status written as "(admin)".
+Spectating status written as "(spectator)".
+If admin and spectating status both apply and the player's address was not
+available, the status is "crammed". If the status is not "crammed", it is
+indented the width of " -- self". The intended effect is that the spectating
+status aligns with other spectating statuses.
+*/
+static void Command_ListPlayers(void)
 {
-	INT32 i;
-	size_t maxlen = 0;
 	const char *address;
+	int width = 0;
 
-	for (i = 0; i < MAXPLAYERS; i++)
-	{
-		const size_t plen = strlen(player_names[i]);
-		if (playeringame[i] && plen > maxlen)
-			maxlen = plen;
-	}
+	boolean admin;
+	boolean spectator;
 
-	for (i = 0; i < MAXPLAYERS; i++)
-	{
+	/*
+	Mode of player status for an individual player (admin, spectator).
+	1 for admin
+	2 for spectator
+	4 for both
+	*/
+	int mode = 0;
+
+	INT32 totalplayers = 0;
+
+	const char *cc;
+	const char *pcc;
+
+	INT32 i;
+	int n;
+
+	for (i = 0; i < MAXPLAYERS; ++i)
 		if (playeringame[i])
+	{
+		n = strlen(player_names[i]);
+		if (n > width)
+			width = n;
+
+		if (mode != 7)
 		{
-			CONS_Printf("%.2u: %*s", i, (int)maxlen, player_names[i]);
-			CONS_Printf(" - %.2d", playernode[i]);
-			if (I_GetNodeAddress && (address = I_GetNodeAddress(playernode[i])) != NULL)
-				CONS_Printf(" - %s", address);
+			admin     = IsPlayerAdmin(i);
+			spectator = players[i].spectator;
 
-			if (IsPlayerAdmin(i))
-				CONS_Printf(M_GetText(" (verified admin)"));
-
-			if (players[i].spectator)
-				CONS_Printf(M_GetText(" (spectator)"));
-
-			CONS_Printf("\n");
+			if (admin)
+				mode |= 1;
+			if (spectator)
+				mode |= 2;
+			if (admin && spectator)
+				mode |= 4;
 		}
 	}
+
+	for (i = 0; i < MAXPLAYERS; ++i)
+		if (playeringame[i])
+	{
+		admin     = IsPlayerAdmin(i);
+		spectator = players[i].spectator;
+
+		if (admin)
+			cc = "\x85";/* red */
+		else if (spectator)
+			cc = "\x86";/* gray */
+		else
+			cc = "";
+
+		pcc = V_ApproximateSkinColorCode(players[i].skincolor);
+
+		CONS_Printf("%.2d: ""%s""%-*s""\x80", i, pcc,width, player_names[i]);
+
+		if (I_GetNodeAddress)
+		{
+			if (( address = I_GetNodeAddress(playernode[i]) ))
+				CONS_Printf(" -- %s", address);
+			else/* print spacer */
+			{
+				/* ...but not if there's a crammed status and were admin */
+				if (mode != 7 || !admin)
+					CONS_Printf(" --     ");/* -- self */
+			}
+		}
+
+		if (admin)
+			CONS_Printf(M_GetText("%s"" (admin)"),cc);
+		if (spectator)
+			CONS_Printf(M_GetText("%s"" (spectator)"),cc);
+
+		CONS_Printf("\n");
+
+		totalplayers++;
+	}
+
+	if (totalplayers == 1)
+		CONS_Printf("\nThere is 1 player in the game.\n");
+	else
+		CONS_Printf("\nThere are %d players in the game.\n", totalplayers);
+}
+
+/** Print a table listing all nodes, addresses and associated players.
+  *
+  * \sa Command_ListPlayers
+  */
+static void Command_NodeTree(void)
+{
+	const char *address;
+
+	INT32 i;
+	INT32 totalnodes = 0;
+
+	for (i = 0; i < MAXNETNODES; ++i)
+		if (nodeingame[i])
+	{
+		CONS_Printf("* %d", i);
+		if (playerpernode[i] > 1)
+			CONS_Printf(" (%d players)", playerpernode[i]);
+		if (I_GetNodeAddress && ( address = I_GetNodeAddress(i) ))
+			CONS_Printf(" - %s", address);
+		CONS_Printf("\n");
+#define PRINTPLAYERNODE( prefix, array ) if ((array)[i] > -1) \
+			CONS_Printf(prefix" (%d) %s\n", (array)[i], player_names[(array)[i]]);
+		PRINTPLAYERNODE  ("|-", nodetoplayer4)
+		PRINTPLAYERNODE  ("|-", nodetoplayer3)
+		PRINTPLAYERNODE  ("|-", nodetoplayer2)
+		PRINTPLAYERNODE ("\\-", nodetoplayer)
+#undef PRINTPLAYERNODE
+		CONS_Printf("\n");
+
+		totalnodes++;
+	}
+
+	CONS_Printf("%d/%d nodes connected.\n", totalnodes, MAXNETNODES);
 }
 
 static void Command_Ban(void)
@@ -3230,6 +3389,14 @@ consvar_t cv_noticedownload = {"noticedownload", "Off", CV_SAVE, CV_OnOff, NULL,
 static CV_PossibleValue_t downloadspeed_cons_t[] = {{0, "MIN"}, {32, "MAX"}, {0, NULL}};
 consvar_t cv_downloadspeed = {"downloadspeed", "16", CV_SAVE, downloadspeed_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
+consvar_t cv_autoresetdownloads =
+{
+	"autoresetdownloads", "Off",
+	CV_SAVE,
+	CV_OnOff,
+	NULL, 0, NULL, NULL, 0, 0, NULL
+};
+
 static void Got_AddPlayer(UINT8 **p, INT32 playernum);
 static void Got_RemovePlayer(UINT8 **p, INT32 playernum);
 
@@ -3240,7 +3407,7 @@ void D_ClientServerInit(void)
 		VERSION/100, VERSION%100, SUBVERSION));
 
 #ifndef NONET
-	COM_AddCommand("getplayernum", Command_GetPlayerNum);
+	COM_AddCommand("listplayers", Command_ListPlayers);
 	COM_AddCommand("kick", Command_Kick);
 	COM_AddCommand("ban", Command_Ban);
 	COM_AddCommand("banip", Command_BanIP);
@@ -3248,7 +3415,7 @@ void D_ClientServerInit(void)
 	COM_AddCommand("showbanlist", Command_ShowBan);
 	COM_AddCommand("reloadbans", Command_ReloadBan);
 	COM_AddCommand("connect", Command_connect);
-	COM_AddCommand("nodes", Command_Nodes);
+	COM_AddCommand("nodetree", Command_NodeTree);
 #ifdef PACKETDROP
 	COM_AddCommand("drop", Command_Drop);
 	COM_AddCommand("droprate", Command_Droprate);
@@ -3485,14 +3652,31 @@ static void Got_AddPlayer(UINT8 **p, INT32 playernum)
 
 	if (netgame)
 	{
-		if (server && cv_showjoinaddress.value)
+		char *text;
+		if (server)
 		{
 			const char *address;
-			if (I_GetNodeAddress && (address = I_GetNodeAddress(node)) != NULL)
-				HU_AddChatText(va("\x82*Player %d has joined the game (node %d) (%s)", newplayernum+1, node, address), false);	// merge join notification + IP to avoid clogging console/chat.
+			if (cv_showjoinaddress.value &&
+					I_GetNodeAddress && ( address = I_GetNodeAddress(node) ))
+			{
+				text = va(
+						"\x82*Player %d (num %d) has joined the game (%s)",
+						newplayernum+1, newplayernum, address);
+			}
+			else
+			{
+				text = va(
+						"\x82Player %d (num %d) has joined the game",
+						newplayernum+1, newplayernum);
+			}
 		}
 		else
-			HU_AddChatText(va("\x82*Player %d has joined the game (node %d)", newplayernum+1, node), false);	// if you don't wanna see the join address.
+		{
+			text = va(
+					"\x82Player %d has joined the game",
+					newplayernum+1);
+		}
+		HU_AddChatText(text, false);
 	}
 
 	if (server && multiplayer && motd[0] != '\0')
@@ -3700,6 +3884,104 @@ static void SV_SendRefuse(INT32 node, const char *reason)
 	Net_CloseConnection(node);
 }
 
+/* Macros here 'cause I'm lazy! */
+#define MAXVA      1024/* see m_misc.c's va function */
+#define MAXMSGLINE  256/* see m_menu.c's M_DrawMessageMenu */
+
+/*
+Send a refuse message (like SV_SendRefuse) and include a file list with it.
+WARNING: File names will not be truncated, simply left out. The usual message
+box background will not display either, due to epic hack.
+*/
+static void
+SV_SendDownloadRefuse (
+		INT32           node,
+		const char  * reason,
+		int            filec,
+		const char **  filev)
+{
+	char filename[MAX_WADPATH];
+	char     text[MAXVA];
+	char *      p;
+	int     right;
+
+	int i;
+	int n;
+
+#define SUBTRACT ( p += n, right -= n )
+
+	/*
+	Insert same number of linefeeds before message as after (from the file
+	list) so that the text doesn't render too high--completely off screen.
+	*/
+
+	n = filec;
+	memset(text, '\n', n);
+
+	/* Initial values for these */
+	p      =        text + n;
+	right  = sizeof text - n;/* Count terminating byte anyway, see below. */
+
+	/* This is the only text that'll render. */
+	n      = right - 1;
+	CopyCaretColors(p, reason, n);
+	p[n]   = '\0';
+
+	n      = strlen(p);
+	SUBTRACT;
+
+	/*
+	Fill max line length of text box line. This causes the text box drawing
+	function to fail and print the message to console instead. The text before
+	this line still renders. This is a very convenient coincidence, and so
+	I've given myself a pat of the back for this one.
+	*/
+
+	n      = MAXMSGLINE + 1;
+
+	if (n < right)/* No magic :( */
+	{
+		memset(p, '\t', MAXMSGLINE);
+		p[MAXMSGLINE] = '\n';/* This line can go on forever */
+
+		SUBTRACT;
+
+		/*
+		Now just iterate over the files and put them into a list,
+		with a linefeed after each one, except the last.
+		*/
+
+		for (i = 0; i < filec; ++i)
+		{
+			nameonly(strcpy(filename, filev[i]));
+
+			n = strlen(filename) + 1;/* plus linefeed */
+
+			/* Don't truncate file names, just leave them out. */
+			if (n > right)
+				break;
+
+			/*
+			The terminating byte is counted because
+			truncation here will erase the linefeed.
+			*/
+			snprintf(p, right, "%s\n", filename);
+
+			SUBTRACT;
+		}
+
+		if (right)/* not if filled out, snprintf did it */
+			p[-1] = '\0';/* we don't need an extra linefeed */
+	}
+
+	SV_SendRefuse(node, text);
+
+#undef  SUBTRACT
+}
+
+#undef  MAXMSGLINE
+#undef  MAXVA
+
 // used at txtcmds received to check packetsize bound
 static size_t TotalTextCmdPerTic(tic_t tic)
 {
@@ -3743,6 +4025,26 @@ static void HandleConnect(SINT8 node)
 		SV_SendRefuse(node, M_GetText("Too many players from\nthis node."));
 	else if (netgame && !netbuffer->u.clientcfg.localplayers) // Stealth join?
 		SV_SendRefuse(node, M_GetText("No players from\nthis node."));
+	else if (nodedownloadrefuse[node])
+	{
+		const char *reason;
+		char *s;
+		char *p;
+
+		if (( s = strdup(cv_nodownloads.string) ))
+		{
+			reason = s;
+			for (p = s; ( p = strchr(p, '\\') ); ++p)
+				*p = '\n';
+		}
+		else
+			reason = "You can't download files from this server.\nGo home.";
+
+		SV_SendDownloadRefuse(node, reason,
+				nodedownloads[node], nodedownloadfiles[node]);
+
+		free(s);
+	}
 	else
 	{
 #ifndef NONET
@@ -3868,12 +4170,15 @@ static void HandleTimeout(SINT8 node)
   */
 static void HandleServerInfo(SINT8 node)
 {
+	char servername[MAXSERVERNAME];
 	// compute ping in ms
 	const tic_t ticnow = I_GetTime();
 	const tic_t ticthen = (tic_t)LONG(netbuffer->u.serverinfo.time);
 	const tic_t ticdiff = (ticnow - ticthen)*1000/NEWTICRATE;
 	netbuffer->u.serverinfo.time = (tic_t)LONG(ticdiff);
 	netbuffer->u.serverinfo.servername[MAXSERVERNAME-1] = 0;
+	memcpy(servername, netbuffer->u.serverinfo.servername, MAXSERVERNAME);
+	CopyCaretColors(netbuffer->u.serverinfo.servername, servername, MAXSERVERNAME);
 	netbuffer->u.serverinfo.gametype = (UINT8)((netbuffer->u.serverinfo.gametype == VANILLA_GT_MATCH) ? GT_MATCH : GT_RACE);
 
 	SL_InsertServer(&netbuffer->u.serverinfo, node);
@@ -4159,7 +4464,7 @@ static void HandlePacketFromAwayNode(SINT8 node)
 		case PT_REQUESTFILE:
 			if (server)
 			{
-				if (!cv_downloading.value || !Got_RequestFilePak(node))
+				if (( !cv_downloading.value && !*cv_nodownloads.string ) || !Got_RequestFilePak(node))
 					Net_CloseConnection(node); // close connection if one of the requested files could not be sent, or you disabled downloading anyway
 			}
 			else
@@ -4204,7 +4509,7 @@ static boolean CheckForSpeedHacks(UINT8 p)
 		|| netcmds[maketic%BACKUPTICS][p].driftturn > KART_FULLTURN || netcmds[maketic%BACKUPTICS][p].driftturn < -KART_FULLTURN)
 	{
 		XBOXSTATIC char buf[2];
-		CONS_Alert(CONS_WARNING, M_GetText("Illegal movement value received from node %d\n"), playernode[p]);
+		CONS_Alert(CONS_WARNING, M_GetText("Illegal movement value received from player %d\n"), p);
 		//D_Clearticcmd(k);
 
 		buf[0] = (char)p;
