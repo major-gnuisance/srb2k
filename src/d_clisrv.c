@@ -3393,7 +3393,8 @@ consvar_t cv_autoresetdownloads =
 {
 	"autoresetdownloads", "Off",
 	CV_SAVE,
-	CV_OnOff
+	CV_OnOff,
+	NULL, 0, NULL, NULL, 0, 0, NULL
 };
 
 static void Got_AddPlayer(UINT8 **p, INT32 playernum);
