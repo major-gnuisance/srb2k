@@ -932,6 +932,7 @@ UINT16 W_InitFile(const char *filename, const char *lumpname, UINT16 *wadnump)
 	// add the wadfile
 	//
 	CONS_Printf(M_GetText("Added file %s (%u lumps)\n"), filename, numlumps);
+
 	if (type == RET_UNKNOWN)
 	{
 		if (wadnump)

@@ -117,14 +117,16 @@ extern consvar_t cv_kartbumpers;
 extern consvar_t cv_kartfrantic;
 extern consvar_t cv_kartcomeback;
 extern consvar_t cv_kartencore;
+extern consvar_t cv_karthideencorevote;
+extern consvar_t cv_kartitemtable;
 extern consvar_t cv_kartvoterulechanges;
 extern consvar_t cv_kartgametypechanges;
 extern consvar_t cv_kartencorechance;;
 extern consvar_t cv_kartspeedometer;
 extern consvar_t cv_kartvoices;
-
+extern consvar_t cv_kartscalingshrink;
 extern consvar_t cv_karteliminatelast;
-
+extern consvar_t cv_maxmidgamejoin;
 extern consvar_t cv_votetime;
 
 extern consvar_t cv_kartdebugitem, cv_kartdebugamount, cv_kartdebugshrink, cv_kartdebugdistribution, cv_kartdebughuddrop;

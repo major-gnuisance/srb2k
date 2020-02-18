@@ -82,7 +82,7 @@
 #endif
 
 // maximum number of windowed modes (see windowedModes[][])
-#define MAXWINMODES (20)
+#define MAXWINMODES (22)
 
 /**	\brief
 */
@@ -146,7 +146,9 @@ static const char *fallback_resolution_name = "Fallback";
 // windowed video modes from which to choose from.
 static INT32 windowedModes[MAXWINMODES][2] =
 {
-	{2560,1440},
+	{7680,4320}, //8k
+	{3840,2160}, //4k
+	{2560,1440}, //QHD
 	{1920,1200}, // 1.60,6.00
 	{1920,1080}, // 1.66
 	{1680,1050}, // 1.60,5.25
@@ -1693,6 +1695,8 @@ INT32 VID_SetMode(INT32 modeNum)
 	vid.pickeddup = vid.dupx;
 
 	SDLSetMode(vid.pickedwidth, vid.pickedheight, USE_FULLSCREEN);
+	//SDLSetMode(vid.width, vid.height, USE_FULLSCREEN);
+	Impl_VideoSetupBuffer();
 
 	if (rendermode == render_soft)
 	{
@@ -1701,8 +1705,6 @@ INT32 VID_SetMode(INT32 modeNum)
 			SDL_FreeSurface(bufSurface);
 			bufSurface = NULL;
 		}
-
-		Impl_VideoSetupBuffer();
 	}
 
 	return SDL_TRUE;
@@ -1825,7 +1827,7 @@ static void Impl_VideoSetupSDLBuffer(void)
 static void Impl_VideoSetupBuffer(void)
 {
 	// Set up game's software render buffer
-	if (rendermode == render_soft)
+	//if (rendermode == render_soft)
 	{
 		vid.rowbytes = vid.width * vid.bpp;
 		vid.direct = NULL;

@@ -3214,7 +3214,7 @@ static void P_NetArchiveMisc(void)
 	WRITEUINT32(save_p, ARCHIVEBLOCK_MISC);
 
 	WRITEINT16(save_p, gamemap);
-	if (gamestate != GS_LEVEL)
+	if (gamestate != GS_LEVEL || D_NumPlayers() >= cv_maxmidgamejoin.value)
 		WRITEINT16(save_p, GS_WAITINGPLAYERS); // nice hack to put people back into waitingplayers
 	else
 		WRITEINT16(save_p, gamestate);
@@ -3427,7 +3427,7 @@ void P_SaveNetGame(void)
 	P_NetArchiveMisc();
 
 	// Assign the mobjnumber for pointer tracking
-	if (gamestate == GS_LEVEL)
+	if (gamestate == GS_LEVEL && D_NumPlayers() < cv_maxmidgamejoin.value)
 	{
 		for (th = thinkercap.next; th != &thinkercap; th = th->next)
 		{
@@ -3442,7 +3442,7 @@ void P_SaveNetGame(void)
 	}
 
 	P_NetArchivePlayers();
-	if (gamestate == GS_LEVEL)
+	if (gamestate == GS_LEVEL && D_NumPlayers() < cv_maxmidgamejoin.value)
 	{
 		P_NetArchiveWorld();
 #ifdef POLYOBJECTS

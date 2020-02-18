@@ -131,7 +131,8 @@ static void CV_anisotropic_ONChange(void)
 
 static void CV_screentextures_ONChange(void)
 {
-	HWD.pfnSetSpecialState(HWD_SET_SCREEN_TEXTURES, cv_enable_screen_textures.value);
+	if (rendermode == render_opengl)
+		HWD.pfnSetSpecialState(HWD_SET_SCREEN_TEXTURES, cv_enable_screen_textures.value);
 }
 
 // ==========================================================================
@@ -401,6 +402,12 @@ void HWR_RenderPlane(extrasubsector_t *xsub, boolean isceiling, fixed_t fixedhei
 
 	if (nrPlaneVerts < 3)   //not even a triangle ?
 		return;
+
+	if ((UINT32)nrPlaneVerts > INT16_MAX) // FIXME: exceeds plVerts size
+	{
+		CONS_Debug(DBG_RENDER, "polygon size of %d exceeds max value of %d vertices\n", nrPlaneVerts, UINT16_MAX);
+		return;
+	}
 
 	// Allocate plane-vertex buffer if we need to
 	if (!planeVerts || nrPlaneVerts > numAllocedPlaneVerts)
@@ -2227,7 +2234,7 @@ void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, fixed_t
 	if (nrPlaneVerts < 3)   //not even a triangle ?
 		return;
 
-	if (nrPlaneVerts > UINT16_MAX) // FIXME: exceeds plVerts size
+	if (nrPlaneVerts > INT16_MAX) // FIXME: exceeds plVerts size
 	{
 		CONS_Debug(DBG_RENDER, "polygon size of %s exceeds max value of %d vertices\n", sizeu1(nrPlaneVerts), UINT16_MAX);
 		return;

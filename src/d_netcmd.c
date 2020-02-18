@@ -367,6 +367,12 @@ consvar_t cv_kartbumpers = {"kartbumpers", "3", CV_NETVAR|CV_CHEAT, kartbumpers_
 consvar_t cv_kartfrantic = {"kartfrantic", "Off", CV_NETVAR|CV_CHEAT|CV_CALL|CV_NOINIT, CV_OnOff, KartFrantic_OnChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartcomeback = {"kartcomeback", "On", CV_NETVAR|CV_CHEAT|CV_CALL|CV_NOINIT, CV_OnOff, KartComeback_OnChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartencore = {"kartencore", "Off", CV_NETVAR|CV_CALL|CV_NOINIT, CV_OnOff, KartEncore_OnChange, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_karthideencorevote = {"karthideencorevote", "Off", CV_NETVAR, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+static CV_PossibleValue_t kartitemtable_cons_t[] = { {0, "Classic"}, {1, "New"}, {2, "Boost"}, {3, "RNGesus"}, {0, NULL}};
+consvar_t cv_kartitemtable = { "kartitemtable", "Classic", CV_NETVAR, kartitemtable_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL };
+static CV_PossibleValue_t maxmidgamejoin_cons_t[] = {{1, "MIN"}, {MAXPLAYERS, "MAX"}, {0, NULL}};
+consvar_t cv_maxmidgamejoin = {"maxmidgamejoin", "16", CV_NETVAR, maxmidgamejoin_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_kartscalingshrink = {"kartscalingshrink", "off", CV_NETVAR, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 static CV_PossibleValue_t kartvoterulechanges_cons_t[] = {{0, "Never"}, {1, "Sometimes"}, {2, "Frequent"}, {3, "Always"}, {0, NULL}};
 consvar_t cv_kartvoterulechanges = {"kartvoterulechanges", "Frequent", CV_NETVAR|CV_CALL|CV_NOINIT, kartvoterulechanges_cons_t, KartVoteRuleChanges_OnChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartgametypechanges = {"kartgametypechanges", "Frequent", 0, kartvoterulechanges_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -389,6 +395,8 @@ consvar_t cv_kartdebughuddrop = {"kartdebughuddrop", "Off", CV_NETVAR|CV_CHEAT|C
 consvar_t cv_kartdebugcheckpoint = {"kartdebugcheckpoint", "Off", CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartdebugnodes = {"kartdebugnodes", "Off", CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartdebugcolorize = {"kartdebugcolorize", "Off", CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+
 
 static CV_PossibleValue_t votetime_cons_t[] = {{10, "MIN"}, {3600, "MAX"}, {0, NULL}};
 consvar_t cv_votetime = {"votetime", "20", CV_NETVAR, votetime_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -732,6 +740,8 @@ void D_RegisterServerCommands(void)
 
 	CV_RegisterVar(&cv_lessbattlevotes);
 	CV_RegisterVar(&cv_lessencorevotes);
+
+	CV_RegisterVar(&cv_maxmidgamejoin);
 }
 
 // =========================================================================
@@ -5947,10 +5957,13 @@ static void KartEncore_OnChange(void)
 {
 	if (G_RaceGametype())
 	{
-		if ((boolean)cv_kartencore.value != encoremode && gamestate == GS_LEVEL /*&& leveltime > starttime*/)
-			CONS_Printf(M_GetText("Encore Mode will be turned %s next round.\n"), cv_kartencore.value ? M_GetText("on") : M_GetText("off"));
-		else
-			CONS_Printf(M_GetText("Encore Mode has been turned %s.\n"), cv_kartencore.value ? M_GetText("on") : M_GetText("off"));
+		if (!cv_karthideencorevote.value)
+		{
+			if ((boolean)cv_kartencore.value != encoremode && gamestate == GS_LEVEL /*&& leveltime > starttime*/)
+				CONS_Printf(M_GetText("Encore Mode will be turned %s next round.\n"), cv_kartencore.value ? M_GetText("on") : M_GetText("off"));
+			else
+				CONS_Printf(M_GetText("Encore Mode has been turned %s.\n"), cv_kartencore.value ? M_GetText("on") : M_GetText("off"));
+		}
 	}
 }
 
