@@ -5366,7 +5366,11 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_granisotropicmode);
 	CV_RegisterVar(&cv_grcorrecttricks);
 	CV_RegisterVar(&cv_grsolvetjoin);
+	
 	CV_RegisterVar(&cv_enable_screen_textures);
+	CV_RegisterVar(&cv_grwireframe);
+	CV_RegisterVar(&cv_test_disable_something);
+	CV_RegisterVar(&cv_enable_batching);
 }
 
 // --------------------------------------------------------------------------

@@ -1554,10 +1554,6 @@ void R_RegisterEngineStuff(void)
 
 	// render stats
 	CV_RegisterVar(&cv_hrenderstats);
-	CV_RegisterVar(&cv_grwireframe);
-	
-	CV_RegisterVar(&cv_test_disable_something);
-	CV_RegisterVar(&cv_enable_batching);
 
 #ifdef HWRENDER
 	if (rendermode != render_soft && rendermode != render_none)
