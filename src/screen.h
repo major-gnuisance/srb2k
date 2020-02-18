@@ -53,8 +53,8 @@
 #define MAXVIDWIDTH 640
 #define MAXVIDHEIGHT 480
 #else
-#define MAXVIDWIDTH 7680//1920 // don't set this too high because actually
-#define MAXVIDHEIGHT 4320//1200 // lots of tables are allocated with the MAX size.
+#define MAXVIDWIDTH 2560//1920 // don't set this too high because actually
+#define MAXVIDHEIGHT 1440//1200 // lots of tables are allocated with the MAX size.
 #endif
 #define BASEVIDWIDTH 320 // NEVER CHANGE THIS! This is the original
 #define BASEVIDHEIGHT 200 // resolution of the graphics.
