@@ -106,7 +106,6 @@ int hrs_batchsorttime = 0;
 int hrs_batchdrawtime = 0;
 
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_try_optimization = {"try_optimization", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 static void CV_screentextures_ONChange(void);
@@ -162,17 +161,6 @@ static side_t *gr_sidedef;
 static line_t *gr_linedef;
 static sector_t *gr_frontsector;
 static sector_t *gr_backsector;
-
-// rendering phase test
-#define RENDER_PHASE_WALL_TP_POLY 1
-#define RENDER_PHASE_FLOOR 2
-#define RENDER_PHASE_CEILING 4
-#define RENDER_PHASE_FFLOOR_BOTTOM 8
-#define RENDER_PHASE_FFLOOR_TOP 16
-// first phase has all walls, all transparent stuff and polyobjects
-
-#define RENDER_PHASE_FFLOOR (RENDER_PHASE_FFLOOR_BOTTOM+RENDER_PHASE_FFLOOR_TOP)
-static UINT8 gr_render_phase;
 
 // ==========================================================================
 // View position
@@ -2116,8 +2104,7 @@ void HWR_AddLine(seg_t *line)
 			return;
     }
 
-	if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)
-		HWR_ProcessSeg(); // Doesn't need arguments because they're defined globally :D
+	HWR_ProcessSeg(); // Doesn't need arguments because they're defined globally :D
 	return;
 }
 
@@ -2579,7 +2566,7 @@ void HWR_Subsector(size_t num)
 
 	// render floor ?
 	// yeah, easy backface cull! :)
-	if (gr_render_phase & RENDER_PHASE_FLOOR && cullFloorHeight < viewz)
+	if (cullFloorHeight < viewz)
 	{
 		if (gr_frontsector->floorpic != skyflatnum)
 		{
@@ -2595,7 +2582,7 @@ void HWR_Subsector(size_t num)
 		}
 	}
 
-	if (gr_render_phase & RENDER_PHASE_CEILING && cullCeilingHeight > viewz)
+	if (cullCeilingHeight > viewz)
 	{
 		if (gr_frontsector->ceilingpic != skyflatnum)
 		{
@@ -2611,7 +2598,7 @@ void HWR_Subsector(size_t num)
 		}
 	}
 
-	if (gr_render_phase & (RENDER_PHASE_FFLOOR | RENDER_PHASE_WALL_TP_POLY) && gr_frontsector->ffloors)
+	if (gr_frontsector->ffloors)
 	{
 		/// \todo fix light, xoffs, yoffs, extracolormap ?
 		ffloor_t * rover;
@@ -2643,41 +2630,35 @@ void HWR_Subsector(size_t num)
 			{
 				if (rover->flags & FF_FOG)
 				{
-					if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)// render transparent things together
-					{
-						UINT8 alpha;
+					UINT8 alpha;
 
-						light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
+					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
 
-						if (rover->master->frontsector->extra_colormap)
-							alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, rover->master->frontsector->extra_colormap->rgba);
-						else
-							alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, GL_NORMALFOG);
+					if (rover->master->frontsector->extra_colormap)
+						alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, rover->master->frontsector->extra_colormap->rgba);
+					else
+						alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, GL_NORMALFOG);
 
-						HWR_AddTransparentFloor(0,
-							                   &extrasubsectors[num],
-											   false,
-							                   *rover->bottomheight,
-							                   *gr_frontsector->lightlist[light].lightlevel,
-							                   alpha, rover->master->frontsector, PF_Fog|PF_NoTexture,
-											   true, rover->master->frontsector->extra_colormap);
-					}
+					HWR_AddTransparentFloor(0,
+										   &extrasubsectors[num],
+										   false,
+										   *rover->bottomheight,
+										   *gr_frontsector->lightlist[light].lightlevel,
+										   alpha, rover->master->frontsector, PF_Fog|PF_NoTexture,
+										   true, rover->master->frontsector->extra_colormap);
 				}
 				else if (rover->flags & FF_TRANSLUCENT && rover->alpha < 256) // SoM: Flags are more efficient
 				{
-					if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)
-					{
-						light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
-						HWR_AddTransparentFloor(levelflats[*rover->bottompic].lumpnum,
-							                   &extrasubsectors[num],
-											   false,
-							                   *rover->bottomheight,
-							                   *gr_frontsector->lightlist[light].lightlevel,
-							                   rover->alpha-1 > 255 ? 255 : rover->alpha-1, rover->master->frontsector, (rover->flags & FF_RIPPLE ? PF_Ripple : 0)|PF_Translucent,
-							                   false, gr_frontsector->lightlist[light].extra_colormap);
-					}
+					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
+					HWR_AddTransparentFloor(levelflats[*rover->bottompic].lumpnum,
+										   &extrasubsectors[num],
+										   false,
+										   *rover->bottomheight,
+										   *gr_frontsector->lightlist[light].lightlevel,
+										   rover->alpha-1 > 255 ? 255 : rover->alpha-1, rover->master->frontsector, (rover->flags & FF_RIPPLE ? PF_Ripple : 0)|PF_Translucent,
+										   false, gr_frontsector->lightlist[light].extra_colormap);
 				}
-				else if (gr_render_phase & RENDER_PHASE_FFLOOR_BOTTOM)
+				else
 				{
 					HWR_GetFlat(levelflats[*rover->bottompic].lumpnum, R_NoEncore(gr_frontsector, false));
 					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
@@ -2705,41 +2686,35 @@ void HWR_Subsector(size_t num)
 			{
 				if (rover->flags & FF_FOG)
 				{
-					if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)
-					{
-						UINT8 alpha;
+					UINT8 alpha;
 
-						light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
+					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
 
-						if (rover->master->frontsector->extra_colormap)
-							alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, rover->master->frontsector->extra_colormap->rgba);
-						else
-							alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, GL_NORMALFOG);
+					if (rover->master->frontsector->extra_colormap)
+						alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, rover->master->frontsector->extra_colormap->rgba);
+					else
+						alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, GL_NORMALFOG);
 
-						HWR_AddTransparentFloor(0,
-							                   &extrasubsectors[num],
-											   true,
-							                   *rover->topheight,
-							                   *gr_frontsector->lightlist[light].lightlevel,
-							                   alpha, rover->master->frontsector, PF_Fog|PF_NoTexture,
-											   true, rover->master->frontsector->extra_colormap);
-					}
+					HWR_AddTransparentFloor(0,
+										   &extrasubsectors[num],
+										   true,
+										   *rover->topheight,
+										   *gr_frontsector->lightlist[light].lightlevel,
+										   alpha, rover->master->frontsector, PF_Fog|PF_NoTexture,
+										   true, rover->master->frontsector->extra_colormap);
 				}
 				else if (rover->flags & FF_TRANSLUCENT && rover->alpha < 256)
 				{
-					if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)
-					{
-						light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
-						HWR_AddTransparentFloor(levelflats[*rover->toppic].lumpnum,
-							                    &extrasubsectors[num],
-												true,
-							                    *rover->topheight,
-							                    *gr_frontsector->lightlist[light].lightlevel,
-							                    rover->alpha-1 > 255 ? 255 : rover->alpha-1, rover->master->frontsector, (rover->flags & FF_RIPPLE ? PF_Ripple : 0)|PF_Translucent,
-							                    false, gr_frontsector->lightlist[light].extra_colormap);
-					}
+					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
+					HWR_AddTransparentFloor(levelflats[*rover->toppic].lumpnum,
+											&extrasubsectors[num],
+											true,
+											*rover->topheight,
+											*gr_frontsector->lightlist[light].lightlevel,
+											rover->alpha-1 > 255 ? 255 : rover->alpha-1, rover->master->frontsector, (rover->flags & FF_RIPPLE ? PF_Ripple : 0)|PF_Translucent,
+											false, gr_frontsector->lightlist[light].extra_colormap);
 				}
-				else if (gr_render_phase & RENDER_PHASE_FFLOOR_TOP)
+				else
 				{
 					HWR_GetFlat(levelflats[*rover->toppic].lumpnum, R_NoEncore(gr_frontsector, true));
 					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
@@ -2753,7 +2728,7 @@ void HWR_Subsector(size_t num)
 
 #ifdef POLYOBJECTS
 	// Draw all the polyobjects in this subsector
-	if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY && sub->polyList)
+	if (sub->polyList)
 	{
 		polyobj_t *po = sub->polyList;
 
@@ -2793,8 +2768,7 @@ void HWR_Subsector(size_t num)
 	{
 		// draw sprites first, coz they are clipped to the solidsegs of
 		// subsectors more 'in front'
-		if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)
-			HWR_AddSprites(gr_frontsector);
+		HWR_AddSprites(gr_frontsector);
 
 		//Hurdler: at this point validcount must be the same, but is not because
 		//         gr_frontsector doesn't point anymore to sub->sector due to
@@ -5272,43 +5246,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	if (do_stats) hrs_bsptime = I_GetTimeMillis();
 	hrs_numpolyobjects = 0;
 	// Recursively "render" the BSP tree.
-	if (cv_try_optimization.value)// should probably remove this optimization attempt since batching now exists
-	{
-		// try rendering in separate phases, to reduce opengl state changes
-		gr_render_phase = RENDER_PHASE_WALL_TP_POLY;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-
-		validcount++;
-		gld_clipper_Clear();
-		gld_clipper_SafeAddClipRange(viewangle + a1, viewangle - a1);
-		gr_render_phase = RENDER_PHASE_FLOOR;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-
-		validcount++;
-		gld_clipper_Clear();
-		gld_clipper_SafeAddClipRange(viewangle + a1, viewangle - a1);
-		gr_render_phase = RENDER_PHASE_CEILING;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-
-		validcount++;
-		gld_clipper_Clear();
-		gld_clipper_SafeAddClipRange(viewangle + a1, viewangle - a1);
-		gr_render_phase = RENDER_PHASE_FFLOOR_BOTTOM;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-
-		validcount++;
-		gld_clipper_Clear();
-		gld_clipper_SafeAddClipRange(viewangle + a1, viewangle - a1);
-		hrs_numbspcalls = 0;
-		gr_render_phase = RENDER_PHASE_FFLOOR_TOP;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-	}
-	else
-	{
-		gr_render_phase = 255;// this will make all the phase checks pass
-		hrs_numbspcalls = 0;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-	}
+	hrs_numbspcalls = 0;
+	HWR_RenderBSPNode((INT32)numnodes-1);
 
 	if (do_stats) hrs_bsptime = I_GetTimeMillis() - hrs_bsptime;
 	
