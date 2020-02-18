@@ -131,8 +131,7 @@ static void CV_anisotropic_ONChange(void)
 
 static void CV_screentextures_ONChange(void)
 {
-	if (rendermode == render_opengl)
-		HWD.pfnSetSpecialState(HWD_SET_SCREEN_TEXTURES, cv_enable_screen_textures.value);
+	HWD.pfnSetSpecialState(HWD_SET_SCREEN_TEXTURES, cv_enable_screen_textures.value);
 }
 
 // ==========================================================================
