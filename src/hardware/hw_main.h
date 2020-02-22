@@ -163,6 +163,10 @@ extern int rs_nodedrawtime;
 extern int rs_spritesorttime;
 extern int rs_spritedrawtime;
 
+extern int rs_posttime;// postprocessor
+
+extern int rs_test;
+
 extern int rs_numdrawnodes;
 extern int rs_numbspcalls;
 extern int rs_numsprites;

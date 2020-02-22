@@ -43,6 +43,7 @@ extern UINT8 keyboard_started;
 UINT32 I_GetFreeMem(UINT32 *total);
 
 int I_GetTimeMillis(void);// provides millisecond counter for render stats
+int I_GetTimeMicros(void);// provides microsecond counter for render stats
 
 /**	\brief  Called by D_SRB2Loop, returns current time in tics.
 */

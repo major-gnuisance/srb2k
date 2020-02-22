@@ -1886,12 +1886,12 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 
 	// sort polygons
 	//CONS_Printf("qsort polys\n");
-	*sSortTime = I_GetTimeMillis();
+	*sSortTime = I_GetTimeMicros();
 	if (gl_allowshaders)
 		qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygons);
 	else
 		qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygonsNoShaders);
-	*sSortTime = I_GetTimeMillis() - *sSortTime;
+	*sSortTime = I_GetTimeMicros() - *sSortTime;
 	//CONS_Printf("sort done\n");
 	// sort order
 	// 1. shader
@@ -1900,7 +1900,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	// 4. colors + light level
 	// not sure about order of last 2, or if it even matters
 
-	*sDrawTime = I_GetTimeMillis();
+	*sDrawTime = I_GetTimeMicros();
 
 	currentShader = polygonArray[polygonIndexArray[0]].shader;
 	currentTexture = polygonArray[polygonIndexArray[0]].texNum;
@@ -2166,7 +2166,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	polygonArraySize = 0;
 	unsortedVertexArraySize = 0;
 	
-	*sDrawTime = I_GetTimeMillis() - *sDrawTime;
+	*sDrawTime = I_GetTimeMicros() - *sDrawTime;
 }
 
 // -----------------+

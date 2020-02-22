@@ -446,7 +446,7 @@ static boolean D_Display(void)
 		// draw the view directly
 		if (cv_renderview.value && !automapactive)
 		{
-			rs_rendercalltime = I_GetTimeMillis();
+			rs_rendercalltime = I_GetTimeMicros();
 			for (i = 0; i <= splitscreen; i++)
 			{
 				if (players[displayplayers[i]].mo || players[displayplayers[i]].playerstate == PST_DEAD)
@@ -519,7 +519,7 @@ static boolean D_Display(void)
 						V_DoPostProcessor(i, postimgtype[i], postimgparam[i]);
 				}
 			}
-			rs_rendercalltime = I_GetTimeMillis() - rs_rendercalltime;
+			rs_rendercalltime = I_GetTimeMicros() - rs_rendercalltime;
 		}
 
 		if (lastdraw)
@@ -642,7 +642,7 @@ static boolean D_Display(void)
 			// own additions for testing
 			char s[50];
 			static DWORD prev_t = 0;
-			DWORD curr_t = I_GetTimeMillis();
+			DWORD curr_t = I_GetTimeMicros();
 			int t_diff = curr_t - prev_t;
 			prev_t = curr_t;
 
@@ -669,25 +669,32 @@ static boolean D_Display(void)
 		if (cv_renderstats.value)
 		{
 			char s[50];
-			int frametime = I_GetTimeMillis() - rs_prevframetime;
-			rs_prevframetime = I_GetTimeMillis();
+			int frametime = I_GetTimeMicros() - rs_prevframetime;
+			int divisor = 1;
+			rs_prevframetime = I_GetTimeMicros();
+
+			if (rs_rendercalltime > 10000) divisor = 1000;
 			
-			snprintf(s, sizeof s - 1, "ft   %d", frametime);
+			snprintf(s, sizeof s - 1, "ft   %d", frametime / divisor);
 			V_DrawThinString(30, 10, V_MONOSPACE | V_YELLOWMAP, s);
-			snprintf(s, sizeof s - 1, "rtot %d", rs_rendercalltime);
+			snprintf(s, sizeof s - 1, "rtot %d", rs_rendercalltime / divisor);
 			V_DrawThinString(30, 20, V_MONOSPACE | V_YELLOWMAP, s);
 			if (rendermode == render_opengl)// dont show unimplemented stats
 			{
-				snprintf(s, sizeof s - 1, "bsp  %d", rs_bsptime);
+				snprintf(s, sizeof s - 1, "bsp  %d", rs_bsptime / divisor);
 				V_DrawThinString(30, 30, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "nsrt %d", rs_nodesorttime);
+				snprintf(s, sizeof s - 1, "nsrt %d", rs_nodesorttime / divisor);
 				V_DrawThinString(30, 40, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "ndrw %d", rs_nodedrawtime);
+				snprintf(s, sizeof s - 1, "ndrw %d", rs_nodedrawtime / divisor);
 				V_DrawThinString(30, 50, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "ssrt %d", rs_spritesorttime);
+				snprintf(s, sizeof s - 1, "ssrt %d", rs_spritesorttime / divisor);
 				V_DrawThinString(30, 60, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "sdrw %d", rs_spritedrawtime);
+				snprintf(s, sizeof s - 1, "sdrw %d", rs_spritedrawtime / divisor);
 				V_DrawThinString(30, 70, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "post %d", rs_posttime / divisor);
+				V_DrawThinString(30, 80, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "test %d", rs_test / divisor);
+				V_DrawThinString(30, 90, V_MONOSPACE | V_YELLOWMAP, s);
 
 				snprintf(s, sizeof s - 1, "nbsp %d", rs_numbspcalls);
 				V_DrawThinString(75, 10, V_MONOSPACE | V_BLUEMAP, s);
@@ -700,9 +707,9 @@ static boolean D_Display(void)
 
 				if (cv_enable_batching.value)
 				{
-					snprintf(s, sizeof s - 1, "bsrt %d", rs_batchsorttime);
+					snprintf(s, sizeof s - 1, "bsrt %d", rs_batchsorttime / divisor);
 					V_DrawThinString(75, 55, V_MONOSPACE | V_REDMAP, s);
-					snprintf(s, sizeof s - 1, "bdrw %d", rs_batchdrawtime);
+					snprintf(s, sizeof s - 1, "bdrw %d", rs_batchdrawtime / divisor);
 					V_DrawThinString(75, 65, V_MONOSPACE | V_REDMAP, s);
 
 					snprintf(s, sizeof s - 1, "npol %d", rs_numpolys);
@@ -828,7 +835,9 @@ static boolean D_Display(void)
 			}
 		} else
 
+		rs_test = I_GetTimeMicros();
 		I_FinishUpdate(); // page flip or blit buffer
+		rs_test = I_GetTimeMicros() - rs_test;
 
 		if (scaling)
 		{
@@ -854,7 +863,7 @@ void D_SRB2Loop(void)
 {
 	tic_t oldentertics = 0, entertic = 0, realtics = 0, rendertimeout = INFTICS;
 	// init frame time var
-	rs_prevframetime = I_GetTimeMillis();
+	rs_prevframetime = I_GetTimeMicros();
 
 	if (dedicated)
 		server = true;

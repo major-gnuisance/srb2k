@@ -95,6 +95,10 @@ int rs_numbspcalls = 0;
 int rs_numsprites = 0;
 int rs_numpolyobjects = 0;
 
+int rs_posttime = 0;
+
+int rs_test = 0;
+
 // render stats for batching
 int rs_numpolys = 0;
 int rs_numcalls = 0;
@@ -4230,7 +4234,7 @@ void HWR_RenderDrawNodes(void)
 
 	// render stats
 	rs_numdrawnodes = p;
-	rs_nodesorttime = I_GetTimeMillis();
+	rs_nodesorttime = I_GetTimeMicros();
 
 	// p is the number of stuff to sort
 
@@ -4269,8 +4273,8 @@ void HWR_RenderDrawNodes(void)
 		}
 	}
 
-	rs_nodesorttime = I_GetTimeMillis() - rs_nodesorttime;
-	rs_nodedrawtime = I_GetTimeMillis();
+	rs_nodesorttime = I_GetTimeMicros() - rs_nodesorttime;
+	rs_nodedrawtime = I_GetTimeMicros();
 
 	// Okay! Let's draw it all! Woo!
 	HWD.pfnSetTransform(&atransform);
@@ -4307,7 +4311,7 @@ void HWR_RenderDrawNodes(void)
 		}
 	}
 
-	rs_nodedrawtime = I_GetTimeMillis() - rs_nodedrawtime;
+	rs_nodedrawtime = I_GetTimeMicros() - rs_nodedrawtime;
 
 	numwalls = 0;
 	numplanes = 0;
@@ -5206,13 +5210,13 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	drawcount = 0;
 	validcount++;
 
-	if (do_stats) rs_bsptime = I_GetTimeMillis();
+	if (do_stats) rs_bsptime = I_GetTimeMicros();
 	rs_numpolyobjects = 0;
 	// Recursively "render" the BSP tree.
 	rs_numbspcalls = 0;
 	HWR_RenderBSPNode((INT32)numnodes-1);
 
-	if (do_stats) rs_bsptime = I_GetTimeMillis() - rs_bsptime;
+	if (do_stats) rs_bsptime = I_GetTimeMicros() - rs_bsptime;
 	
 	if (cv_enable_batching.value)
 		HWD.pfnRenderBatches(&rs_numpolys, &rs_numcalls, &rs_numshaders, &rs_numtextures, &rs_numpolyflags, &rs_numcolors, &rs_batchsorttime, &rs_batchdrawtime);
@@ -5222,23 +5226,24 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 
 	// Draw MD2 and sprites
 	rs_numsprites = gr_visspritecount;
-	rs_spritesorttime = I_GetTimeMillis();
+	rs_spritesorttime = I_GetTimeMicros();
 	HWR_SortVisSprites();
-	rs_spritesorttime = I_GetTimeMillis() - rs_spritesorttime;
-	rs_spritedrawtime = I_GetTimeMillis();
+	rs_spritesorttime = I_GetTimeMicros() - rs_spritesorttime;
+	rs_spritedrawtime = I_GetTimeMicros();
 	HWR_DrawSprites();
-	rs_spritedrawtime = I_GetTimeMillis() - rs_spritedrawtime;
+	rs_spritedrawtime = I_GetTimeMicros() - rs_spritedrawtime;
 
 	if (do_stats)
 	{
-		rs_nodetime = I_GetTimeMillis();
+		rs_nodetime = I_GetTimeMicros();
 		rs_numdrawnodes = 0;
 		rs_nodesorttime = 0;
 		rs_nodedrawtime = 0;
 	}
 	if (numplanes || numpolyplanes || numwalls) // Render FOFs and translucent walls after everything
 		HWR_RenderDrawNodes();
-	if (do_stats) rs_nodetime = I_GetTimeMillis() - rs_nodetime;
+	if (do_stats) rs_nodetime = I_GetTimeMicros() - rs_nodetime;
+
 
 	// Unset transform and shader
 	HWD.pfnSetTransform(NULL);
@@ -5258,7 +5263,11 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 
 	// Run post processor effects
 	if (!skybox && cv_enable_screen_textures.value)
+	{
+		rs_posttime = I_GetTimeMicros();
 		HWR_DoPostProcessor(player);
+		rs_posttime = I_GetTimeMicros() - rs_posttime;
+	}
 
 	// Check for new console commands.
 	NetUpdate();
