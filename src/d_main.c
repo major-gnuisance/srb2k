@@ -446,7 +446,7 @@ static boolean D_Display(void)
 		// draw the view directly
 		if (cv_renderview.value && !automapactive)
 		{
-			hrs_rendercalltime = I_GetTimeMillis();
+			rs_rendercalltime = I_GetTimeMillis();
 			for (i = 0; i <= splitscreen; i++)
 			{
 				if (players[displayplayers[i]].mo || players[displayplayers[i]].playerstate == PST_DEAD)
@@ -519,7 +519,7 @@ static boolean D_Display(void)
 						V_DoPostProcessor(i, postimgtype[i], postimgparam[i]);
 				}
 			}
-			hrs_rendercalltime = I_GetTimeMillis() - hrs_rendercalltime;
+			rs_rendercalltime = I_GetTimeMillis() - rs_rendercalltime;
 		}
 
 		if (lastdraw)
@@ -666,57 +666,56 @@ static boolean D_Display(void)
 				CONS_Printf("ft diff zero! t diff %d, h_debug_var %s\n", t_diff, h_debug_var ? "TRUE" : "FALSE");
 		}
 */
-		// render stats
-		if (cv_hrenderstats.value)
+		if (cv_renderstats.value)
 		{
 			char s[50];
-			int frametime = I_GetTimeMillis() - hrs_prevframetime;
-			hrs_prevframetime = I_GetTimeMillis();
+			int frametime = I_GetTimeMillis() - rs_prevframetime;
+			rs_prevframetime = I_GetTimeMillis();
 			
 			snprintf(s, sizeof s - 1, "ft   %d", frametime);
 			V_DrawThinString(30, 10, V_MONOSPACE | V_YELLOWMAP, s);
-			snprintf(s, sizeof s - 1, "rtot %d", hrs_rendercalltime);
+			snprintf(s, sizeof s - 1, "rtot %d", rs_rendercalltime);
 			V_DrawThinString(30, 20, V_MONOSPACE | V_YELLOWMAP, s);
 			if (rendermode == render_opengl)// dont show unimplemented stats
 			{
-				snprintf(s, sizeof s - 1, "bsp  %d", hrs_bsptime);
+				snprintf(s, sizeof s - 1, "bsp  %d", rs_bsptime);
 				V_DrawThinString(30, 30, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "nsrt %d", hrs_nodesorttime);
+				snprintf(s, sizeof s - 1, "nsrt %d", rs_nodesorttime);
 				V_DrawThinString(30, 40, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "ndrw %d", hrs_nodedrawtime);
+				snprintf(s, sizeof s - 1, "ndrw %d", rs_nodedrawtime);
 				V_DrawThinString(30, 50, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "ssrt %d", hrs_spritesorttime);
+				snprintf(s, sizeof s - 1, "ssrt %d", rs_spritesorttime);
 				V_DrawThinString(30, 60, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "sdrw %d", hrs_spritedrawtime);
+				snprintf(s, sizeof s - 1, "sdrw %d", rs_spritedrawtime);
 				V_DrawThinString(30, 70, V_MONOSPACE | V_YELLOWMAP, s);
 
-				snprintf(s, sizeof s - 1, "nbsp %d", hrs_numbspcalls);
+				snprintf(s, sizeof s - 1, "nbsp %d", rs_numbspcalls);
 				V_DrawThinString(75, 10, V_MONOSPACE | V_BLUEMAP, s);
-				snprintf(s, sizeof s - 1, "nnod %d", hrs_numdrawnodes);
+				snprintf(s, sizeof s - 1, "nnod %d", rs_numdrawnodes);
 				V_DrawThinString(75, 20, V_MONOSPACE | V_BLUEMAP, s);
-				snprintf(s, sizeof s - 1, "nspr %d", hrs_numsprites);
+				snprintf(s, sizeof s - 1, "nspr %d", rs_numsprites);
 				V_DrawThinString(75, 30, V_MONOSPACE | V_BLUEMAP, s);
-				snprintf(s, sizeof s - 1, "npob %d", hrs_numpolyobjects);
+				snprintf(s, sizeof s - 1, "npob %d", rs_numpolyobjects);
 				V_DrawThinString(75, 40, V_MONOSPACE | V_BLUEMAP, s);
 
 				if (cv_enable_batching.value)
 				{
-					snprintf(s, sizeof s - 1, "bsrt %d", hrs_batchsorttime);
+					snprintf(s, sizeof s - 1, "bsrt %d", rs_batchsorttime);
 					V_DrawThinString(75, 55, V_MONOSPACE | V_REDMAP, s);
-					snprintf(s, sizeof s - 1, "bdrw %d", hrs_batchdrawtime);
+					snprintf(s, sizeof s - 1, "bdrw %d", rs_batchdrawtime);
 					V_DrawThinString(75, 65, V_MONOSPACE | V_REDMAP, s);
 
-					snprintf(s, sizeof s - 1, "npol %d", hrs_numpolys);
+					snprintf(s, sizeof s - 1, "npol %d", rs_numpolys);
 					V_DrawThinString(130, 10, V_MONOSPACE | V_PURPLEMAP, s);
-					snprintf(s, sizeof s - 1, "ndc  %d", hrs_numcalls);
+					snprintf(s, sizeof s - 1, "ndc  %d", rs_numcalls);
 					V_DrawThinString(130, 20, V_MONOSPACE | V_PURPLEMAP, s);
-					snprintf(s, sizeof s - 1, "nshd %d", hrs_numshaders);
+					snprintf(s, sizeof s - 1, "nshd %d", rs_numshaders);
 					V_DrawThinString(130, 30, V_MONOSPACE | V_PURPLEMAP, s);
-					snprintf(s, sizeof s - 1, "ntex %d", hrs_numtextures);
+					snprintf(s, sizeof s - 1, "ntex %d", rs_numtextures);
 					V_DrawThinString(185, 10, V_MONOSPACE | V_PURPLEMAP, s);
-					snprintf(s, sizeof s - 1, "npf  %d", hrs_numpolyflags);
+					snprintf(s, sizeof s - 1, "npf  %d", rs_numpolyflags);
 					V_DrawThinString(185, 20, V_MONOSPACE | V_PURPLEMAP, s);
-					snprintf(s, sizeof s - 1, "ncol %d", hrs_numcolors);
+					snprintf(s, sizeof s - 1, "ncol %d", rs_numcolors);
 					V_DrawThinString(185, 30, V_MONOSPACE | V_PURPLEMAP, s);
 				}
 			}
@@ -855,7 +854,7 @@ void D_SRB2Loop(void)
 {
 	tic_t oldentertics = 0, entertic = 0, realtics = 0, rendertimeout = INFTICS;
 	// init frame time var
-	hrs_prevframetime = I_GetTimeMillis();
+	rs_prevframetime = I_GetTimeMillis();
 
 	if (dedicated)
 		server = true;

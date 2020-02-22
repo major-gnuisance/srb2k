@@ -1553,7 +1553,7 @@ void R_RegisterEngineStuff(void)
 #endif
 
 	// render stats
-	CV_RegisterVar(&cv_hrenderstats);
+	CV_RegisterVar(&cv_renderstats);
 
 #ifdef HWRENDER
 	if (rendermode != render_soft && rendermode != render_none)

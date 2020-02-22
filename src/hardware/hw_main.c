@@ -79,31 +79,31 @@ consvar_t cv_grcorrecttricks = {"gr_correcttricks", "Off", 0, CV_OnOff, NULL, 0,
 consvar_t cv_grsolvetjoin = {"gr_solvetjoin", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // render stats
-consvar_t cv_hrenderstats = {"hrenderstats", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_renderstats = {"renderstats", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grwireframe = {"gr_wireframe", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-int hrs_prevframetime = 0;
-int hrs_rendercalltime = 0;
-int hrs_bsptime = 0;
-int hrs_nodetime = 0;
-int hrs_nodesorttime = 0;
-int hrs_nodedrawtime = 0;
-int hrs_spritesorttime = 0;
-int hrs_spritedrawtime = 0;
+int rs_prevframetime = 0;
+int rs_rendercalltime = 0;
+int rs_bsptime = 0;
+int rs_nodetime = 0;
+int rs_nodesorttime = 0;
+int rs_nodedrawtime = 0;
+int rs_spritesorttime = 0;
+int rs_spritedrawtime = 0;
 
-int hrs_numdrawnodes = 0;
-int hrs_numbspcalls = 0;
-int hrs_numsprites = 0;
-int hrs_numpolyobjects = 0;
+int rs_numdrawnodes = 0;
+int rs_numbspcalls = 0;
+int rs_numsprites = 0;
+int rs_numpolyobjects = 0;
 
 // render stats for batching
-int hrs_numpolys = 0;
-int hrs_numcalls = 0;
-int hrs_numshaders = 0;
-int hrs_numtextures = 0;
-int hrs_numpolyflags = 0;
-int hrs_numcolors = 0;
-int hrs_batchsorttime = 0;
-int hrs_batchdrawtime = 0;
+int rs_numpolys = 0;
+int rs_numcalls = 0;
+int rs_numshaders = 0;
+int rs_numtextures = 0;
+int rs_numpolyflags = 0;
+int rs_numcolors = 0;
+int rs_batchsorttime = 0;
+int rs_batchdrawtime = 0;
 
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -113,7 +113,7 @@ consvar_t cv_enable_screen_textures = {"gr_screen_textures", "On", CV_CALL, CV_O
 
 // used to make it so that skybox drawing is not taken into account
 // thought the stats could overwrite on that but not sure ...
-boolean hrs_do_stats = false;
+boolean rs_do_stats = false;
 
 const boolean FAST_SPRITES = false;
 
@@ -2898,7 +2898,7 @@ void HWR_Subsector(size_t num)
 		}
 
 		// for render stats
-		hrs_numpolyobjects += numpolys;
+		rs_numpolyobjects += numpolys;
 
 		// Sort polyobjects
 		R_SortPolyObjects(sub);
@@ -2959,9 +2959,9 @@ void HWR_RenderBSPNode(INT32 bspnum)
 	// Decide which side the view point is on
 	INT32 side;
 
-	hrs_numbspcalls++;
+	rs_numbspcalls++;
 	// fun test
-	//if (hrs_numbspcalls > 500) return;
+	//if (rs_numbspcalls > 500) return;
 
 	// Found a subsector?
 	if (bspnum & NF_SUBSECTOR)
@@ -4229,8 +4229,8 @@ void HWR_RenderDrawNodes(void)
 	}
 
 	// render stats
-	hrs_numdrawnodes = p;
-	hrs_nodesorttime = I_GetTimeMillis();
+	rs_numdrawnodes = p;
+	rs_nodesorttime = I_GetTimeMillis();
 
 	// p is the number of stuff to sort
 
@@ -4269,8 +4269,8 @@ void HWR_RenderDrawNodes(void)
 		}
 	}
 
-	hrs_nodesorttime = I_GetTimeMillis() - hrs_nodesorttime;
-	hrs_nodedrawtime = I_GetTimeMillis();
+	rs_nodesorttime = I_GetTimeMillis() - rs_nodesorttime;
+	rs_nodedrawtime = I_GetTimeMillis();
 
 	// Okay! Let's draw it all! Woo!
 	HWD.pfnSetTransform(&atransform);
@@ -4307,7 +4307,7 @@ void HWR_RenderDrawNodes(void)
 		}
 	}
 
-	hrs_nodedrawtime = I_GetTimeMillis() - hrs_nodedrawtime;
+	rs_nodedrawtime = I_GetTimeMillis() - rs_nodedrawtime;
 
 	numwalls = 0;
 	numplanes = 0;
@@ -5206,39 +5206,39 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	drawcount = 0;
 	validcount++;
 
-	if (do_stats) hrs_bsptime = I_GetTimeMillis();
-	hrs_numpolyobjects = 0;
+	if (do_stats) rs_bsptime = I_GetTimeMillis();
+	rs_numpolyobjects = 0;
 	// Recursively "render" the BSP tree.
-	hrs_numbspcalls = 0;
+	rs_numbspcalls = 0;
 	HWR_RenderBSPNode((INT32)numnodes-1);
 
-	if (do_stats) hrs_bsptime = I_GetTimeMillis() - hrs_bsptime;
+	if (do_stats) rs_bsptime = I_GetTimeMillis() - rs_bsptime;
 	
 	if (cv_enable_batching.value)
-		HWD.pfnRenderBatches(&hrs_numpolys, &hrs_numcalls, &hrs_numshaders, &hrs_numtextures, &hrs_numpolyflags, &hrs_numcolors, &hrs_batchsorttime, &hrs_batchdrawtime);
+		HWD.pfnRenderBatches(&rs_numpolys, &rs_numcalls, &rs_numshaders, &rs_numtextures, &rs_numpolyflags, &rs_numcolors, &rs_batchsorttime, &rs_batchdrawtime);
 
 	// Check for new console commands.
 	NetUpdate();
 
 	// Draw MD2 and sprites
-	hrs_numsprites = gr_visspritecount;
-	hrs_spritesorttime = I_GetTimeMillis();
+	rs_numsprites = gr_visspritecount;
+	rs_spritesorttime = I_GetTimeMillis();
 	HWR_SortVisSprites();
-	hrs_spritesorttime = I_GetTimeMillis() - hrs_spritesorttime;
-	hrs_spritedrawtime = I_GetTimeMillis();
+	rs_spritesorttime = I_GetTimeMillis() - rs_spritesorttime;
+	rs_spritedrawtime = I_GetTimeMillis();
 	HWR_DrawSprites();
-	hrs_spritedrawtime = I_GetTimeMillis() - hrs_spritedrawtime;
+	rs_spritedrawtime = I_GetTimeMillis() - rs_spritedrawtime;
 
 	if (do_stats)
 	{
-		hrs_nodetime = I_GetTimeMillis();
-		hrs_numdrawnodes = 0;
-		hrs_nodesorttime = 0;
-		hrs_nodedrawtime = 0;
+		rs_nodetime = I_GetTimeMillis();
+		rs_numdrawnodes = 0;
+		rs_nodesorttime = 0;
+		rs_nodedrawtime = 0;
 	}
 	if (numplanes || numpolyplanes || numwalls) // Render FOFs and translucent walls after everything
 		HWR_RenderDrawNodes();
-	if (do_stats) hrs_nodetime = I_GetTimeMillis() - hrs_nodetime;
+	if (do_stats) rs_nodetime = I_GetTimeMillis() - rs_nodetime;
 
 	// Unset transform and shader
 	HWD.pfnSetTransform(NULL);
