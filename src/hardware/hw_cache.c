@@ -134,9 +134,9 @@ static void HWR_DrawPatchInCache(GLMipmap_t *mipmap,
 
 				//Hurdler: not perfect, but better than holes
 				if (texel == HWR_PATCHES_CHROMAKEY_COLORINDEX && (mipmap->flags & TF_CHROMAKEYED))
-					alpha = 0x00;
-				
-					//texel = HWR_CHROMAKEY_EQUIVALENTCOLORINDEX;
+					//alpha = 0x00;
+					texel = HWR_CHROMAKEY_EQUIVALENTCOLORINDEX;// restored this line instead of previous, this fixes cyan disappearing
+					// the comment below is probably from when the texel line was replaced with the alpha = 0x00 line
 				// Lat:  Don't do that, some weirdos still use CYAN on their WALLTEXTURES for translucency :V
 			
 				//Hurdler: 25/04/2000: now support colormap in hardware mode
