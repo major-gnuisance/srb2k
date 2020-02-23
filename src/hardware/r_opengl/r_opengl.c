@@ -2750,7 +2750,7 @@ static void DrawModelEx(model_t *model, INT32 frameIndex, INT32 duration, INT32 
 	pglDisable(GL_NORMALIZE);
 
 #ifdef GL_SHADERS
-	pglUseProgram(0);
+	//pglUseProgram(0);// no, bad
 #endif
 }
 
