@@ -693,8 +693,10 @@ static boolean D_Display(void)
 				V_DrawThinString(30, 70, V_MONOSPACE | V_YELLOWMAP, s);
 				snprintf(s, sizeof s - 1, "post %d", rs_posttime / divisor);
 				V_DrawThinString(30, 80, V_MONOSPACE | V_YELLOWMAP, s);
-				snprintf(s, sizeof s - 1, "test %d", rs_test / divisor);
+				snprintf(s, sizeof s - 1, "flip %d", rs_swaptime / divisor);
 				V_DrawThinString(30, 90, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "test %d", rs_test / divisor);
+				V_DrawThinString(30, 100, V_MONOSPACE | V_YELLOWMAP, s);
 
 				snprintf(s, sizeof s - 1, "nbsp %d", rs_numbspcalls);
 				V_DrawThinString(75, 10, V_MONOSPACE | V_BLUEMAP, s);
@@ -725,6 +727,11 @@ static boolean D_Display(void)
 					snprintf(s, sizeof s - 1, "ncol %d", rs_numcolors);
 					V_DrawThinString(185, 30, V_MONOSPACE | V_PURPLEMAP, s);
 				}
+			}
+			else
+			{
+				snprintf(s, sizeof s - 1, "flip %d", rs_swaptime / divisor);
+				V_DrawThinString(30, 30, V_MONOSPACE | V_YELLOWMAP, s);
 			}
 		}
 
@@ -835,9 +842,9 @@ static boolean D_Display(void)
 			}
 		} else
 
-		rs_test = I_GetTimeMicros();
+		rs_swaptime = I_GetTimeMicros();
 		I_FinishUpdate(); // page flip or blit buffer
-		rs_test = I_GetTimeMicros() - rs_test;
+		rs_swaptime = I_GetTimeMicros() - rs_swaptime;
 
 		if (scaling)
 		{

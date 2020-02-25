@@ -163,7 +163,8 @@ extern int rs_nodedrawtime;
 extern int rs_spritesorttime;
 extern int rs_spritedrawtime;
 
-extern int rs_posttime;// postprocessor
+extern int rs_posttime;
+extern int rs_swaptime;
 
 extern int rs_test;
 
@@ -185,6 +186,7 @@ extern int rs_batchdrawtime;
 
 extern consvar_t cv_test_disable_something;
 extern consvar_t cv_enable_batching;
+extern consvar_t cv_grfullskywalls;
 
 extern consvar_t cv_enable_screen_textures;
 

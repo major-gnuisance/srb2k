@@ -76,7 +76,7 @@ consvar_t cv_grfiltermode = {"gr_filtermode", "Nearest", CV_CALL|CV_SAVE, grfilt
 consvar_t cv_granisotropicmode = {"gr_anisotropicmode", "1", CV_CALL|CV_SAVE, granisotropicmode_cons_t,
                              CV_anisotropic_ONChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grcorrecttricks = {"gr_correcttricks", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_grsolvetjoin = {"gr_solvetjoin", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_grsolvetjoin = {"gr_solvetjoin", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // render stats
 consvar_t cv_renderstats = {"renderstats", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -96,6 +96,7 @@ int rs_numsprites = 0;
 int rs_numpolyobjects = 0;
 
 int rs_posttime = 0;
+int rs_swaptime = 0;
 
 int rs_test = 0;
 
@@ -111,6 +112,8 @@ int rs_batchdrawtime = 0;
 
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_grfullskywalls = {"gr_fullskywalls", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
 
 static void CV_screentextures_ONChange(void);
 consvar_t cv_enable_screen_textures = {"gr_screen_textures", "On", CV_CALL, CV_OnOff, CV_screentextures_ONChange, 0, NULL, NULL, 0, 0, NULL};
@@ -1065,7 +1068,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 
 		// previously removed skywall code
 		// Sky culling
-		if (!gr_curline->polyseg) // Don't do it for polyobjects
+		if (cv_grfullskywalls.value && !gr_curline->polyseg) // Don't do it for polyobjects
 		{
 			// Sky Ceilings
 			wallVerts[3].y = wallVerts[2].y = FIXED_TO_FLOAT(INT32_MAX);
@@ -1763,7 +1766,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 			}
 		}
 		// previously removed skywall code
-		else
+		else if (cv_grfullskywalls.value)
 		{
 #ifdef ESLOPE
 			//Set textures properly on single sided walls that are sloped
@@ -1784,7 +1787,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 
 		// Single sided lines are simple for skywalls, just need to draw from the top or bottom of the sector if there's
 		// a sky flat
-		if (!gr_curline->polyseg)
+		if (cv_grfullskywalls.value && !gr_curline->polyseg)
 		{
 			if (gr_frontsector->ceilingpic == skyflatnum) // It's a single-sided line with sky for its sector
 			{
@@ -5089,6 +5092,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	const float fpov = FIXED_TO_FLOAT(cv_fov.value+player->fovadd);
 	postimg_t *postprocessor = &postimgtype[0];
 	INT32 i;
+	
+	rs_test = I_GetTimeMicros();
 
 	// set window position
 	gr_centerx = gr_basecenterx;
@@ -5169,6 +5174,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	HWR_ClearSprites();
 
 	ST_doPaletteStuff();
+	
+	rs_test = I_GetTimeMicros() - rs_test;
 
 	// Draw the sky background.
 	// (unless wireframe is on, then tell opengl to render in wireframe)
@@ -5244,6 +5251,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 		HWR_RenderDrawNodes();
 	if (do_stats) rs_nodetime = I_GetTimeMicros() - rs_nodetime;
 
+	rs_posttime = I_GetTimeMicros();
 
 	// Unset transform and shader
 	HWD.pfnSetTransform(NULL);
@@ -5263,11 +5271,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 
 	// Run post processor effects
 	if (!skybox && cv_enable_screen_textures.value)
-	{
-		rs_posttime = I_GetTimeMicros();
 		HWR_DoPostProcessor(player);
-		rs_posttime = I_GetTimeMicros() - rs_posttime;
-	}
 
 	// Check for new console commands.
 	NetUpdate();
@@ -5275,6 +5279,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	// added by Hurdler for correct splitscreen
 	// moved here by hurdler so it works with the new near clipping plane
 	HWD.pfnGClipRect(0, 0, vid.width, vid.height, NZCLIP_PLANE);
+	
+	rs_posttime = I_GetTimeMicros() - rs_posttime;
 }
 
 // ==========================================================================
@@ -5343,6 +5349,7 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_grwireframe);
 	CV_RegisterVar(&cv_test_disable_something);
 	CV_RegisterVar(&cv_enable_batching);
+	CV_RegisterVar(&cv_grfullskywalls);
 }
 
 // --------------------------------------------------------------------------
