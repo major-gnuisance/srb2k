@@ -1124,6 +1124,10 @@ void CURLGetFile(const char* url, int dfilenum)
 
 		curl_multi_setopt(multi_handle, CURLMOPT_MAX_TOTAL_CONNECTIONS, 4L);
 
+#ifdef LOGMESSAGES
+		curl_easy_setopt(http_handle, CURLOPT_STDERR, logstream);
+		curl_easy_setopt(http_handle, CURLOPT_VERBOSE, 1L);
+#endif
 		curl_easy_setopt(http_handle, CURLOPT_URL, va("%s/%s", url, realname));
 		curl_easy_setopt(http_handle, CURLOPT_SSL_VERIFYPEER, 0);
 		curl_easy_setopt(http_handle, CURLOPT_USERAGENT, "SRB2Kart Birbmod/v3"); // Set user agent as some servers won't accept invalid user agents.
