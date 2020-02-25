@@ -112,14 +112,13 @@ char downloaddir[512] = "DOWNLOAD";
 INT32 lastfilenum = -1;
 #endif
 
-size_t filestoget;
-
 #ifdef HAVE_CURL
 boolean curl_running = false;
 tic_t curltic;
 boolean failedwebdownload = false;
 curl_off_t curl_dlnow;
 curl_off_t curl_dltotal;
+INT32 curl_transfers = 0;
 #endif
 
 /** Fills a serverinfo packet with information about wad files loaded.
@@ -377,7 +376,7 @@ INT32 CL_CheckFiles(void)
 	char wadfilename[MAX_WADPATH];
 	INT32 ret = 1;
 	size_t packetsize = 0;
-	filestoget = 0;
+	size_t filestoget = 0;
 
 //	if (M_CheckParm("-nofiles"))
 //		return 1;
@@ -448,6 +447,7 @@ INT32 CL_CheckFiles(void)
 		filestoget++;
 
 		fileneeded[i].status = findfile(fileneeded[i].filename, fileneeded[i].md5sum, true);
+
 		CONS_Debug(DBG_NETPLAY, "found %d\n", fileneeded[i].status);
 		if (fileneeded[i].status != FS_FOUND)
 			ret = 0;
@@ -1093,11 +1093,12 @@ void CURLGetFile(const char* url, int dfilenum)
 {
 	CURL *http_handle;
 	CURLM *multi_handle;
-	int still_running; /* keep number of running handles */
+	int still_running = 1; /* keep number of running handles */
 	CURLMsg *msg; /* for picking up messages with the transfer status */
   	int msgs_left; /* how many messages are left */
 	fileneeded_t *curfile = NULL;
 	char *realname = '\0';
+	tic_t asksent = (tic_t) - TICRATE;/* bruh? */
 
 #ifdef PARANOIA
 	if (M_CheckParm("-nodownload"))
@@ -1134,6 +1135,7 @@ void CURLGetFile(const char* url, int dfilenum)
 
 		// Follow a redirect request, if sent by the server.
 		curl_easy_setopt(http_handle, CURLOPT_FOLLOWLOCATION, 1L);
+
 		curl_easy_setopt(http_handle, CURLOPT_FAILONERROR, 1L);
 
 		strcatbf(curfile->filename, downloaddir, "/");
@@ -1170,7 +1172,7 @@ void CURLGetFile(const char* url, int dfilenum)
 		    curfile->currentsize = curl_dlnow;
 			curfile->totalsize = curl_dltotal;
 
-			if (!CL_ServerConnectionTicker(false, NULL, &curltic, NULL))
+			if (!CL_ServerConnectionTicker(false, NULL, &curltic, &asksent))
 			{
 				fclose(curfile->file);
 				remove(curfile->filename);
@@ -1195,12 +1197,14 @@ void CURLGetFile(const char* url, int dfilenum)
 				{
 					CONS_Printf(M_GetText("Finished downloading %s\n"), realname);
 					curfile->status = FS_FOUND;
-					filestoget--;
 					fclose(curfile->file);
 				}
 				curl_running = false;
+				curl_transfers--;
+
+				if (!curl_transfers)
+					break;
 			}
-			break;
 		}
 		curl_multi_remove_handle(multi_handle, http_handle);
 		curl_easy_cleanup(http_handle);

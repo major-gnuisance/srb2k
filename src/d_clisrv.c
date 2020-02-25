@@ -1986,7 +1986,6 @@ void CL_UpdateServerList(boolean internetsearch, INT32 room)
 static boolean CL_FinishedFileList(void)
 {
 	INT32 i;
-	int j;
 	CONS_Printf(M_GetText("Checking files...\n"));
 	i = CL_CheckFiles();
 	if (i == 3) // too many files
@@ -2024,7 +2023,7 @@ static boolean CL_FinishedFileList(void)
 		// must download something
 		// can we, though?
 #ifdef HAVE_CURL
-		if (http_source[0] == '\0')
+		if (http_source[0] == '\0' || failedwebdownload)
 #endif
 		{
 			if (!CL_CheckDownloadable()) // nope!
@@ -2050,12 +2049,7 @@ static boolean CL_FinishedFileList(void)
 		else
 		{
 			cl_mode = CL_PREPARENETFILES;
-#ifdef CLIENT_LOADINGSCREEN
-			for(j = 0; j < fileneedednum; j++)
-				if(fileneeded[j].status == FS_NOTFOUND)
-					lastfilenum = j;
 			return true;
-#endif
 		}
 #endif
 	}
@@ -2185,6 +2179,11 @@ boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *old
 			if (http_source[0])
 			{
 				CONS_Printf("%s\n", http_source);
+
+				for (i = 0; i < fileneedednum; i++)
+					if (fileneeded[i].status == FS_NOTFOUND)
+						curl_transfers++;
+
 				cl_mode = CL_DOWNLOADNETFILES;
 			}
 			break;
@@ -2208,23 +2207,30 @@ boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *old
 		case CL_DOWNLOADNETFILES:
 			waitmore = false;
 			for (i = 0; i < fileneedednum; i++)
-				if (fileneeded[i].status == FS_NOTFOUND && (!curl_running))
+				if (fileneeded[i].status == FS_NOTFOUND)
 				{
-					CURLGetFile(http_source, i);
+					if (!curl_running)
+					{
+						CONS_Printf("curl_transfers: %d\n", curl_transfers);
+						CURLGetFile(http_source, i);
+					}
 					waitmore = true;
 					break;
 				}
 			if (waitmore)
 				break; // exit the case
 
-			if (failedwebdownload)
+			if (failedwebdownload && !curl_transfers)
 			{
 				cl_mode = CL_ASKDOWNLOADFILES;
 				break;
 			}
 
-			if (!filestoget)
+			if (!curl_transfers)
+			{
+				CONS_Printf("curl_transfers: %d\n", curl_transfers);
 				cl_mode = CL_ASKJOIN; // don't break case continue to cljoin request now
+			}
 
 			break;
 #endif
@@ -2893,6 +2899,7 @@ void CL_Reset(void)
 	memset(fileneeded, 0, sizeof(fileneeded));
 
 	failedwebdownload = false;
+	curl_transfers = 0;
 	//http_source[0] = '\0';
 
 	// D_StartTitle should get done now, but the calling function will handle it

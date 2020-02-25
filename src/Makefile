@@ -372,9 +372,9 @@ endif
 
 ifndef NOCURL
 OPTS+=-DHAVE_CURL
-CURL_PKGCONFIG?=curl-config
-CURL_CFLAGS?=$(shell $(PKG_CONFIG) $(CURL_PKGCONFIG) --cflags)
-CURL_LDFLAGS?=$(shell $(PKG_CONFIG) $(CURL_PKGCONFIG) --libs)
+CURLCONFIG?=curl-config
+CURL_CFLAGS?=$(shell $(CURLCONFIG) --cflags)
+CURL_LDFLAGS?=$(shell $(CURLCONFIG) --libs)
 
 LIBS+=$(CURL_LDFLAGS)
 CFLAGS+=$(CURL_CFLAGS)

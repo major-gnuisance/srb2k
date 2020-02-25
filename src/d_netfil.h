@@ -52,7 +52,6 @@ extern tic_t curltic;
 extern INT32 fileneedednum;
 extern fileneeded_t fileneeded[MAX_WADFILES];
 extern char downloaddir[512];
-extern size_t filestoget;
 
 #ifdef CLIENT_LOADINGSCREEN
 extern INT32 lastfilenum;
@@ -92,6 +91,7 @@ size_t nameonlylength(const char *s);
 void CURLGetFile(const char* url, int dfilenum);
 extern boolean failedwebdownload;
 extern boolean curl_running;
+extern INT32 curl_transfers;
 #endif
 
 #endif // __D_NETFIL__
