@@ -45,9 +45,14 @@ typedef struct
 	filestatus_t status; // The value returned by recsearch
 } fileneeded_t;
 
+#ifdef HAVE_CURL
+extern tic_t curltic;
+#endif
+
 extern INT32 fileneedednum;
 extern fileneeded_t fileneeded[MAX_WADFILES];
 extern char downloaddir[512];
+extern size_t filestoget;
 
 #ifdef CLIENT_LOADINGSCREEN
 extern INT32 lastfilenum;
@@ -82,5 +87,11 @@ filestatus_t checkfilemd5(char *filename, const UINT8 *wantedmd5sum);
 
 void nameonly(char *s);
 size_t nameonlylength(const char *s);
+
+#ifdef HAVE_CURL
+void CURLGetFile(const char* url, int dfilenum);
+extern boolean failedwebdownload;
+extern boolean curl_running;
+#endif
 
 #endif // __D_NETFIL__

@@ -328,7 +328,7 @@ typedef struct
 
 	char server_context[8]; // Unique context id, generated at server startup.
 
-	UINT8 varlengthinputs[0]; // Playernames and netvars
+	UINT8 varlengthinputs[0]; // Playernames, netvars and http url
 } ATTRPACK serverconfig_pak;
 
 typedef struct {
@@ -497,6 +497,10 @@ extern doomdata_t *netbuffer;
 extern consvar_t cv_showjoinaddress;
 extern consvar_t cv_playbackspeed;
 
+#ifdef HAVE_CURL
+extern consvar_t cv_httpsource;
+#endif
+
 #define BASEPACKETSIZE      offsetof(doomdata_t, u)
 #define FILETXHEADER        offsetof(filetx_pak, data)
 #define BASESERVERTICSSIZE  offsetof(doomdata_t, u.serverpak.cmds[0])
@@ -570,6 +574,7 @@ void CL_Reset(void);
 void CL_ClearPlayer(INT32 playernum);
 void CL_RemovePlayer(INT32 playernum, INT32 reason);
 void CL_UpdateServerList(boolean internetsearch, INT32 room);
+boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *oldtic, tic_t *asksent);
 boolean CL_Responder(event_t *ev);
 // Is there a game running
 boolean Playing(void);
