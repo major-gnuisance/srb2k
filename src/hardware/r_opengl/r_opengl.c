@@ -1664,7 +1664,7 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *f
 					if (glstate_fog_mode == 0)	// disabled
 					{
 						// Nevermind!
-						pglUseProgram(0);
+						pglUseProgram(0);// TODO maybe this does not need to be called
 						return;
 					}
 					else	// enabled
@@ -1733,11 +1733,11 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *f
 			}
 		}
 		else
-			pglUseProgram(0);
+			pglUseProgram(0);// does this ever happen?
 	}
-	else
+	//else
 #endif
-		pglUseProgram(0);
+		//pglUseProgram(0);// lets not repeatedly call this
 }
 
 // unfinished draw call batching
