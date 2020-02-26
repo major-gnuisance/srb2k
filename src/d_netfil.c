@@ -117,7 +117,6 @@ boolean curl_running = false;
 tic_t curltic = 0;
 boolean failedwebdownload = false;
 curl_off_t curl_dlnow;
-curl_off_t curl_dltotal;
 curl_off_t curl_oldnow = 0;
 tic_t curl_oldtic;
 INT32 curl_transfers = 0;
@@ -1079,9 +1078,9 @@ int curlprogress_callback(void *clientp, double dltotal, double dlnow, double ul
 {
 	(void)clientp;
 	(void)ultotal;
+	(void)dltotal;
 	(void)ulnow; // Function prototype requires these but we won't use, so just discard
 	curl_dlnow = dlnow;
-	curl_dltotal = dltotal;
 	curltic = I_GetTime();
 	getbytes = (dlnow - curl_oldnow) / (I_GetTime() - curl_oldtic);
 	curl_oldtic = I_GetTime();
@@ -1093,9 +1092,11 @@ void CURLGetFile(const char* url, int dfilenum)
 {
 	CURL *http_handle;
 	CURLM *multi_handle;
-	int still_running = 1; /* keep number of running handles */
+	int still_running = 0; /* keep number of running handles */
 	CURLMsg *msg; /* for picking up messages with the transfer status */
   	int msgs_left; /* how many messages are left */
+  	UINT32 origfilesize;
+  	UINT32 origtotalfilesize;
 	fileneeded_t *curfile = NULL;
 	char *realname = '\0';
 	tic_t asksent = (tic_t) - TICRATE;/* bruh? */
@@ -1121,7 +1122,8 @@ void CURLGetFile(const char* url, int dfilenum)
 		realname = curfile->filename;
 		nameonly(realname);
 
-		CONS_Printf("Get: %s/%s\n", url, realname);
+		origfilesize = curfile->currentsize;
+		origtotalfilesize = curfile->totalsize;
 
 		curl_multi_setopt(multi_handle, CURLMOPT_MAX_TOTAL_CONNECTIONS, 4L);
 
@@ -1151,6 +1153,9 @@ void CURLGetFile(const char* url, int dfilenum)
 		curl_oldtic = I_GetTime();
 		curl_oldnow = 0;
 
+		CONS_Printf("Get: %s/%s\n", url, realname);
+		curl_multi_perform(multi_handle, &still_running);
+
 		while (still_running)
 		{
 			CURLMcode mc; /* curl_multi_poll() return code */
@@ -1175,7 +1180,6 @@ void CURLGetFile(const char* url, int dfilenum)
 		    }
 
 		    curfile->currentsize = curl_dlnow;
-			curfile->totalsize = curl_dltotal;
 		}
 
 		/* See how the transfers went */
@@ -1187,6 +1191,8 @@ void CURLGetFile(const char* url, int dfilenum)
 				{
 					CONS_Printf(M_GetText("Failed to download %s...\n"), realname);
 					curfile->status = FS_REQUESTED;
+					curfile->currentsize = origfilesize;
+					curfile->totalsize = origtotalfilesize;
 					failedwebdownload = true;
 					fclose(curfile->file);
 					remove(curfile->filename);
@@ -1209,7 +1215,7 @@ void CURLGetFile(const char* url, int dfilenum)
 		curl_multi_cleanup(multi_handle);
 	}
 	curl_running = false;
-	still_running = 1;
+	still_running = 0;
 	curl_global_cleanup();
 }
 #endif
