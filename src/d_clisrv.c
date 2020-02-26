@@ -2188,21 +2188,6 @@ boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *old
 			}
 			break;
 
-		case CL_DOWNLOADFILES:
-			waitmore = false;
-			for (i = 0; i < fileneedednum; i++)
-				if (fileneeded[i].status == FS_DOWNLOADING
-					|| fileneeded[i].status == FS_REQUESTED)
-				{
-					waitmore = true;
-					break;
-				}
-			if (waitmore)
-				break; // exit the case
-
-			cl_mode = CL_ASKJOIN; // don't break case continue to cljoin request now
-			/* FALLTHRU */
-
 #ifdef HAVE_CURL
 		case CL_DOWNLOADNETFILES:
 			waitmore = false;
@@ -2234,6 +2219,21 @@ boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *old
 
 			break;
 #endif
+
+		case CL_DOWNLOADFILES:
+			waitmore = false;
+			for (i = 0; i < fileneedednum; i++)
+				if (fileneeded[i].status == FS_DOWNLOADING
+					|| fileneeded[i].status == FS_REQUESTED)
+				{
+					waitmore = true;
+					break;
+				}
+			if (waitmore)
+				break; // exit the case
+
+			cl_mode = CL_ASKJOIN; // don't break case continue to cljoin request now
+			/* FALLTHRU */
 
 		case CL_ASKJOIN:
 			cl_needsdownload = false;
