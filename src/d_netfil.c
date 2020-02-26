@@ -1187,10 +1187,10 @@ void CURLGetFile(const char* url, int dfilenum)
 				{
 					CONS_Printf(M_GetText("Failed to download %s...\n"), realname);
 					curfile->status = FS_FALLBACK;
-					curfile->file = NULL;
 					failedwebdownload = true;
 					fclose(curfile->file);
 					remove(curfile->filename);
+					curfile->file = NULL;
 				}
 				else
 				{
