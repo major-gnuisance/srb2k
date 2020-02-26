@@ -1197,6 +1197,7 @@ void CURLGetFile(const char* url, int dfilenum)
 					fclose(curfile->file);
 					remove(curfile->filename);
 					curfile->file = NULL;
+					nameonly(curfile->filename);
 				}
 				else
 				{
