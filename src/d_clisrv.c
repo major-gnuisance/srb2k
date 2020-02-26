@@ -2898,9 +2898,12 @@ void CL_Reset(void)
 	fileneedednum = 0;
 	memset(fileneeded, 0, sizeof(fileneeded));
 
+#ifdef HAVE_CURL
 	failedwebdownload = false;
 	curl_transfers = 0;
+	curl_running = false;
 	//http_source[0] = '\0';
+#endif
 
 	// D_StartTitle should get done now, but the calling function will handle it
 }

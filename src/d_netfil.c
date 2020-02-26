@@ -72,7 +72,7 @@ boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *old
 
 #ifdef HAVE_CURL
 size_t write_data(void *ptr, size_t size, size_t nmemb, FILE *stream);
-int curlprogress_callback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow);
+int curlprogress_callback(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow);
 #endif
 
 // Sender structure
@@ -114,10 +114,12 @@ INT32 lastfilenum = -1;
 
 #ifdef HAVE_CURL
 boolean curl_running = false;
-tic_t curltic;
+tic_t curltic = 0;
 boolean failedwebdownload = false;
 curl_off_t curl_dlnow;
 curl_off_t curl_dltotal;
+curl_off_t curl_oldnow = 0;
+tic_t curl_oldtic;
 INT32 curl_transfers = 0;
 #endif
 
@@ -1073,19 +1075,17 @@ size_t write_data(void *ptr, size_t size, size_t nmemb, FILE *stream)
     return written;
 }
 
-int curlprogress_callback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow)
+int curlprogress_callback(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow)
 {
-	curl_off_t oldnow;
-	tic_t curl_oldtic;
 	(void)clientp;
 	(void)ultotal;
 	(void)ulnow; // Function prototype requires these but we won't use, so just discard
 	curl_dlnow = dlnow;
 	curl_dltotal = dltotal;
 	curltic = I_GetTime();
-	oldnow = dlnow;
-	curl_oldtic = curltic;
-	getbytes = (dlnow - oldnow) / (I_GetTime() - curl_oldtic);
+	getbytes = (dlnow - curl_oldnow) / (I_GetTime() - curl_oldtic);
+	curl_oldtic = I_GetTime();
+	curl_oldnow = dlnow;
 	return 0;
 }
 
@@ -1143,11 +1143,13 @@ void CURLGetFile(const char* url, int dfilenum)
 		curl_easy_setopt(http_handle, CURLOPT_WRITEDATA, curfile->file);
 		curl_easy_setopt(http_handle, CURLOPT_WRITEFUNCTION, write_data);
 		curl_easy_setopt(http_handle, CURLOPT_NOPROGRESS, 0L);
-		curl_easy_setopt(http_handle, CURLOPT_XFERINFOFUNCTION, curlprogress_callback);
+		curl_easy_setopt(http_handle, CURLOPT_PROGRESSFUNCTION, curlprogress_callback);
 
 		curfile->status = FS_DOWNLOADING;
 		lastfilenum = dfilenum;
 		curl_multi_add_handle(multi_handle, http_handle);
+		curl_oldtic = I_GetTime();
+		curl_oldnow = 0;
 
 		while (still_running)
 		{
@@ -1155,12 +1157,15 @@ void CURLGetFile(const char* url, int dfilenum)
     		int numfds;
     		curl_running = true;
 
+    		if (!CL_ServerConnectionTicker(false, NULL, &curltic, &asksent))
+				break;
+
     		mc = curl_multi_perform(multi_handle, &still_running);
 
 			if (still_running)
 			{
 				/* wait for activity, timeout or "nothing" */
-				mc = curl_multi_poll(multi_handle, NULL, 0, 3000, &numfds);
+				mc = curl_multi_poll(multi_handle, NULL, 0, 1000, &numfds);
 
 				if (mc != CURLM_OK)
 				{
@@ -1171,13 +1176,6 @@ void CURLGetFile(const char* url, int dfilenum)
 
 		    curfile->currentsize = curl_dlnow;
 			curfile->totalsize = curl_dltotal;
-
-			if (!CL_ServerConnectionTicker(false, NULL, &curltic, &asksent))
-			{
-				fclose(curfile->file);
-				remove(curfile->filename);
-				break;
-			}
 		}
 
 		/* See how the transfers went */
@@ -1210,6 +1208,8 @@ void CURLGetFile(const char* url, int dfilenum)
 		curl_easy_cleanup(http_handle);
 		curl_multi_cleanup(multi_handle);
 	}
+	curl_running = false;
+	still_running = 1;
 	curl_global_cleanup();
 }
 #endif
