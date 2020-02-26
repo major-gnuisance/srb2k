@@ -116,9 +116,9 @@ INT32 lastfilenum = -1;
 boolean curl_running = false;
 tic_t curltic = 0;
 boolean failedwebdownload = false;
-curl_off_t curl_dlnow;
-curl_off_t curl_oldnow = 0;
-tic_t curl_oldtic;
+double curl_dlnow;
+double curl_oldnow = 0;
+INT32 curl_oldtic;
 INT32 curl_transfers = 0;
 #endif
 
@@ -1082,9 +1082,9 @@ int curlprogress_callback(void *clientp, double dltotal, double dlnow, double ul
 	(void)ulnow; // Function prototype requires these but we won't use, so just discard
 	curl_dlnow = dlnow;
 	curltic = I_GetTime();
-	getbytes = (dlnow - curl_oldnow) / (I_GetTime() - curl_oldtic);
+	getbytes = (curl_dlnow - curl_oldnow) / (I_GetTime() - curl_oldtic);
 	curl_oldtic = I_GetTime();
-	curl_oldnow = dlnow;
+	curl_oldnow = curl_dlnow;
 	return 0;
 }
 
@@ -1158,7 +1158,7 @@ void CURLGetFile(const char* url, int dfilenum)
 
 		while (still_running)
 		{
-			CURLMcode mc; /* curl_multi_poll() return code */
+			CURLMcode mc; /* curl_multi_wait() return code */
     		int numfds;
     		curl_running = true;
 
@@ -1170,7 +1170,7 @@ void CURLGetFile(const char* url, int dfilenum)
 			if (still_running)
 			{
 				/* wait for activity, timeout or "nothing" */
-				mc = curl_multi_poll(multi_handle, NULL, 0, 1000, &numfds);
+				mc = curl_multi_wait(multi_handle, NULL, 0, 1000, &numfds);
 
 				if (mc != CURLM_OK)
 				{
