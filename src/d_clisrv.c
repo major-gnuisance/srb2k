@@ -1133,7 +1133,7 @@ static UINT8 cl_challengeanswer[MD5_LEN+1];
 static UINT8 cl_challengeattempted = 0;
 
 #ifdef HAVE_CURL
-	char http_source[256] = "https://kobayashi.is-very-cute.moe/kart/rdx-standard";
+const char *http_source;
 #endif
 
 // Player name send/load
@@ -1510,6 +1510,29 @@ static void SV_SendServerInfo(INT32 node, tic_t servertime)
 	HSendPacket(node, false, 0, p - ((UINT8 *)&netbuffer->u));
 }
 
+static void
+SV_SendBirbInfo (int node)
+{
+	size_t mirror_length;
+
+	birbinfo_pak *pak;
+	UINT8 *p;
+
+	netbuffer->packettype = PT_BIRBINFO;
+	pak = &netbuffer->u.birbinfo;
+
+	mirror_length = strlen(cv_httpsource.string);
+	if (mirror_length > MAX_MIRROR_LENGTH)
+		mirror_length = MAX_MIRROR_LENGTH;
+
+	pak->mirror_length = mirror_length;
+
+	p = pak->variable_length_data;
+	WRITEMEM (p, cv_httpsource.string, mirror_length);
+
+	HSendPacket(node, false, 0, p - ((UINT8 *)&netbuffer->u));
+}
+
 static void SV_SendPlayerInfo(INT32 node)
 {
 	UINT8 i;
@@ -1845,7 +1868,7 @@ static void SendAskInfo(INT32 node, boolean viams)
 {
 	const tic_t asktime = I_GetTime();
 	netbuffer->packettype = PT_ASKINFO;
-	netbuffer->u.askinfo.version = VERSION;
+	netbuffer->u.askinfo._255 = 255;
 	netbuffer->u.askinfo.time = (tic_t)LONG(asktime);
 
 	// Even if this never arrives due to the host being firewalled, we've
@@ -1905,6 +1928,7 @@ static void SL_InsertServer(serverinfo_pak* info, SINT8 node)
 		i = serverlistcount++;
 	}
 
+	serverlist[i].birb_info.birb_powered = false;
 	serverlist[i].info = *info;
 	serverlist[i].node = node;
 
@@ -2099,6 +2123,17 @@ static boolean CL_ServerConnectionSearchTicker(boolean viams, tic_t *asksent)
 
 		if (client)
 		{
+#ifdef HAVE_CURL
+			if (serverlist[i].birb_info.birb_powered)
+			{
+				http_source = serverlist[i].birb_info.http_source;
+			}
+			else
+			{
+				http_source = "";
+			}
+#endif
+
 			D_ParseFileneeded(serverlist[i].info.fileneedednum, serverlist[i].info.fileneeded, 0);
 			if (serverlist[i].info.kartvars & SV_LOTSOFADDONS)
 			{
@@ -2902,7 +2937,7 @@ void CL_Reset(void)
 	failedwebdownload = false;
 	curl_transfers = 0;
 	curl_running = false;
-	//http_source[0] = '\0';
+	http_source = "";
 #endif
 
 	// D_StartTitle should get done now, but the calling function will handle it
@@ -4263,6 +4298,33 @@ static void HandleServerInfo(SINT8 node)
 }
 #endif
 
+static void
+HandleBirbInfo (int node)
+{
+	birbinfo_pak *pak;
+	UINT8 *p;
+
+	UINT32         list_index;
+	cl_birbinfo_t *list_info;
+
+	list_index = SL_SearchServer(node);
+
+	if (list_index != UINT32_MAX)
+	{
+		list_info = &serverlist[list_index].birb_info;
+		list_info->birb_powered = true;
+
+		pak = &netbuffer->u.birbinfo;
+		p = pak->variable_length_data;
+
+#ifdef HAVE_CURL
+		memcpy(list_info->http_source, p, pak->mirror_length);
+		list_info->http_source[pak->mirror_length] = '\0';
+#endif
+		p += pak->mirror_length;
+	}
+}
+
 /** Handles a packet received from a node that isn't in game
   *
   * \param node The packet sender
@@ -4350,8 +4412,17 @@ static void HandlePacketFromAwayNode(SINT8 node)
 		case PT_ASKINFO:
 			if (server && serverrunning)
 			{
+				boolean birb_powered;
+
+				birb_powered = ( netbuffer->u.askinfo._255 == 255 );
+
 				SV_SendServerInfo(node, (tic_t)LONG(netbuffer->u.askinfo.time));
 				SV_SendPlayerInfo(node); // Send extra info
+
+				if (birb_powered)
+				{
+					SV_SendBirbInfo(node);
+				}
 			}
 			Net_CloseConnection(node);
 			break;
@@ -5121,6 +5192,12 @@ FILESTAMP
 
 		if (netbuffer->packettype == PT_PLAYERINFO)
 			continue; // We do nothing with PLAYERINFO, that's for the MS browser.
+
+		if (netbuffer->packettype == PT_BIRBINFO)
+		{
+			HandleBirbInfo(node);
+			continue;
+		}
 
 		// Packet received from someone already playing
 		if (nodeingame[node])
