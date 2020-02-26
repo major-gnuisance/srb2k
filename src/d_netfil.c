@@ -262,10 +262,10 @@ boolean CL_CheckDownloadable(void)
 		{
 			CONS_Printf(" * \"%s\" (%dK)", fileneeded[i].filename, fileneeded[i].totalsize >> 10);
 
-				if (fileneeded[i].status == FS_NOTFOUND)
-					CONS_Printf(M_GetText(" not found, md5: "));
-				else if (fileneeded[i].status == FS_MD5SUMBAD)
+				if (fileneeded[i].status == FS_MD5SUMBAD)
 					CONS_Printf(M_GetText(" wrong version, md5: "));
+				else
+					CONS_Printf(M_GetText(" not found, md5: "));
 
 			{
 				INT32 j;
