@@ -321,7 +321,7 @@ boolean CL_SendRequestFile(void)
 	netbuffer->packettype = PT_REQUESTFILE;
 	p = (char *)netbuffer->u.textcmd;
 	for (i = 0; i < fileneedednum; i++)
-		if ((fileneeded[i].status == FS_NOTFOUND || fileneeded[i].status == FS_MD5SUMBAD))
+		if ((fileneeded[i].status == FS_NOTFOUND || fileneeded[i].status == FS_MD5SUMBAD || fileneeded[i].status == FS_FALLBACK))
 		{
 			totalfreespaceneeded += fileneeded[i].totalsize;
 			nameonly(fileneeded[i].filename);
@@ -1186,7 +1186,8 @@ void CURLGetFile(const char* url, int dfilenum)
 				if (msg->data.result != 0)
 				{
 					CONS_Printf(M_GetText("Failed to download %s...\n"), realname);
-					curfile->status = FS_REQUESTED;
+					curfile->status = FS_FALLBACK;
+					curfile->file = NULL;
 					failedwebdownload = true;
 					fclose(curfile->file);
 					remove(curfile->filename);
