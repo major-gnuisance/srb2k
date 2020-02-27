@@ -1148,10 +1148,10 @@ void CURLPrepareFile(const char* url, int dfilenum)
 void CURLGetFile(void)
 {
 	CURLMcode mc; /* return code used by curl_multi_perform and curl_multi_wait() */
-    int numfds;
-    CURLMsg *m; /* for picking up messages with the transfer status */
-    CURL *e;
-  	int msgs_left; /* how many messages are left */
+	int numfds;
+	CURLMsg *m; /* for picking up messages with the transfer status */
+	CURL *e;
+	int msgs_left; /* how many messages are left */
 
     if (curl_runninghandles)
     {
