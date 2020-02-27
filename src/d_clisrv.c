@@ -2047,7 +2047,7 @@ static boolean CL_FinishedFileList(void)
 		// must download something
 		// can we, though?
 #ifdef HAVE_CURL
-		if (http_source[0] == '\0' || failedwebdownload)
+		if (http_source[0] == '\0' || curl_failedwebdownload)
 #endif
 		{
 			if (!CL_CheckDownloadable()) // nope!
@@ -2178,7 +2178,7 @@ static boolean CL_ServerConnectionSearchTicker(boolean viams, tic_t *asksent)
   * \sa CL_ConnectToServer
   *
   */
-boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *oldtic, tic_t *asksent)
+static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *oldtic, tic_t *asksent)
 {
 	boolean waitmore;
 	INT32 i;
@@ -2232,15 +2232,19 @@ boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *old
 					if (!curl_running)
 					{
 						CONS_Printf("curl_transfers: %d\n", curl_transfers);
-						CURLGetFile(http_source, i);
+						CURLPrepareFile(http_source, i);
 					}
 					waitmore = true;
 					break;
 				}
+
+			if (curl_running)
+				CURLGetFile();
+
 			if (waitmore)
 				break; // exit the case
 
-			if (failedwebdownload && !curl_transfers)
+			if (curl_failedwebdownload && !curl_transfers)
 			{
 				cl_mode = CL_ASKDOWNLOADFILES;
 				break;
@@ -2934,7 +2938,7 @@ void CL_Reset(void)
 	memset(fileneeded, 0, sizeof(fileneeded));
 
 #ifdef HAVE_CURL
-	failedwebdownload = false;
+	curl_failedwebdownload = false;
 	curl_transfers = 0;
 	curl_running = false;
 	http_source = "";

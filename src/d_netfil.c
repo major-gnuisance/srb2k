@@ -68,7 +68,6 @@
 
 // Prototypes
 static boolean SV_SendFile(INT32 node, const char *filename, UINT8 fileid);
-boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic_t *oldtic, tic_t *asksent);
 
 #ifdef HAVE_CURL
 size_t write_data(void *ptr, size_t size, size_t nmemb, FILE *stream);
@@ -113,13 +112,18 @@ INT32 lastfilenum = -1;
 #endif
 
 #ifdef HAVE_CURL
+static CURL *http_handle;
+static CURLM *multi_handle;
 boolean curl_running = false;
-tic_t curltic = 0;
-boolean failedwebdownload = false;
-double curl_dlnow;
-double curl_oldnow = 0;
-INT32 curl_oldtic;
+boolean curl_failedwebdownload = false;
+static double curl_dlnow;
+static time_t curl_starttime;
 INT32 curl_transfers = 0;
+static int curl_runninghandles = 0;
+static UINT32 curl_origfilesize;
+static UINT32 curl_origtotalfilesize;
+static char *curl_realname = '\0';
+fileneeded_t *curl_curfile = NULL;
 #endif
 
 /** Fills a serverinfo packet with information about wad files loaded.
@@ -1081,33 +1085,16 @@ int curlprogress_callback(void *clientp, double dltotal, double dlnow, double ul
 	(void)dltotal;
 	(void)ulnow; // Function prototype requires these but we won't use, so just discard
 	curl_dlnow = dlnow;
-	curltic = I_GetTime();
-	getbytes = (curl_dlnow - curl_oldnow) / (I_GetTime() - curl_oldtic);
-	curl_oldtic = I_GetTime();
-	curl_oldnow = curl_dlnow;
+	getbytes = curl_dlnow / (time(NULL) - curl_starttime);
 	return 0;
 }
 
-void CURLGetFile(const char* url, int dfilenum)
+void CURLPrepareFile(const char* url, int dfilenum)
 {
-	CURL *http_handle;
-	CURLM *multi_handle;
-	int still_running = 0; /* keep number of running handles */
-	CURLMsg *msg; /* for picking up messages with the transfer status */
-  	int msgs_left; /* how many messages are left */
-  	UINT32 origfilesize;
-  	UINT32 origtotalfilesize;
-	fileneeded_t *curfile = NULL;
-	char *realname = '\0';
-	tic_t asksent = (tic_t) - TICRATE;/* bruh? */
-
 #ifdef PARANOIA
 	if (M_CheckParm("-nodownload"))
 		I_Error("Attempted to download files in -nodownload mode");
 #endif
-
-	if (curl_running)
-		return;
 
 	curl_global_init(CURL_GLOBAL_ALL);
 
@@ -1118,12 +1105,12 @@ void CURLGetFile(const char* url, int dfilenum)
 	{
 		I_mkdir(downloaddir,0755);
 
-		curfile = &fileneeded[dfilenum];
-		realname = curfile->filename;
-		nameonly(realname);
+		curl_curfile = &fileneeded[dfilenum];
+		curl_realname = curl_curfile->filename;
+		nameonly(curl_realname);
 
-		origfilesize = curfile->currentsize;
-		origtotalfilesize = curfile->totalsize;
+		curl_origfilesize = curl_curfile->currentsize;
+		curl_origtotalfilesize = curl_curfile->totalsize;
 
 		curl_multi_setopt(multi_handle, CURLMOPT_MAX_TOTAL_CONNECTIONS, 4L);
 
@@ -1131,7 +1118,7 @@ void CURLGetFile(const char* url, int dfilenum)
 		curl_easy_setopt(http_handle, CURLOPT_STDERR, logstream);
 		curl_easy_setopt(http_handle, CURLOPT_VERBOSE, 1L);
 #endif
-		curl_easy_setopt(http_handle, CURLOPT_URL, va("%s/%s", url, realname));
+		curl_easy_setopt(http_handle, CURLOPT_URL, va("%s/%s", url, curl_realname));
 		curl_easy_setopt(http_handle, CURLOPT_SSL_VERIFYPEER, 0);
 		curl_easy_setopt(http_handle, CURLOPT_USERAGENT, "SRB2Kart Birbmod/v3"); // Set user agent as some servers won't accept invalid user agents.
 
@@ -1140,84 +1127,86 @@ void CURLGetFile(const char* url, int dfilenum)
 
 		curl_easy_setopt(http_handle, CURLOPT_FAILONERROR, 1L);
 
-		strcatbf(curfile->filename, downloaddir, "/");
-		curfile->file = fopen(curfile->filename, "wb");
-		curl_easy_setopt(http_handle, CURLOPT_WRITEDATA, curfile->file);
+		strcatbf(curl_curfile->filename, downloaddir, "/");
+		curl_curfile->file = fopen(curl_curfile->filename, "wb");
+		curl_easy_setopt(http_handle, CURLOPT_WRITEDATA, curl_curfile->file);
 		curl_easy_setopt(http_handle, CURLOPT_WRITEFUNCTION, write_data);
 		curl_easy_setopt(http_handle, CURLOPT_NOPROGRESS, 0L);
 		curl_easy_setopt(http_handle, CURLOPT_PROGRESSFUNCTION, curlprogress_callback);
 
-		curfile->status = FS_DOWNLOADING;
+		curl_curfile->status = FS_DOWNLOADING;
 		lastfilenum = dfilenum;
 		curl_multi_add_handle(multi_handle, http_handle);
-		curl_oldtic = I_GetTime();
-		curl_oldnow = 0;
 
-		CONS_Printf("Get: %s/%s\n", url, realname);
-		curl_multi_perform(multi_handle, &still_running);
-
-		while (still_running)
-		{
-			CURLMcode mc; /* curl_multi_wait() return code */
-    		int numfds;
-    		curl_running = true;
-
-    		if (!CL_ServerConnectionTicker(false, NULL, &curltic, &asksent))
-				break;
-
-    		mc = curl_multi_perform(multi_handle, &still_running);
-
-			if (still_running)
-			{
-				/* wait for activity, timeout or "nothing" */
-				mc = curl_multi_wait(multi_handle, NULL, 0, 1000, &numfds);
-
-				if (mc != CURLM_OK)
-				{
-					CONS_Alert(CONS_WARNING, "curl_multi_wait() failed, code %d.\n", mc);
-					break;
-				}
-		    }
-
-		    curfile->currentsize = curl_dlnow;
-		}
-
-		/* See how the transfers went */
-  		while ((msg = curl_multi_info_read(multi_handle, &msgs_left)))
-		{
-			if (msg->msg == CURLMSG_DONE)
-			{
-				if (msg->data.result != 0)
-				{
-					CONS_Printf(M_GetText("Failed to download %s...\n"), realname);
-					curfile->status = FS_FALLBACK;
-					curfile->currentsize = origfilesize;
-					curfile->totalsize = origtotalfilesize;
-					failedwebdownload = true;
-					fclose(curfile->file);
-					remove(curfile->filename);
-					curfile->file = NULL;
-					nameonly(curfile->filename);
-				}
-				else
-				{
-					CONS_Printf(M_GetText("Finished downloading %s\n"), realname);
-					curfile->status = FS_FOUND;
-					fclose(curfile->file);
-				}
-				curl_running = false;
-				curl_transfers--;
-
-				if (!curl_transfers)
-					break;
-			}
-		}
-		curl_multi_remove_handle(multi_handle, http_handle);
-		curl_easy_cleanup(http_handle);
-		curl_multi_cleanup(multi_handle);
+		CONS_Printf("Get: %s/%s\n", url, curl_realname);
+		curl_multi_perform(multi_handle, &curl_runninghandles);
+		curl_starttime = time(NULL);
+		curl_running = true;
 	}
-	curl_running = false;
-	still_running = 0;
-	curl_global_cleanup();
+}
+
+void CURLGetFile(void)
+{
+	CURLMcode mc; /* return code used by curl_multi_perform and curl_multi_wait() */
+    int numfds;
+    CURLMsg *m; /* for picking up messages with the transfer status */
+    CURL *e;
+  	int msgs_left; /* how many messages are left */
+
+    if (curl_runninghandles)
+    {
+    	curl_multi_perform(multi_handle, &curl_runninghandles);
+
+		/* wait for activity, timeout or "nothing" */
+		mc = curl_multi_wait(multi_handle, NULL, 0, 1000, &numfds);
+
+		if (mc != CURLM_OK)
+		{
+			CONS_Alert(CONS_WARNING, "curl_multi_wait() failed, code %d.\n", mc);
+			return;
+		}
+		curl_curfile->currentsize = curl_dlnow;
+    }
+
+    /* See how the transfers went */
+	while ((m = curl_multi_info_read(multi_handle, &msgs_left)))
+	{
+		if (m && (m->msg == CURLMSG_DONE))
+		{
+			if (m->data.result != 0)
+			{
+				CONS_Printf(M_GetText("Failed to download %s...\n"), curl_realname);
+				curl_curfile->status = FS_FALLBACK;
+				curl_curfile->currentsize = curl_origfilesize;
+				curl_curfile->totalsize = curl_origtotalfilesize;
+				curl_failedwebdownload = true;
+				fclose(curl_curfile->file);
+				remove(curl_curfile->filename);
+				curl_curfile->file = NULL;
+				nameonly(curl_curfile->filename);
+			}
+			else
+			{
+				CONS_Printf(M_GetText("Finished downloading %s\n"), curl_realname);
+				curl_curfile->status = FS_FOUND;
+				fclose(curl_curfile->file);
+			}
+
+			e = m->easy_handle;
+			curl_running = false;
+			curl_transfers--;
+			curl_multi_remove_handle(multi_handle, e);
+			curl_easy_cleanup(e);
+
+			if (!curl_transfers)
+				break;
+		}
+	}
+
+    if (!curl_running)
+    {
+    	curl_multi_cleanup(multi_handle);
+		curl_global_cleanup();
+    }
 }
 #endif

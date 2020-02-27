@@ -89,8 +89,9 @@ void nameonly(char *s);
 size_t nameonlylength(const char *s);
 
 #ifdef HAVE_CURL
-void CURLGetFile(const char* url, int dfilenum);
-extern boolean failedwebdownload;
+void CURLPrepareFile(const char* url, int dfilenum);
+void CURLGetFile(void);
+extern boolean curl_failedwebdownload;
 extern boolean curl_running;
 extern INT32 curl_transfers;
 #endif
