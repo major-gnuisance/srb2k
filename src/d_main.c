@@ -279,12 +279,11 @@ static boolean D_Display(void)
 	if (!dedicated)
 	{
 		if (nodrawers)
-			return; // for comparative timing/profiling
-
-		if (cv_framerate.value != 35 && cv_framerate.value != 1000)
+			return false; // for comparative timing/profiling
+		if (cv_interpolationmode.value == 1)
 		{
 			static UINT16 frame = 0;
-			UINT16 newframe = I_GetFrameReference(cv_framerate.value);
+			UINT16 newframe = I_GetFrameReference(cv_frameratecap.value);
 
 			if (newframe == frame)
 				return false;
@@ -714,9 +713,8 @@ void D_SRB2Loop(void)
 
 		if (!realtics && !singletics)
 		{
-			I_Sleep();
-
-			if (cv_framerate.value != 35 && gamestate == GS_LEVEL)
+			//I_Sleep();//test
+			if (cv_interpolationmode.value != 0 && gamestate == GS_LEVEL)
 			{
 				if (rendertimeout == entertic+TICRATE/17)
 				{
@@ -766,7 +764,7 @@ void D_SRB2Loop(void)
 			rendertimeout = entertic+TICRATE/17;
 
 			// Update display, next frame, with current state.
-			if (cv_framerate.value == 35)
+			if (cv_interpolationmode.value == 0)
 				lerp_fractic = 0;
 			else if (demo.playback && gamestate == GS_LEVEL)
 				lerp_fractic = (I_GetFracTime() * cv_playbackspeed.value) % FRACUNIT - cv_extrapolation.value;

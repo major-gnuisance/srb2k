@@ -1228,27 +1228,29 @@ static menuitem_t OP_Mouse2OptionsMenu[] =
 
 static menuitem_t OP_VideoOptionsMenu[] =
 {
-	{IT_STRING | IT_CALL,	NULL,	"Set Resolution...",	M_VideoModeMenu,		 10},
+	{IT_STRING | IT_CALL,	NULL,	"Set Resolution...",	M_VideoModeMenu,		 0},
 #if (defined (__unix__) && !defined (MSDOS)) || defined (UNIXCOMMON) || defined (HAVE_SDL)
-	{IT_STRING|IT_CVAR,		NULL,	"Fullscreen",			&cv_fullscreen,			 20},
+	{IT_STRING|IT_CVAR,		NULL,	"Fullscreen",			&cv_fullscreen,			 10},
 #endif
 	{IT_STRING | IT_CVAR | IT_CV_SLIDER,
-							NULL,	"Gamma",				&cv_usegamma,			 30},
+							NULL,	"Gamma",				&cv_usegamma,			 20},
 
-	{IT_STRING | IT_CVAR,	NULL,	"Draw Distance",		&cv_drawdist,			 45},
+	{IT_STRING | IT_CVAR,	NULL,	"Draw Distance",		&cv_drawdist,			 35},
 	//{IT_STRING | IT_CVAR,	NULL,	"NiGHTS Draw Dist",		&cv_drawdist_nights,	 55},
-	{IT_STRING | IT_CVAR,	NULL,	"Weather Draw Distance",&cv_drawdist_precip,	 55},
+	{IT_STRING | IT_CVAR,	NULL,	"Weather Draw Distance",&cv_drawdist_precip,	 45},
 	//{IT_STRING | IT_CVAR,	NULL,	"Weather Density",		&cv_precipdensity,		 65},
-	{IT_STRING | IT_CVAR,	NULL,	"Skyboxes",				&cv_skybox,				 65},
-	{IT_STRING | IT_CVAR,	NULL,	"Field of View",		&cv_fov,				 75},
+	{IT_STRING | IT_CVAR,	NULL,	"Skyboxes",				&cv_skybox,				 55},
+	{IT_STRING | IT_CVAR,	NULL,	"Field of View",		&cv_fov,				 65},
 
+	{IT_STRING | IT_CVAR,	NULL,	"Show FPS",				&cv_ticrate,			 80},
 	{IT_STRING | IT_CVAR,	NULL,	"Vertical Sync",		&cv_vidwait,			 90},
-	{IT_STRING | IT_CVAR,	NULL,	"Show FPS",				&cv_ticrate,			100},
-	{IT_STRING | IT_CVAR,	NULL,	"Max Level Framerate",	&cv_framerate,			110},
+	{IT_STRING | IT_CVAR,	NULL,	"Frame Interpolation",	&cv_interpolationmode,	100},
+	{IT_STRING | IT_CVAR,	NULL,	"Max Level Framerate",	&cv_frameratecap,		110},
 	{IT_STRING | IT_CVAR,	NULL,	"Future Sight",			&cv_extrapolation,		120},
 
 #ifdef HWRENDER
-	{IT_SUBMENU|IT_STRING,	NULL,	"OpenGL Options...",	&OP_OpenGLOptionsDef,	135},
+	{IT_STRING | IT_CVAR,	NULL,	"3D models",            &cv_grmdls,              135},
+	{IT_SUBMENU|IT_STRING,	NULL,	"OpenGL Options...",	&OP_OpenGLOptionsDef,   155},
 #endif
 };
 
@@ -1265,8 +1267,10 @@ enum
 	op_video_skybox,
 	op_video_fov,
 	op_video_fps,
-	op_video_frameratecap,
 	op_video_vsync,
+	op_video_interpolationmode,
+	op_video_frameratecap,
+	op_video_extrapolation,
 #ifdef HWRENDER
 	op_video_ogl,
 #endif
