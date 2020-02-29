@@ -1004,7 +1004,8 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_renderview);
 	CV_RegisterVar(&cv_vhseffect);
 	CV_RegisterVar(&cv_shittyscreen);
-	CV_RegisterVar(&cv_framerate);
+	CV_RegisterVar(&cv_interpolationmode);
+	CV_RegisterVar(&cv_frameratecap);
 	CV_RegisterVar(&cv_extrapolation);
 	CV_RegisterVar(&cv_scr_depth);
 	CV_RegisterVar(&cv_scr_width);
