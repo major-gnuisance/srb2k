@@ -39,6 +39,7 @@
 #include "../st_stuff.h"
 #include "../i_system.h"
 #include "../m_cheat.h"
+#include "../m_argv.h" // parm functions for msaa
 
 #ifdef ESLOPE
 #include "../p_slopes.h"
@@ -5312,7 +5313,7 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	}
 
 	R_SetupFrame(player, false); // This can stay false because it is only used to set viewsky in r_main.c, which isn't used here
-	HWR_RenderFrame(viewnumber, player, skybox, true);
+	HWR_RenderFrame(viewnumber, player, false, true);
 }
 
 // ==========================================================================
@@ -5380,6 +5381,14 @@ void HWR_Startup(void)
 	// jimita
 	HWD.pfnKillShaders();
 	HWD.pfnLoadShaders();
+
+	if (M_CheckParm("-msaa"))
+	{
+		if (M_CheckParm("-a2c"))
+			HWD.pfnSetSpecialState(HWD_SET_MSAA, 2);
+		else
+			HWD.pfnSetSpecialState(HWD_SET_MSAA, 1);
+	}
 }
 
 
