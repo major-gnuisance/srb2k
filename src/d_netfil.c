@@ -1127,6 +1127,8 @@ void CURLPrepareFile(const char* url, int dfilenum)
 
 		curl_easy_setopt(http_handle, CURLOPT_FAILONERROR, 1L);
 
+		CONS_Printf("Get: %s/%s\n", url, curl_realname);
+
 		strcatbf(curl_curfile->filename, downloaddir, "/");
 		curl_curfile->file = fopen(curl_curfile->filename, "wb");
 		curl_easy_setopt(http_handle, CURLOPT_WRITEDATA, curl_curfile->file);
@@ -1138,7 +1140,6 @@ void CURLPrepareFile(const char* url, int dfilenum)
 		lastfilenum = dfilenum;
 		curl_multi_add_handle(multi_handle, http_handle);
 
-		CONS_Printf("Get: %s/%s\n", url, curl_realname);
 		curl_multi_perform(multi_handle, &curl_runninghandles);
 		curl_starttime = time(NULL);
 		curl_running = true;
@@ -1207,6 +1208,7 @@ void CURLGetFile(void)
     {
     	curl_multi_cleanup(multi_handle);
 		curl_global_cleanup();
+		CONS_Printf("curl done");
     }
 }
 #endif
