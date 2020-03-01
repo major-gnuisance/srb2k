@@ -98,6 +98,9 @@ typedef enum
 	PT_MOREFILESNEEDED, // Server, to client: "you need these (+ more on top of those)"
 
 	PT_PING,          // Packet sent to tell clients the other client's latency to server.
+
+	PT_BIRBINFO,/* like serverinfo but with flicky */
+
 	NUMPACKETTYPE
 } packettype_t;
 
@@ -328,7 +331,7 @@ typedef struct
 
 	char server_context[8]; // Unique context id, generated at server startup.
 
-	UINT8 varlengthinputs[0]; // Playernames and netvars
+	UINT8 varlengthinputs[0]; // Playernames, netvars and http url
 } ATTRPACK serverconfig_pak;
 
 typedef struct {
@@ -389,6 +392,36 @@ typedef struct
 	UINT8 fileneeded[MAXFILENEEDED]; // is filled with writexxx (byteptr.h)
 } ATTRPACK serverinfo_pak;
 
+/* birbinfo limits */
+enum
+{
+	MAX_MIRROR_LENGTH = 255,
+};
+
+typedef struct
+{
+	/*
+	variable length:
+
+	mirror
+	*/
+
+	UINT8 mirror_length;
+
+	UINT8 variable_length_data[
+		MAX_MIRROR_LENGTH
+	];
+} ATTRPACK birbinfo_pak;
+
+typedef struct
+{
+	boolean birb_powered;
+#ifdef HAVE_CURL
+	char http_source[MAX_MIRROR_LENGTH];
+#endif
+}
+cl_birbinfo_t;
+
 typedef struct
 {
 	char reason[255];
@@ -396,7 +429,7 @@ typedef struct
 
 typedef struct
 {
-	UINT8 version;
+	UINT8 _255;
 	tic_t time; // used for ping evaluation
 } ATTRPACK askinfo_pak;
 
@@ -473,6 +506,7 @@ typedef struct
 		INT32 filesneedednum;               //           4 bytes
 		filesneededconfig_pak filesneededcfg; //       ??? bytes
 		UINT32 pingtable[MAXPLAYERS+1];     //          68 bytes
+		birbinfo_pak birbinfo;
 	} u; // This is needed to pack diff packet types data together
 } ATTRPACK doomdata_t;
 
@@ -485,6 +519,8 @@ typedef struct
 {
 	SINT8 node;
 	serverinfo_pak info;
+
+	cl_birbinfo_t birb_info;
 } serverelem_t;
 
 extern serverelem_t serverlist[MAXSERVERLIST];
@@ -496,6 +532,10 @@ extern doomdata_t *netbuffer;
 
 extern consvar_t cv_showjoinaddress;
 extern consvar_t cv_playbackspeed;
+
+#ifdef HAVE_CURL
+extern consvar_t cv_httpsource;
+#endif
 
 #define BASEPACKETSIZE      offsetof(doomdata_t, u)
 #define FILETXHEADER        offsetof(filetx_pak, data)
