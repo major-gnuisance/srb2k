@@ -82,7 +82,7 @@
 #endif
 
 // maximum number of windowed modes (see windowedModes[][])
-#define MAXWINMODES (22)
+#define MAXWINMODES (19)
 
 /**	\brief
 */
@@ -99,6 +99,10 @@ boolean highcolor = false;
 // synchronize page flipping with screen refresh
 consvar_t cv_vidwait = {"vid_wait", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 static consvar_t cv_stretch = {"stretch", "Off", CV_SAVE|CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+// these cant be used since config is read after window creation, so need to use command line parameter instead
+//static CV_PossibleValue_t msaa_cons_t[] = {{0, "Off"}, {2, "2X"}, {4, "4X"}, {8, "8X"}, {16, "16X"}, {0, NULL}};
+//consvar_t cv_msaa = {"msaa", "Off", CV_SAVE, msaa_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 UINT8 graphics_started = 0; // Is used in console.c and screen.c
 
@@ -146,13 +150,10 @@ static const char *fallback_resolution_name = "Fallback";
 // windowed video modes from which to choose from.
 static INT32 windowedModes[MAXWINMODES][2] =
 {
-	{7680,4320}, //8k
-	{3840,2160}, //4k
 	{2560,1440}, //QHD
 	{1920,1200}, // 1.60,6.00
 	{1920,1080}, // 1.66
 	{1680,1050}, // 1.60,5.25
-	{2048,1536},
 	{1600,1200}, // 1.33
 	{1600, 900}, // 1.66
 	{1366, 768}, // 1.66
@@ -169,6 +170,10 @@ static INT32 windowedModes[MAXWINMODES][2] =
 	{ 320, 240}, // 1.33,1.00
 	{ 320, 200}, // 1.60,1.00
 };
+
+#define CUSTOMMODENUM 9999
+static INT32 custom_width = 0;
+static INT32 custom_height = 0;
 
 static void Impl_VideoSetupSDLBuffer(void);
 static void Impl_VideoSetupBuffer(void);
@@ -1516,6 +1521,16 @@ INT32 VID_GetModeForSize(INT32 w, INT32 h)
 			return i;
 		}
 	}
+	// did not find mode from list, make custom resolution if the values somewhat make sense
+	// opengl mode does not mind about max resolution defined in screen.h
+	// if not using opengl, check against the maximum as well
+	if ((w >= BASEVIDWIDTH && h >= BASEVIDHEIGHT) &&
+		(rendermode == render_opengl || (w <= MAXVIDWIDTH && h <= MAXVIDHEIGHT)))
+	{
+		custom_width = w;
+		custom_height = h;
+		return CUSTOMMODENUM;
+	}
 	return -1;
 #if 0
 	INT32 matchMode = -1, i;
@@ -1645,6 +1660,13 @@ INT32 VID_SetMode(INT32 modeNum)
 		vid.height = windowedModes[modeNum][1];
 		vid.modenum = modeNum;
 	}
+	else if (modeNum == CUSTOMMODENUM && custom_width && custom_height)
+	{
+		// at this point these values are assumed to be okay
+		vid.width = custom_width;
+		vid.height = custom_height;
+		vid.modenum = modeNum;
+	}
 	else
 	{
 		// just set the desktop resolution as a fallback
@@ -1707,7 +1729,19 @@ static SDL_bool Impl_CreateWindow(SDL_bool fullscreen)
 
 #ifdef HWRENDER
 	if (rendermode == render_opengl)
+	{
 		flags |= SDL_WINDOW_OPENGL;
+		if (M_CheckParm("-msaa") && M_IsNextParm())
+		{
+			unsigned int value;
+			const char* str = M_GetNextParm();
+			if (sscanf(str, "%u", &value))
+			{
+				SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+				SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, value);
+			}
+		}
+	}
 #endif
 
 	// Create a window

@@ -134,9 +134,8 @@ static void HWR_DrawPatchInCache(GLMipmap_t *mipmap,
 
 				//Hurdler: not perfect, but better than holes
 				if (texel == HWR_PATCHES_CHROMAKEY_COLORINDEX && (mipmap->flags & TF_CHROMAKEYED))
-					alpha = 0x00;
-				
-					//texel = HWR_CHROMAKEY_EQUIVALENTCOLORINDEX;
+					alpha = 0x00;// this line makes Frozen Production Zone (latpack) pillars correct
+					//texel = HWR_CHROMAKEY_EQUIVALENTCOLORINDEX;// this one alternatively makes 3 color drive work
 				// Lat:  Don't do that, some weirdos still use CYAN on their WALLTEXTURES for translucency :V
 			
 				//Hurdler: 25/04/2000: now support colormap in hardware mode
@@ -579,7 +578,7 @@ static void HWR_CacheFlat(GLMipmap_t *grMipmap, lumpnum_t flatlumpnum)
 {
 #ifdef GLENCORE
 	UINT8 *flat;
-	INT32 steppy;
+	size_t steppy;
 #endif
 	size_t size, pflatsize;
 

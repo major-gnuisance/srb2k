@@ -39,6 +39,7 @@
 #include "../st_stuff.h"
 #include "../i_system.h"
 #include "../m_cheat.h"
+#include "../m_argv.h" // parm functions for msaa
 
 #ifdef ESLOPE
 #include "../p_slopes.h"
@@ -70,51 +71,59 @@ CV_PossibleValue_t granisotropicmode_cons_t[] = {{1, "MIN"}, {16, "MAX"}, {0, NU
 
 consvar_t cv_grrounddown = {"gr_rounddown", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
-// Unfortunately, this can no longer be saved..
-consvar_t cv_grfiltermode = {"gr_filtermode", "Nearest", CV_CALL, grfiltermode_cons_t,
+// There was a comment here claiming that these settings can't be saved but saving seems to work fine?
+consvar_t cv_grfiltermode = {"gr_filtermode", "Nearest", CV_CALL|CV_SAVE, grfiltermode_cons_t,
                              CV_filtermode_ONChange, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_granisotropicmode = {"gr_anisotropicmode", "1", CV_CALL, granisotropicmode_cons_t,
+consvar_t cv_granisotropicmode = {"gr_anisotropicmode", "1", CV_CALL|CV_SAVE, granisotropicmode_cons_t,
                              CV_anisotropic_ONChange, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grcorrecttricks = {"gr_correcttricks", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_grsolvetjoin = {"gr_solvetjoin", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_grsolvetjoin = {"gr_solvetjoin", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // render stats
-consvar_t cv_hrenderstats = {"hrenderstats", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_renderstats = {"renderstats", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grwireframe = {"gr_wireframe", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-int hrs_prevframetime = 0;
-int hrs_rendercalltime = 0;
-int hrs_bsptime = 0;
-int hrs_nodetime = 0;
-int hrs_nodesorttime = 0;
-int hrs_nodedrawtime = 0;
-int hrs_spritesorttime = 0;
-int hrs_spritedrawtime = 0;
+int rs_prevframetime = 0;
+int rs_rendercalltime = 0;
+int rs_bsptime = 0;
+int rs_nodetime = 0;
+int rs_nodesorttime = 0;
+int rs_nodedrawtime = 0;
+int rs_spritesorttime = 0;
+int rs_spritedrawtime = 0;
 
-int hrs_numdrawnodes = 0;
-int hrs_numbspcalls = 0;
-int hrs_numsprites = 0;
-int hrs_numpolyobjects = 0;
+int rs_numdrawnodes = 0;
+int rs_numbspcalls = 0;
+int rs_numsprites = 0;
+int rs_numpolyobjects = 0;
+
+int rs_posttime = 0;
+int rs_swaptime = 0;
+
+int rs_test = 0;
 
 // render stats for batching
-int hrs_numpolys = 0;
-int hrs_numcalls = 0;
-int hrs_numshaders = 0;
-int hrs_numtextures = 0;
-int hrs_numpolyflags = 0;
-int hrs_numcolors = 0;
-int hrs_batchsorttime = 0;
-int hrs_batchdrawtime = 0;
+int rs_numpolys = 0;
+int rs_numcalls = 0;
+int rs_numshaders = 0;
+int rs_numtextures = 0;
+int rs_numpolyflags = 0;
+int rs_numcolors = 0;
+int rs_batchsorttime = 0;
+int rs_batchdrawtime = 0;
 
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_try_optimization = {"try_optimization", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_grfullskywalls = {"gr_fullskywalls", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
 
 static void CV_screentextures_ONChange(void);
 consvar_t cv_enable_screen_textures = {"gr_screen_textures", "On", CV_CALL, CV_OnOff, CV_screentextures_ONChange, 0, NULL, NULL, 0, 0, NULL};
 
 // used to make it so that skybox drawing is not taken into account
 // thought the stats could overwrite on that but not sure ...
-boolean hrs_do_stats = false;
+boolean rs_do_stats = false;
+
+const boolean FAST_SPRITES = false;
 
 static void CV_filtermode_ONChange(void)
 {
@@ -129,8 +138,7 @@ static void CV_anisotropic_ONChange(void)
 
 static void CV_screentextures_ONChange(void)
 {
-	if (rendermode == render_opengl)
-		HWD.pfnSetSpecialState(HWD_SET_SCREEN_TEXTURES, cv_enable_screen_textures.value);
+	HWD.pfnSetSpecialState(HWD_SET_SCREEN_TEXTURES, cv_enable_screen_textures.value);
 }
 
 // ==========================================================================
@@ -161,17 +169,6 @@ static side_t *gr_sidedef;
 static line_t *gr_linedef;
 static sector_t *gr_frontsector;
 static sector_t *gr_backsector;
-
-// rendering phase test
-#define RENDER_PHASE_WALL_TP_POLY 1
-#define RENDER_PHASE_FLOOR 2
-#define RENDER_PHASE_CEILING 4
-#define RENDER_PHASE_FFLOOR_BOTTOM 8
-#define RENDER_PHASE_FFLOOR_TOP 16
-// first phase has all walls, all transparent stuff and polyobjects
-
-#define RENDER_PHASE_FFLOOR RENDER_PHASE_FFLOOR_BOTTOM+RENDER_PHASE_FFLOOR_TOP
-static UINT8 gr_render_phase;
 
 // ==========================================================================
 // View position
@@ -229,14 +226,17 @@ void HWR_Lighting(FSurfaceInfo *Surface, INT32 light_level, UINT32 mixcolor, UIN
 
 	if (cv_grfog.value)
 	{
+		float red;
+		float green;
+		float blue;
 		// be careful, this may get negative for high lightlevel values.
 		float fog = (fog_alpha - (light_level/255.0f))*3/2;
 		if (fog < 0)
 			fog = 0;
 
-		float red = ((fog_color.s.red/255.0f) * fog) + ((final_color.s.red/255.0f) * (1.0f - fog));
-		float green = ((fog_color.s.green/255.0f) * fog) + ((final_color.s.green/255.0f) * (1.0f - fog));
-		float blue = ((fog_color.s.blue/255.0f) * fog) + ((final_color.s.blue/255.0f) * (1.0f - fog));
+		red = ((fog_color.s.red/255.0f) * fog) + ((final_color.s.red/255.0f) * (1.0f - fog));
+		green = ((fog_color.s.green/255.0f) * fog) + ((final_color.s.green/255.0f) * (1.0f - fog));
+		blue = ((fog_color.s.blue/255.0f) * fog) + ((final_color.s.blue/255.0f) * (1.0f - fog));
 		final_color.s.red = (UINT8)(red*255.0f);
 		final_color.s.green = (UINT8)(green*255.0f);
 		final_color.s.blue = (UINT8)(blue*255.0f);
@@ -1067,6 +1067,113 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 		worldlow  = gr_backsector->floorheight;
 #endif
 
+		// previously removed skywall code
+		// Sky culling
+		if (cv_grfullskywalls.value && !gr_curline->polyseg) // Don't do it for polyobjects
+		{
+			// Sky Ceilings
+			wallVerts[3].y = wallVerts[2].y = FIXED_TO_FLOAT(INT32_MAX);
+
+			if (gr_frontsector->ceilingpic == skyflatnum)
+			{
+				if (gr_backsector->ceilingpic == skyflatnum)
+				{
+					// Both front and back sectors are sky, needs skywall from the frontsector's ceiling, but only if the
+					// backsector is lower
+					if ((worldhigh <= worldtop)
+#ifdef ESLOPE
+					&& (worldhighslope <= worldtopslope)
+#endif
+					)
+					{
+#ifdef ESLOPE
+						wallVerts[0].y = FIXED_TO_FLOAT(worldhigh);
+						wallVerts[1].y = FIXED_TO_FLOAT(worldhighslope);
+#else
+						wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(worldhigh);
+#endif
+						HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
+					}
+				}
+				else
+				{
+					// Only the frontsector is sky, just draw a skywall from the front ceiling
+#ifdef ESLOPE
+					wallVerts[0].y = FIXED_TO_FLOAT(worldtop);
+					wallVerts[1].y = FIXED_TO_FLOAT(worldtopslope);
+#else
+					wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(worldtop);
+#endif
+					HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
+				}
+			}
+			else if (gr_backsector->ceilingpic == skyflatnum)
+			{
+				// Only the backsector is sky, just draw a skywall from the front ceiling
+#ifdef ESLOPE
+				wallVerts[0].y = FIXED_TO_FLOAT(worldtop);
+				wallVerts[1].y = FIXED_TO_FLOAT(worldtopslope);
+#else
+				wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(worldtop);
+#endif
+				HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
+			}
+
+
+			// Sky Floors
+			wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(INT32_MIN);
+
+			if (gr_frontsector->floorpic == skyflatnum)
+			{
+				if (gr_backsector->floorpic == skyflatnum)
+				{
+					// Both front and back sectors are sky, needs skywall from the backsector's floor, but only if the
+					// it's higher, also needs to check for bottomtexture as the floors don't usually move down
+					// when both sides are sky floors
+					if ((worldlow >= worldbottom)
+#ifdef ESLOPE
+					&& (worldlowslope >= worldbottomslope)
+#endif
+					&& !(gr_sidedef->bottomtexture))
+					{
+#ifdef ESLOPE
+						wallVerts[3].y = FIXED_TO_FLOAT(worldlow);
+						wallVerts[2].y = FIXED_TO_FLOAT(worldlowslope);
+#else
+						wallVerts[3].y = wallVerts[2].y = FIXED_TO_FLOAT(worldlow);
+#endif
+
+						HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
+					}
+				}
+				else
+				{
+					// Only the backsector has sky, just draw a skywall from the back floor
+#ifdef ESLOPE
+					wallVerts[3].y = FIXED_TO_FLOAT(worldbottom);
+					wallVerts[2].y = FIXED_TO_FLOAT(worldbottomslope);
+#else
+					wallVerts[3].y = wallVerts[2].y = FIXED_TO_FLOAT(worldbottom);
+#endif
+
+					HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
+				}
+			}
+			else if ((gr_backsector->floorpic == skyflatnum) && !(gr_sidedef->bottomtexture))
+			{
+				// Only the backsector has sky, just draw a skywall from the back floor if there's no bottomtexture
+#ifdef ESLOPE
+				wallVerts[3].y = FIXED_TO_FLOAT(worldlow);
+				wallVerts[2].y = FIXED_TO_FLOAT(worldlowslope);
+#else
+				wallVerts[3].y = wallVerts[2].y = FIXED_TO_FLOAT(worldlow);
+#endif
+
+				HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
+			}
+		}
+		// \ previously removed skywall code
+
 		// hack to allow height changes in outdoor areas
 		// This is what gets rid of the upper textures if there should be sky
 		if (gr_frontsector->ceilingpic == skyflatnum &&
@@ -1659,6 +1766,55 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 					HWR_ProjectWall(wallVerts, &Surf, PF_Masked, lightnum, colormap);
 			}
 		}
+		// previously removed skywall code
+		else if (cv_grfullskywalls.value)
+		{
+#ifdef ESLOPE
+			//Set textures properly on single sided walls that are sloped
+			wallVerts[3].y = FIXED_TO_FLOAT(worldtop);
+			wallVerts[0].y = FIXED_TO_FLOAT(worldbottom);
+			wallVerts[2].y = FIXED_TO_FLOAT(worldtopslope);
+			wallVerts[1].y = FIXED_TO_FLOAT(worldbottomslope);
+#else
+			// set top/bottom coords
+			wallVerts[2].y = wallVerts[3].y = FIXED_TO_FLOAT(worldtop);
+			wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(worldbottom);
+#endif
+
+			// When there's no midtexture, draw a skywall to prevent rendering behind it
+			HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
+		}
+
+
+		// Single sided lines are simple for skywalls, just need to draw from the top or bottom of the sector if there's
+		// a sky flat
+		if (cv_grfullskywalls.value && !gr_curline->polyseg)
+		{
+			if (gr_frontsector->ceilingpic == skyflatnum) // It's a single-sided line with sky for its sector
+			{
+				wallVerts[3].y = wallVerts[2].y = FIXED_TO_FLOAT(INT32_MAX);
+#ifdef ESLOPE
+				wallVerts[0].y = FIXED_TO_FLOAT(worldtop);
+				wallVerts[1].y = FIXED_TO_FLOAT(worldtopslope);
+#else
+				wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(worldtop);
+#endif
+				HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
+			}
+			if (gr_frontsector->floorpic == skyflatnum)
+			{
+#ifdef ESLOPE
+				wallVerts[3].y = FIXED_TO_FLOAT(worldbottom);
+				wallVerts[2].y = FIXED_TO_FLOAT(worldbottomslope);
+#else
+				wallVerts[3].y = wallVerts[2].y = FIXED_TO_FLOAT(worldbottom);
+#endif
+				wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(INT32_MIN);
+
+				HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
+			}
+		}
+		// \ previously removed skywall code
 	}
 
 
@@ -1964,7 +2120,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 boolean checkforemptylines = true;
 // Don't modify anything here, just check
 // Kalaron: Modified for sloped linedefs
-static boolean CheckClip(seg_t * seg, sector_t * afrontsector, sector_t * abacksector)
+static boolean CheckClip(sector_t * afrontsector, sector_t * abacksector)
 {
 	fixed_t frontf1,frontf2, frontc1, frontc2; // front floor/ceiling ends
 	fixed_t backf1, backf2, backc1, backc2; // back floor ceiling ends
@@ -2099,7 +2255,7 @@ void HWR_AddLine(seg_t *line)
 	else
 	{
 		gr_backsector = R_FakeFlat(gr_backsector, &tempsec, NULL, NULL, true);
-		if (CheckClip(line, gr_frontsector, gr_backsector))
+		if (CheckClip(gr_frontsector, gr_backsector))
 		{
 			gld_clipper_SafeAddClipRange(angle2, angle1);
 			checkforemptylines = false;
@@ -2112,8 +2268,7 @@ void HWR_AddLine(seg_t *line)
 			return;
     }
 
-	if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)
-		HWR_ProcessSeg(); // Doesn't need arguments because they're defined globally :D
+	HWR_ProcessSeg(); // Doesn't need arguments because they're defined globally :D
 	return;
 }
 
@@ -2575,7 +2730,7 @@ void HWR_Subsector(size_t num)
 
 	// render floor ?
 	// yeah, easy backface cull! :)
-	if (gr_render_phase & RENDER_PHASE_FLOOR && cullFloorHeight < viewz)
+	if (cullFloorHeight < viewz)
 	{
 		if (gr_frontsector->floorpic != skyflatnum)
 		{
@@ -2591,7 +2746,7 @@ void HWR_Subsector(size_t num)
 		}
 	}
 
-	if (gr_render_phase & RENDER_PHASE_CEILING && cullCeilingHeight > viewz)
+	if (cullCeilingHeight > viewz)
 	{
 		if (gr_frontsector->ceilingpic != skyflatnum)
 		{
@@ -2607,7 +2762,7 @@ void HWR_Subsector(size_t num)
 		}
 	}
 
-	if (gr_render_phase & (RENDER_PHASE_FFLOOR | RENDER_PHASE_WALL_TP_POLY) && gr_frontsector->ffloors)
+	if (gr_frontsector->ffloors)
 	{
 		/// \todo fix light, xoffs, yoffs, extracolormap ?
 		ffloor_t * rover;
@@ -2639,41 +2794,35 @@ void HWR_Subsector(size_t num)
 			{
 				if (rover->flags & FF_FOG)
 				{
-					if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)// render transparent things together
-					{
-						UINT8 alpha;
+					UINT8 alpha;
 
-						light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
+					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
 
-						if (rover->master->frontsector->extra_colormap)
-							alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, rover->master->frontsector->extra_colormap->rgba);
-						else
-							alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, GL_NORMALFOG);
+					if (rover->master->frontsector->extra_colormap)
+						alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, rover->master->frontsector->extra_colormap->rgba);
+					else
+						alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, GL_NORMALFOG);
 
-						HWR_AddTransparentFloor(0,
-							                   &extrasubsectors[num],
-											   false,
-							                   *rover->bottomheight,
-							                   *gr_frontsector->lightlist[light].lightlevel,
-							                   alpha, rover->master->frontsector, PF_Fog|PF_NoTexture,
-											   true, rover->master->frontsector->extra_colormap);
-					}
+					HWR_AddTransparentFloor(0,
+										   &extrasubsectors[num],
+										   false,
+										   *rover->bottomheight,
+										   *gr_frontsector->lightlist[light].lightlevel,
+										   alpha, rover->master->frontsector, PF_Fog|PF_NoTexture,
+										   true, rover->master->frontsector->extra_colormap);
 				}
 				else if (rover->flags & FF_TRANSLUCENT && rover->alpha < 256) // SoM: Flags are more efficient
 				{
-					if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)
-					{
-						light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
-						HWR_AddTransparentFloor(levelflats[*rover->bottompic].lumpnum,
-							                   &extrasubsectors[num],
-											   false,
-							                   *rover->bottomheight,
-							                   *gr_frontsector->lightlist[light].lightlevel,
-							                   rover->alpha-1 > 255 ? 255 : rover->alpha-1, rover->master->frontsector, (rover->flags & FF_RIPPLE ? PF_Ripple : 0)|PF_Translucent,
-							                   false, gr_frontsector->lightlist[light].extra_colormap);
-					}
+					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
+					HWR_AddTransparentFloor(levelflats[*rover->bottompic].lumpnum,
+										   &extrasubsectors[num],
+										   false,
+										   *rover->bottomheight,
+										   *gr_frontsector->lightlist[light].lightlevel,
+										   rover->alpha-1 > 255 ? 255 : rover->alpha-1, rover->master->frontsector, (rover->flags & FF_RIPPLE ? PF_Ripple : 0)|PF_Translucent,
+										   false, gr_frontsector->lightlist[light].extra_colormap);
 				}
-				else if (gr_render_phase & RENDER_PHASE_FFLOOR_BOTTOM)
+				else
 				{
 					HWR_GetFlat(levelflats[*rover->bottompic].lumpnum, R_NoEncore(gr_frontsector, false));
 					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
@@ -2701,41 +2850,35 @@ void HWR_Subsector(size_t num)
 			{
 				if (rover->flags & FF_FOG)
 				{
-					if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)
-					{
-						UINT8 alpha;
+					UINT8 alpha;
 
-						light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
+					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
 
-						if (rover->master->frontsector->extra_colormap)
-							alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, rover->master->frontsector->extra_colormap->rgba);
-						else
-							alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, GL_NORMALFOG);
+					if (rover->master->frontsector->extra_colormap)
+						alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, rover->master->frontsector->extra_colormap->rgba);
+					else
+						alpha = HWR_FogBlockAlpha(*gr_frontsector->lightlist[light].lightlevel, GL_NORMALFOG);
 
-						HWR_AddTransparentFloor(0,
-							                   &extrasubsectors[num],
-											   true,
-							                   *rover->topheight,
-							                   *gr_frontsector->lightlist[light].lightlevel,
-							                   alpha, rover->master->frontsector, PF_Fog|PF_NoTexture,
-											   true, rover->master->frontsector->extra_colormap);
-					}
+					HWR_AddTransparentFloor(0,
+										   &extrasubsectors[num],
+										   true,
+										   *rover->topheight,
+										   *gr_frontsector->lightlist[light].lightlevel,
+										   alpha, rover->master->frontsector, PF_Fog|PF_NoTexture,
+										   true, rover->master->frontsector->extra_colormap);
 				}
 				else if (rover->flags & FF_TRANSLUCENT && rover->alpha < 256)
 				{
-					if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)
-					{
-						light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
-						HWR_AddTransparentFloor(levelflats[*rover->toppic].lumpnum,
-							                    &extrasubsectors[num],
-												true,
-							                    *rover->topheight,
-							                    *gr_frontsector->lightlist[light].lightlevel,
-							                    rover->alpha-1 > 255 ? 255 : rover->alpha-1, rover->master->frontsector, (rover->flags & FF_RIPPLE ? PF_Ripple : 0)|PF_Translucent,
-							                    false, gr_frontsector->lightlist[light].extra_colormap);
-					}
+					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
+					HWR_AddTransparentFloor(levelflats[*rover->toppic].lumpnum,
+											&extrasubsectors[num],
+											true,
+											*rover->topheight,
+											*gr_frontsector->lightlist[light].lightlevel,
+											rover->alpha-1 > 255 ? 255 : rover->alpha-1, rover->master->frontsector, (rover->flags & FF_RIPPLE ? PF_Ripple : 0)|PF_Translucent,
+											false, gr_frontsector->lightlist[light].extra_colormap);
 				}
-				else if (gr_render_phase & RENDER_PHASE_FFLOOR_TOP)
+				else
 				{
 					HWR_GetFlat(levelflats[*rover->toppic].lumpnum, R_NoEncore(gr_frontsector, true));
 					light = R_GetPlaneLight(gr_frontsector, centerHeight, viewz < cullHeight ? true : false);
@@ -2749,7 +2892,7 @@ void HWR_Subsector(size_t num)
 
 #ifdef POLYOBJECTS
 	// Draw all the polyobjects in this subsector
-	if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY && sub->polyList)
+	if (sub->polyList)
 	{
 		polyobj_t *po = sub->polyList;
 
@@ -2763,7 +2906,7 @@ void HWR_Subsector(size_t num)
 		}
 
 		// for render stats
-		hrs_numpolyobjects += numpolys;
+		rs_numpolyobjects += numpolys;
 
 		// Sort polyobjects
 		R_SortPolyObjects(sub);
@@ -2789,8 +2932,7 @@ void HWR_Subsector(size_t num)
 	{
 		// draw sprites first, coz they are clipped to the solidsegs of
 		// subsectors more 'in front'
-		if (gr_render_phase & RENDER_PHASE_WALL_TP_POLY)
-			HWR_AddSprites(gr_frontsector);
+		HWR_AddSprites(gr_frontsector);
 
 		//Hurdler: at this point validcount must be the same, but is not because
 		//         gr_frontsector doesn't point anymore to sub->sector due to
@@ -2820,14 +2962,14 @@ void HWR_Subsector(size_t num)
 
 void HWR_RenderBSPNode(INT32 bspnum)
 {
-	hrs_numbspcalls++;
-	// fun test
-	//if (hrs_numbspcalls > 500) return;
-
 	node_t *bsp = &nodes[bspnum];
 
 	// Decide which side the view point is on
 	INT32 side;
+
+	rs_numbspcalls++;
+	// fun test
+	//if (rs_numbspcalls > 500) return;
 
 	// Found a subsector?
 	if (bspnum & NF_SUBSECTOR)
@@ -3240,7 +3382,6 @@ static void HWR_SplitSprite(gr_vissprite_t *spr)
 	{
 		float sprdist = sqrtf((spr->x1 - gr_viewx)*(spr->x1 - gr_viewx) + (spr->z1 - gr_viewy)*(spr->z1 - gr_viewy) + (spr->ty - gr_viewz)*(spr->ty - gr_viewz));
 		float distfact = ((2.0f*spr->dispoffset) + 20.0f) / sprdist;
-		size_t i;
 		for (i = 0; i < 4; i++)
 		{
 			baseWallVerts[i].x += (gr_viewx - baseWallVerts[i].x)*distfact;
@@ -3757,23 +3898,24 @@ static inline void HWR_DrawPrecipitationSprite(gr_vissprite_t *spr)
 // --------------------------------------------------------------------------
 // Sort vissprites by distance
 // --------------------------------------------------------------------------
-static gr_vissprite_t gr_vsprsortedhead;
 
-gr_vissprite_t* gr_vsprorder[MAXVISSPRITES];
+//static gr_vissprite_t gr_vsprsortedhead;
 
-// A further improved sort would probably only sort the transparent sprites
-// and put them to the end of the list and leave the opaque sprites unsorted.
+gr_vissprite_t* gr_tvsprorder[MAXVISSPRITES];
+int gr_tvisspritecount = 0;
+
 // For more correct transparency the transparent sprites would need to be
 // sorted and drawn together with transparent surfaces.
 static int CompareVisSprites(const void *p1, const void *p2)
 {
-	gr_vissprite_t* spr1 = *(gr_vissprite_t**)p1;
-	gr_vissprite_t* spr2 = *(gr_vissprite_t**)p2;
+	gr_vissprite_t* spr1 = *(gr_vissprite_t*const*)p1;
+	gr_vissprite_t* spr2 = *(gr_vissprite_t*const*)p2;
 	int idiff;
 	float fdiff;
 	
 	// make transparent sprites last
 	// "boolean to int"
+	
 	int transparency1 = (spr1->mobj->flags2 & MF2_SHADOW) || (spr1->mobj->frame & FF_TRANSMASK);
 	int transparency2 = (spr2->mobj->flags2 & MF2_SHADOW) || (spr2->mobj->frame & FF_TRANSMASK);
 	idiff = transparency1 - transparency2;
@@ -3790,12 +3932,16 @@ static int CompareVisSprites(const void *p1, const void *p2)
 
 static void HWR_SortVisSprites(void)
 {
+	UINT32 i;
 	// new sort
-	for (int i = 0; i < gr_visspritecount; i++)
+	gr_tvisspritecount = 0;
+	for (i = 0; i < gr_visspritecount; i++)
 	{
-		gr_vsprorder[i] = HWR_GetVisSprite(i);
+		gr_vissprite_t* spr = HWR_GetVisSprite(i);
+		if (!FAST_SPRITES || (spr->mobj->flags2 & MF2_SHADOW) || (spr->mobj->frame & FF_TRANSMASK))
+			gr_tvsprorder[gr_tvisspritecount++] = spr;
 	}
-	qsort(gr_vsprorder, gr_visspritecount, sizeof(gr_vissprite_t*), CompareVisSprites);
+	qsort(gr_tvsprorder, gr_tvisspritecount, sizeof(gr_vissprite_t*), CompareVisSprites);
 
 
 	
@@ -4017,8 +4163,8 @@ size_t *sortindex;
 
 static int CompareDrawNodes(const void *p1, const void *p2)
 {
-	size_t n1 = *(size_t*)p1;
-	size_t n2 = *(size_t*)p2;
+	size_t n1 = *(const size_t*)p1;
+	size_t n2 = *(const size_t*)p2;
 	INT32 v1 = 0;
 	INT32 v2 = 0;
 	INT32 diff;
@@ -4042,107 +4188,11 @@ static int CompareDrawNodes(const void *p1, const void *p2)
 	if (diff == 0) I_Error("diff is zero");
 	return diff;
 }
-/*
-static int CompareDrawNodes(const void *p1, const void *p2)
-//int CompareDrawNodes(size_t n1, size_t n2)
-{
-	size_t n1 = *(size_t*)p1;
-	size_t n2 = *(size_t*)p2;
-	// comparing logic taken from the previous bubble sort
-	// replaced pviewz with viewz, should do the same thing i think
-	// added equality check
-	// this could probably be done better by returning the difference between the compared values
-	fixed_t diff = 0;
-	if (sortnode[n2].plane)
-	{
-		// What are we comparing it with?
-		if (sortnode[n1].plane)
-		{
-			// Plane (i) is further away than plane (prev)
-			diff = ABS(sortnode[n2].plane->fixedheight - viewz) - ABS(sortnode[n1].plane->fixedheight - viewz);
-//			else if (ABS(sortnode[n2].plane->fixedheight - viewz) == ABS(sortnode[n1].plane->fixedheight - viewz))
-//				return 0;
-		}
-		else if (sortnode[n1].polyplane)
-		{
-			// Plane (i) is further away than polyplane (prev)
-			diff = ABS(sortnode[n2].plane->fixedheight - viewz) - ABS(sortnode[n1].polyplane->fixedheight - viewz);
-//			else if (ABS(sortnode[n2].plane->fixedheight - viewz) == ABS(sortnode[n1].polyplane->fixedheight - viewz))
-//				return 0;
-		}
-		else if (sortnode[n1].wall)
-		{
-			// Plane (i) is further than wall (prev)
-			diff = -sortnode[n2].plane->drawcount + sortnode[n1].wall->drawcount;
-//			else if (sortnode[n2].plane->drawcount == sortnode[n1].wall->drawcount)
-//				return 0;
-		} else I_Error("n1 unknown");
-	}
-	else if (sortnode[n2].polyplane)
-	{
-		// What are we comparing it with?
-		if (sortnode[n1].plane)
-		{
-			// Plane (i) is further away than plane (prev)
-			diff = ABS(sortnode[n2].polyplane->fixedheight - viewz) - ABS(sortnode[n1].plane->fixedheight - viewz);
-//			else if (ABS(sortnode[n2].polyplane->fixedheight - viewz) == ABS(sortnode[n1].plane->fixedheight - viewz))
-//				return 0;
-		}
-		else if (sortnode[n1].polyplane)
-		{
-			// Plane (i) is further away than polyplane (prev)
-			diff = ABS(sortnode[n2].polyplane->fixedheight - viewz) - ABS(sortnode[n1].polyplane->fixedheight - viewz);
-//			else if (ABS(sortnode[n2].polyplane->fixedheight - viewz) == ABS(sortnode[n1].polyplane->fixedheight - viewz))
-//				return 0;
-		}
-		else if (sortnode[n1].wall)
-		{
-			// Plane (i) is further than wall (prev)
-			diff = -sortnode[n2].polyplane->drawcount + sortnode[n1].wall->drawcount;
-//			else if (sortnode[n2].polyplane->drawcount == sortnode[n1].wall->drawcount)
-//				return 0;
-		} else I_Error("n1 unknown");
-	}
-	else if (sortnode[n2].wall)
-	{
-		// What are we comparing it with?
-		if (sortnode[n1].plane)
-		{
-			// Wall (i) is further than plane(prev)
-			diff = -sortnode[n2].wall->drawcount + sortnode[n1].plane->drawcount;
-//			else if (sortnode[n2].wall->drawcount == sortnode[n1].plane->drawcount)
-//				return 0;
-		}
-		else if (sortnode[n1].polyplane)
-		{
-			// Wall (i) is further than polyplane(prev)
-			diff = -sortnode[n2].wall->drawcount + sortnode[n1].polyplane->drawcount;
-//			else if (sortnode[n2].wall->drawcount == sortnode[n1].polyplane->drawcount)
-//				return 0;
-		}
-		else if (sortnode[n1].wall)
-		{
-			// Wall (i) is further than wall (prev)
-			diff = sortnode[n2].wall->drawcount - sortnode[n1].wall->drawcount;
-//			else if (sortnode[n2].wall->drawcount == sortnode[n1].wall->drawcount)
-//				return 0;
-		} else I_Error("n1 unknown");
-	} else I_Error("n2 unknown");// TEST: INVERTED DRAWCOUNT COMPARISONS IN SOME CASES ^^^^
-	if (diff == 0)
-	{
-		int s1 = n1;
-		int s2 = n2;
-		return s1 - s2;// test: inverted// i think s1 - s2 is the way to go?
-	}
-	else
-		return diff;
-}
-*/
 
 static int CompareDrawNodePlanes(const void *p1, const void *p2)
 {
-	size_t n1 = *(size_t*)p1;
-	size_t n2 = *(size_t*)p2;
+	size_t n1 = *(const size_t*)p1;
+	size_t n2 = *(const size_t*)p2;
 	if (!sortnode[n1].plane) I_Error("Uh.. This isn't a plane! (n1)");
 	if (!sortnode[n2].plane) I_Error("Uh.. This isn't a plane! (n2)");
 	return ABS(sortnode[n2].plane->fixedheight - viewz) - ABS(sortnode[n1].plane->fixedheight - viewz);
@@ -4152,8 +4202,9 @@ static int CompareDrawNodePlanes(const void *p1, const void *p2)
 // Creates, sorts and renders a list of drawnodes for the current frame.
 void HWR_RenderDrawNodes(void)
 {
-	UINT32 i = 0, p = 0, prev = 0, loop;
-	const fixed_t pviewz = viewz;
+	UINT32 i = 0, p = 0;
+
+	size_t run_start = 0;
 
 	// Dump EVERYTHING into a huge drawnode list. Then we'll sort it!
 	// Could this be optimized into _AddTransparentWall/_AddTransparentPlane?
@@ -4166,9 +4217,6 @@ void HWR_RenderDrawNodes(void)
 	// However, in reality we shouldn't be re-copying and shifting all this information
 	// that is already lying around. This should all be in some sort of linked list or lists.
 	sortindex = Z_Calloc(sizeof(size_t) * (numplanes + numpolyplanes + numwalls), PU_STATIC, NULL);
-
-	// If true, swap the draw order.
-	boolean shift = false;
 
 	for (i = 0; i < numplanes; i++, p++)
 	{
@@ -4189,8 +4237,8 @@ void HWR_RenderDrawNodes(void)
 	}
 
 	// render stats
-	hrs_numdrawnodes = p;
-	hrs_nodesorttime = I_GetTimeMillis();
+	rs_numdrawnodes = p;
+	rs_nodesorttime = I_GetTimeMicros();
 
 	// p is the number of stuff to sort
 
@@ -4199,107 +4247,9 @@ void HWR_RenderDrawNodes(void)
 	// through the lists of masked textures and
 	// translucent ffloors being drawn.
 
-	// This is a bubble sort! Wahoo!
-
-	// Stuff is sorted:
-	//      sortnode[sortindex[0]]   = farthest away
-	//      sortnode[sortindex[p-1]] = closest
-	// "i" should be closer. "prev" should be further.
-	// The lower drawcount is, the further it is from the screen.
-// old sort
-// tried making >'s into >='s. it gave somewhat similar effects than in qsort
-/*
-	for (loop = 0; loop < p; loop++)
-	{
-		for (i = 1; i < p; i++)
-		{
-			prev = i-1;
-			if (sortnode[sortindex[i]].plane)
-			{
-				// What are we comparing it with?
-				if (sortnode[sortindex[prev]].plane)
-				{
-					// Plane (i) is further away than plane (prev)
-					if (ABS(sortnode[sortindex[i]].plane->fixedheight - pviewz) > ABS(sortnode[sortindex[prev]].plane->fixedheight - pviewz))
-						shift = true;
-				}
-				if (sortnode[sortindex[prev]].polyplane)
-				{
-					// Plane (i) is further away than polyplane (prev)
-					if (ABS(sortnode[sortindex[i]].plane->fixedheight - pviewz) > ABS(sortnode[sortindex[prev]].polyplane->fixedheight - pviewz))
-						shift = true;
-				}
-				else if (sortnode[sortindex[prev]].wall)
-				{
-					// Plane (i) is further than wall (prev)
-					if (sortnode[sortindex[i]].plane->drawcount > sortnode[sortindex[prev]].wall->drawcount)
-						shift = true;
-				}
-			}
-			else if (sortnode[sortindex[i]].polyplane)
-			{
-				// What are we comparing it with?
-				if (sortnode[sortindex[prev]].plane)
-				{
-					// Plane (i) is further away than plane (prev)
-					if (ABS(sortnode[sortindex[i]].polyplane->fixedheight - pviewz) > ABS(sortnode[sortindex[prev]].plane->fixedheight - pviewz))
-						shift = true;
-				}
-				if (sortnode[sortindex[prev]].polyplane)
-				{
-					// Plane (i) is further away than polyplane (prev)
-					if (ABS(sortnode[sortindex[i]].polyplane->fixedheight - pviewz) > ABS(sortnode[sortindex[prev]].polyplane->fixedheight - pviewz))
-						shift = true;
-				}
-				else if (sortnode[sortindex[prev]].wall)
-				{
-					// Plane (i) is further than wall (prev)
-					if (sortnode[sortindex[i]].polyplane->drawcount > sortnode[sortindex[prev]].wall->drawcount)
-						shift = true;
-				}
-			}
-			else if (sortnode[sortindex[i]].wall)
-			{
-				// What are we comparing it with?
-				if (sortnode[sortindex[prev]].plane)
-				{
-					// Wall (i) is further than plane(prev)
-					if (sortnode[sortindex[i]].wall->drawcount > sortnode[sortindex[prev]].plane->drawcount)
-						shift = true;
-				}
-				if (sortnode[sortindex[prev]].polyplane)
-				{
-					// Wall (i) is further than polyplane(prev)
-					if (sortnode[sortindex[i]].wall->drawcount > sortnode[sortindex[prev]].polyplane->drawcount)
-						shift = true;
-				}
-				else if (sortnode[sortindex[prev]].wall)
-				{
-					// Wall (i) is further than wall (prev)
-					if (sortnode[sortindex[i]].wall->drawcount > sortnode[sortindex[prev]].wall->drawcount)
-						shift = true;
-				}
-			}
-
-			if (shift)
-			{
-				size_t temp;
-
-				temp = sortindex[prev];
-				sortindex[prev] = sortindex[i];
-				sortindex[i] = temp;
-
-				shift = false;
-			}
-
-		} //i++
-	} // loop++
-*/
-// new sort
 	qsort(sortindex, p, sizeof(size_t), CompareDrawNodes);
 
 	// try solving floor order here. for each consecutive run of floors in the list, sort that run.
-	size_t run_start = 0;
 	while (run_start < p-1)// p-1 because a 1 plane run at the end of the list does not count
 	{
 		// locate run start
@@ -4327,8 +4277,8 @@ void HWR_RenderDrawNodes(void)
 		}
 	}
 
-	hrs_nodesorttime = I_GetTimeMillis() - hrs_nodesorttime;
-	hrs_nodedrawtime = I_GetTimeMillis();
+	rs_nodesorttime = I_GetTimeMicros() - rs_nodesorttime;
+	rs_nodedrawtime = I_GetTimeMicros();
 
 	// Okay! Let's draw it all! Woo!
 	HWD.pfnSetTransform(&atransform);
@@ -4365,7 +4315,7 @@ void HWR_RenderDrawNodes(void)
 		}
 	}
 
-	hrs_nodedrawtime = I_GetTimeMillis() - hrs_nodedrawtime;
+	rs_nodedrawtime = I_GetTimeMicros() - rs_nodedrawtime;
 
 	numwalls = 0;
 	numplanes = 0;
@@ -4381,11 +4331,80 @@ void HWR_RenderDrawNodes(void)
 // --------------------------------------------------------------------------
 void HWR_DrawSprites(void)
 {
-	// new draw for pointer array produced by new sort
-	for (int i = 0; i < gr_visspritecount; i++)
+	// this is a bit repetitive. one other option would be to create arrays for these three stages
+	// and iterate them with simple for loops.
+	
+	// first draw solid sprites that dont have models
+	// separated from solid models to allow batching to work
+	
+	UINT32 i;
+	
+	if (FAST_SPRITES)
 	{
-		gr_vissprite_t *spr;
-		spr = gr_vsprorder[i];
+		if (cv_enable_batching.value)
+			HWD.pfnStartBatching();
+		
+		for (i = 0; i < gr_visspritecount; i++)
+		{
+			gr_vissprite_t *spr = HWR_GetVisSprite(i);
+			if ((spr->mobj->flags2 & MF2_SHADOW) || (spr->mobj->frame & FF_TRANSMASK))
+				continue;
+			if (spr->precip)
+				HWR_DrawPrecipitationSprite(spr);
+			else
+				if (spr->mobj && spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
+				{
+					// 8/1/19: Only don't display player models if no default SPR_PLAY is found.
+					if (!cv_grmdls.value || ((md2_playermodels[(skin_t*)spr->mobj->skin-skins].notfound || md2_playermodels[(skin_t*)spr->mobj->skin-skins].scale < 0.0f) && ((!cv_grfallbackplayermodel.value) || md2_models[SPR_PLAY].notfound || md2_models[SPR_PLAY].scale < 0.0f)))
+						HWR_DrawSprite(spr);
+					else
+						continue;
+				}
+				else
+				{
+					if (!cv_grmdls.value || md2_models[spr->mobj->sprite].notfound || md2_models[spr->mobj->sprite].scale < 0.0f)
+						HWR_DrawSprite(spr);
+					else
+						continue;
+				}
+		}
+		
+		int dummy = 0;// no stats for now at least
+		if (cv_enable_batching.value)
+			HWD.pfnRenderBatches(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
+		
+		// then solid models
+		for (i = 0; i < gr_visspritecount; i++)
+		{
+			gr_vissprite_t *spr = HWR_GetVisSprite(i);
+			if ((spr->mobj->flags2 & MF2_SHADOW) || (spr->mobj->frame & FF_TRANSMASK))
+				continue;
+			if (spr->precip)
+				continue;//HWR_DrawPrecipitationSprite(spr);
+			else
+				if (spr->mobj && spr->mobj->skin && spr->mobj->sprite == SPR_PLAY)
+				{
+					// 8/1/19: Only don't display player models if no default SPR_PLAY is found.
+					if (!cv_grmdls.value || ((md2_playermodels[(skin_t*)spr->mobj->skin-skins].notfound || md2_playermodels[(skin_t*)spr->mobj->skin-skins].scale < 0.0f) && ((!cv_grfallbackplayermodel.value) || md2_models[SPR_PLAY].notfound || md2_models[SPR_PLAY].scale < 0.0f)))
+						continue;
+					else
+						HWR_DrawMD2(spr);
+				}
+				else
+				{
+					if (!cv_grmdls.value || md2_models[spr->mobj->sprite].notfound || md2_models[spr->mobj->sprite].scale < 0.0f)
+						continue;
+					else
+						HWR_DrawMD2(spr);
+				}
+		}
+	}
+	
+	// then transparent sprites and models, which have been sorted
+	// if !FAST_SPRITES then this also includes everything else
+	for (i = 0; i < gr_tvisspritecount; i++)
+	{
+		gr_vissprite_t *spr = gr_tvsprorder[i];
 		if (spr->precip)
 			HWR_DrawPrecipitationSprite(spr);
 		else
@@ -4405,6 +4424,10 @@ void HWR_DrawSprites(void)
 					HWR_DrawMD2(spr);
 			}
 	}
+	
+	
+	
+	
 	// old draw for linked list produced by old sort
 /*
 	if (gr_visspritecount > 0)
@@ -5070,6 +5093,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	const float fpov = FIXED_TO_FLOAT(cv_fov.value+player->fovadd);
 	postimg_t *postprocessor = &postimgtype[0];
 	INT32 i;
+	
+	rs_test = I_GetTimeMicros();
 
 	// set window position
 	gr_centerx = gr_basecenterx;
@@ -5150,6 +5175,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	HWR_ClearSprites();
 
 	ST_doPaletteStuff();
+	
+	rs_test = I_GetTimeMicros() - rs_test;
 
 	// Draw the sky background.
 	// (unless wireframe is on, then tell opengl to render in wireframe)
@@ -5191,74 +5218,41 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	drawcount = 0;
 	validcount++;
 
-	if (do_stats) hrs_bsptime = I_GetTimeMillis();
-	hrs_numpolyobjects = 0;
+	if (do_stats) rs_bsptime = I_GetTimeMicros();
+	rs_numpolyobjects = 0;
 	// Recursively "render" the BSP tree.
-	if (cv_try_optimization.value)// should probably remove this optimization attempt since batching now exists
-	{
-		// try rendering in separate phases, to reduce opengl state changes
-		gr_render_phase = RENDER_PHASE_WALL_TP_POLY;
-		HWR_RenderBSPNode((INT32)numnodes-1);
+	rs_numbspcalls = 0;
+	HWR_RenderBSPNode((INT32)numnodes-1);
 
-		validcount++;
-		gld_clipper_Clear();
-		gld_clipper_SafeAddClipRange(viewangle + a1, viewangle - a1);
-		gr_render_phase = RENDER_PHASE_FLOOR;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-
-		validcount++;
-		gld_clipper_Clear();
-		gld_clipper_SafeAddClipRange(viewangle + a1, viewangle - a1);
-		gr_render_phase = RENDER_PHASE_CEILING;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-
-		validcount++;
-		gld_clipper_Clear();
-		gld_clipper_SafeAddClipRange(viewangle + a1, viewangle - a1);
-		gr_render_phase = RENDER_PHASE_FFLOOR_BOTTOM;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-
-		validcount++;
-		gld_clipper_Clear();
-		gld_clipper_SafeAddClipRange(viewangle + a1, viewangle - a1);
-		hrs_numbspcalls = 0;
-		gr_render_phase = RENDER_PHASE_FFLOOR_TOP;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-	}
-	else
-	{
-		gr_render_phase = 255;// this will make all the phase checks pass
-		hrs_numbspcalls = 0;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-	}
-
-	if (do_stats) hrs_bsptime = I_GetTimeMillis() - hrs_bsptime;
+	if (do_stats) rs_bsptime = I_GetTimeMicros() - rs_bsptime;
 	
 	if (cv_enable_batching.value)
-		HWD.pfnRenderBatches(&hrs_numpolys, &hrs_numcalls, &hrs_numshaders, &hrs_numtextures, &hrs_numpolyflags, &hrs_numcolors, &hrs_batchsorttime, &hrs_batchdrawtime);
+		HWD.pfnRenderBatches(&rs_numpolys, &rs_numcalls, &rs_numshaders, &rs_numtextures, &rs_numpolyflags, &rs_numcolors, &rs_batchsorttime, &rs_batchdrawtime);
 
 	// Check for new console commands.
 	NetUpdate();
 
 	// Draw MD2 and sprites
-	hrs_numsprites = gr_visspritecount;
-	hrs_spritesorttime = I_GetTimeMillis();
+	rs_numsprites = gr_visspritecount;
+	rs_spritesorttime = I_GetTimeMicros();
 	HWR_SortVisSprites();
-	hrs_spritesorttime = I_GetTimeMillis() - hrs_spritesorttime;
-	hrs_spritedrawtime = I_GetTimeMillis();
+	rs_spritesorttime = I_GetTimeMicros() - rs_spritesorttime;
+	rs_spritedrawtime = I_GetTimeMicros();
 	HWR_DrawSprites();
-	hrs_spritedrawtime = I_GetTimeMillis() - hrs_spritedrawtime;
+	rs_spritedrawtime = I_GetTimeMicros() - rs_spritedrawtime;
 
 	if (do_stats)
 	{
-		hrs_nodetime = I_GetTimeMillis();
-		hrs_numdrawnodes = 0;
-		hrs_nodesorttime = 0;
-		hrs_nodedrawtime = 0;
+		rs_nodetime = I_GetTimeMicros();
+		rs_numdrawnodes = 0;
+		rs_nodesorttime = 0;
+		rs_nodedrawtime = 0;
 	}
 	if (numplanes || numpolyplanes || numwalls) // Render FOFs and translucent walls after everything
 		HWR_RenderDrawNodes();
-	if (do_stats) hrs_nodetime = I_GetTimeMillis() - hrs_nodetime;
+	if (do_stats) rs_nodetime = I_GetTimeMicros() - rs_nodetime;
+
+	rs_posttime = I_GetTimeMicros();
 
 	// Unset transform and shader
 	HWD.pfnSetTransform(NULL);
@@ -5286,6 +5280,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	// added by Hurdler for correct splitscreen
 	// moved here by hurdler so it works with the new near clipping plane
 	HWD.pfnGClipRect(0, 0, vid.width, vid.height, NZCLIP_PLANE);
+	
+	rs_posttime = I_GetTimeMicros() - rs_posttime;
 }
 
 // ==========================================================================
@@ -5317,7 +5313,7 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	}
 
 	R_SetupFrame(player, false); // This can stay false because it is only used to set viewsky in r_main.c, which isn't used here
-	HWR_RenderFrame(viewnumber, player, skybox, true);
+	HWR_RenderFrame(viewnumber, player, false, true);
 }
 
 // ==========================================================================
@@ -5349,6 +5345,12 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_granisotropicmode);
 	CV_RegisterVar(&cv_grcorrecttricks);
 	CV_RegisterVar(&cv_grsolvetjoin);
+	
+	CV_RegisterVar(&cv_enable_screen_textures);
+	CV_RegisterVar(&cv_grwireframe);
+	CV_RegisterVar(&cv_test_disable_something);
+	CV_RegisterVar(&cv_enable_batching);
+	CV_RegisterVar(&cv_grfullskywalls);
 }
 
 // --------------------------------------------------------------------------
@@ -5379,6 +5381,14 @@ void HWR_Startup(void)
 	// jimita
 	HWD.pfnKillShaders();
 	HWD.pfnLoadShaders();
+
+	if (M_CheckParm("-msaa"))
+	{
+		if (M_CheckParm("-a2c"))
+			HWD.pfnSetSpecialState(HWD_SET_MSAA, 2);
+		else
+			HWD.pfnSetSpecialState(HWD_SET_MSAA, 1);
+	}
 }
 
 

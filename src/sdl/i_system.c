@@ -2923,9 +2923,12 @@ static p_timeGetTime pfntimeGetTime = NULL;
 // but lower precision on Windows NT
 // ---------
 
-static DWORD TimeMillis(void)
+static DWORD TimeFunction(boolean microseconds)
 {
 	DWORD newtics = 0;
+	int multiplier = 1;
+
+	if (microseconds) multiplier = 1000;
 
 	if (!starttickcount) // high precision timer
 	{
@@ -2945,7 +2948,7 @@ static DWORD TimeMillis(void)
 
 		if (frequency.LowPart && QueryPerformanceCounter(&currtime))
 		{
-			newtics = (INT32)((currtime.QuadPart - basetime.QuadPart) * 1000
+			newtics = (INT32)((currtime.QuadPart - basetime.QuadPart) * 1000 * multiplier
 				/ frequency.QuadPart);
 		}
 		else if (pfntimeGetTime)
@@ -2957,16 +2960,16 @@ static DWORD TimeMillis(void)
 		}
 	}
 	else
-		newtics = (GetTickCount() - starttickcount);
+		newtics = (GetTickCount() - starttickcount) * multiplier;
 
 	return newtics;
 }
 
 tic_t I_GetTime(void)
 {
-	//return TimeMillis() / (1000/NEWTICRATE);
+	//return TimeFunction(false) / (1000/NEWTICRATE);
 	// how about this
-	return (TimeMillis() * NEWTICRATE) / 1000;
+	return (TimeFunction(false) * NEWTICRATE) / 1000;
 }
 
 static void I_ShutdownTimer(void)
@@ -2985,19 +2988,27 @@ static void I_ShutdownTimer(void)
 #ifndef __MACH__
 struct timespec clk_basetime;
 
-static int TimeMillis(void)
+static int TimeFunction(boolean microseconds)
 {
 	struct timespec ts;
-	int ms;
+	int result;
 
 	/* clock_gettime won't fail if its arguments are correct */
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 
-	/* nanoseconds to milliseconds */
-	ms  = ( ts.tv_nsec - clk_basetime.tv_nsec )/ 1000000;
-	ms +=   ts.tv_sec  * 1000;
+	/* nanoseconds to milli- or microseconds */
+	if (microseconds)
+	{
+		result  = ( ts.tv_nsec - clk_basetime.tv_nsec )/ 1000;
+		result +=   ts.tv_sec  * 1000000;
+	}
+	else
+	{
+		result  = ( ts.tv_nsec - clk_basetime.tv_nsec )/ 1000000;
+		result +=   ts.tv_sec  * 1000;
+	}
 
-	return ms;
+	return result;
 }
 #endif/*__MACH__*/
 
@@ -3009,7 +3020,7 @@ static int TimeMillis(void)
 tic_t I_GetTime (void)
 {
 //	static Uint64 basetime = 0;
-		   Uint64 ticks = TimeMillis();//SDL_GetTicks();
+		   Uint64 ticks = TimeFunction(false);//SDL_GetTicks();
 
 //	if (!basetime)
 //		basetime = ticks;
@@ -3027,7 +3038,7 @@ tic_t I_GetTime (void)
 #ifndef __MACH__
 /*fixed_t I_GetFracTime(void)
 {
-	return TimeMillis() % (1000/NEWTICRATE) * (FRACUNIT / NEWTICRATE);
+	return TimeFunction(false) % (1000/NEWTICRATE) * (FRACUNIT / NEWTICRATE);
 }*/
 // how about this
 fixed_t I_GetFracTime(void)
@@ -3036,7 +3047,7 @@ fixed_t I_GetFracTime(void)
 	Uint64 prevticks;
 	fixed_t frac;
 
-	ticks = TimeMillis();
+	ticks = TimeFunction(false);
 	prevticks = prev_tics * 1000 / TICRATE;
 
 	frac = FixedDiv((ticks - prevticks) * FRACUNIT, (int)lroundf((1.f/TICRATE)*1000 * FRACUNIT));
@@ -3046,13 +3057,17 @@ fixed_t I_GetFracTime(void)
 
 int I_GetTimeMillis(void)
 {
-	return TimeMillis();
+	return TimeFunction(false);
 }
 
+int I_GetTimeMicros(void)
+{
+	return TimeFunction(true);
+}
 
 UINT16 I_GetFrameReference(UINT16 fps)
 {
-	return (TimeMillis() % 1000) * fps / 1000;
+	return (TimeFunction(false) % 1000) * fps / 1000;
 }
 #endif/*__MACH__*/
 

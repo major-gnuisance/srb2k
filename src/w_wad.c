@@ -923,8 +923,8 @@ UINT16 W_InitFile(const char *filename, const char *lumpname, UINT16 *wadnump)
 		Z_Calloc(numlumps * sizeof (*wadfile->lumpcache), PU_STATIC, &wadfile->lumpcache);
 
 #ifdef HWRENDER
-	// allocates GLPatch info structures and store them in a tree
-	wadfile->hwrcache = M_AATreeAlloc(AATREE_ZUSER, numlumps);// added size for the array test
+		// allocates GLPatch info structures and store them in a tree
+		wadfile->hwrcache = M_AATreeAlloc(AATREE_ZUSER, numlumps);// added size for the array test
 #endif
 	}
 
@@ -933,12 +933,6 @@ UINT16 W_InitFile(const char *filename, const char *lumpname, UINT16 *wadnump)
 	//
 	CONS_Printf(M_GetText("Added file %s (%u lumps)\n"), filename, numlumps);
 
-#ifdef HWRENDER
-	if (rendermode == render_opengl)
-		HWR_LoadShaders(numwadfiles - 1, (wadfile->type == RET_PK3));
-#endif
-
-	// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
 	if (type == RET_UNKNOWN)
 	{
 		if (wadnump)
@@ -951,19 +945,24 @@ UINT16 W_InitFile(const char *filename, const char *lumpname, UINT16 *wadnump)
 			(*wadnump) = numwadfiles;
 		numwadfiles++; // must come BEFORE W_LoadDehackedLumps, so any addfile called by COM_BufInsertText called by Lua doesn't overwrite what we just loaded
 
-		// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
-		switch (wadfile->type)
-		{
-			case RET_WAD:
-				W_LoadDehackedLumps(numwadfiles - 1);
-				break;
-			case RET_PK3:
-				W_LoadDehackedLumpsPK3(numwadfiles - 1);
-				break;
-			case RET_SOC:
-				CONS_Printf(M_GetText("Loading SOC from %s\n"), wadfile->filename);
-				DEH_LoadDehackedLumpPwad(numwadfiles - 1, 0);
-				break;
+#ifdef HWRENDER
+	if (rendermode == render_opengl)
+		HWR_LoadShaders(numwadfiles - 1, (wadfile->type == RET_PK3));
+#endif
+
+	// TODO: HACK ALERT - Load Lua & SOC stuff right here. I feel like this should be out of this place, but... Let's stick with this for now.
+	switch (wadfile->type)
+	{
+	case RET_WAD:
+		W_LoadDehackedLumps(numwadfiles - 1);
+		break;
+	case RET_PK3:
+		W_LoadDehackedLumpsPK3(numwadfiles - 1);
+		break;
+	case RET_SOC:
+		CONS_Printf(M_GetText("Loading SOC from %s\n"), wadfile->filename);
+		DEH_LoadDehackedLumpPwad(numwadfiles - 1, 0);
+		break;
 #ifdef HAVE_BLUA
 			case RET_LUA:
 				LUA_LoadLump(numwadfiles - 1, 0);

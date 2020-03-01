@@ -151,37 +151,42 @@ extern consvar_t cv_grspritebillboarding;
 extern consvar_t cv_grfallbackplayermodel;
 
 // render stats console toggle
-extern consvar_t cv_hrenderstats;
+extern consvar_t cv_renderstats;
 extern consvar_t cv_grwireframe;
 // render stats time counter variables
-extern int hrs_prevframetime;// time when previous frame was rendered
-extern int hrs_rendercalltime;
-extern int hrs_bsptime;
-extern int hrs_nodetime;
-extern int hrs_nodesorttime;
-extern int hrs_nodedrawtime;
-extern int hrs_spritesorttime;
-extern int hrs_spritedrawtime;
+extern int rs_prevframetime;// time when previous frame was rendered
+extern int rs_rendercalltime;
+extern int rs_bsptime;
+extern int rs_nodetime;
+extern int rs_nodesorttime;
+extern int rs_nodedrawtime;
+extern int rs_spritesorttime;
+extern int rs_spritedrawtime;
 
-extern int hrs_numdrawnodes;
-extern int hrs_numbspcalls;
-extern int hrs_numsprites;
-extern int hrs_numpolyobjects;
+extern int rs_posttime;
+extern int rs_swaptime;
+
+extern int rs_test;
+
+extern int rs_numdrawnodes;
+extern int rs_numbspcalls;
+extern int rs_numsprites;
+extern int rs_numpolyobjects;
 
 // render stats for batching
-extern int hrs_numpolys;
-extern int hrs_numcalls;
-extern int hrs_numshaders;
-extern int hrs_numtextures;
-extern int hrs_numpolyflags;
-extern int hrs_numcolors;
-extern int hrs_batchsorttime;
-extern int hrs_batchdrawtime;
+extern int rs_numpolys;
+extern int rs_numcalls;
+extern int rs_numshaders;
+extern int rs_numtextures;
+extern int rs_numpolyflags;
+extern int rs_numcolors;
+extern int rs_batchsorttime;
+extern int rs_batchdrawtime;
 
 
 extern consvar_t cv_test_disable_something;
-extern consvar_t cv_try_optimization;
 extern consvar_t cv_enable_batching;
+extern consvar_t cv_grfullskywalls;
 
 extern consvar_t cv_enable_screen_textures;
 

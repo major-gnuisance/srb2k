@@ -909,7 +909,7 @@ EXPORT void HWRAPI(SetShader) (int shader)
 	if (gl_allowshaders)
 	{
 		gl_shadersenabled = true;
-		if (shader != gl_currentshaderprogram)
+		if ((GLuint)shader != gl_currentshaderprogram)
 		{
 			gl_currentshaderprogram = shader;
 			gl_shaderprogramchanged = true;
@@ -1664,7 +1664,7 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *f
 					if (glstate_fog_mode == 0)	// disabled
 					{
 						// Nevermind!
-						pglUseProgram(0);
+						pglUseProgram(0);// TODO maybe this does not need to be called
 						return;
 					}
 					else	// enabled
@@ -1733,11 +1733,11 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *f
 			}
 		}
 		else
-			pglUseProgram(0);
+			pglUseProgram(0);// does this ever happen?
 	}
-	else
+	//else
 #endif
-		pglUseProgram(0);
+		//pglUseProgram(0);// lets not repeatedly call this
 }
 
 // unfinished draw call batching
@@ -1791,8 +1791,8 @@ EXPORT void HWRAPI(StartBatching) (void)
 
 static int comparePolygons(const void *p1, const void *p2)
 {
-	PolygonArrayEntry* poly1 = &polygonArray[*(unsigned int*)p1];
-	PolygonArrayEntry* poly2 = &polygonArray[*(unsigned int*)p2];
+	PolygonArrayEntry* poly1 = &polygonArray[*(const unsigned int*)p1];
+	PolygonArrayEntry* poly2 = &polygonArray[*(const unsigned int*)p2];
 	int diff;
 	INT64 diff64;
 	
@@ -1823,8 +1823,8 @@ static int comparePolygons(const void *p1, const void *p2)
 
 static int comparePolygonsNoShaders(const void *p1, const void *p2)
 {
-	PolygonArrayEntry* poly1 = &polygonArray[*(unsigned int*)p1];
-	PolygonArrayEntry* poly2 = &polygonArray[*(unsigned int*)p2];
+	PolygonArrayEntry* poly1 = &polygonArray[*(const unsigned int*)p1];
+	PolygonArrayEntry* poly2 = &polygonArray[*(const unsigned int*)p2];
 	int diff;
 	INT64 diff64;
 	
@@ -1850,6 +1850,23 @@ static int comparePolygonsNoShaders(const void *p1, const void *p2)
 // the parameters for this functions (numPolys etc.) are used to return rendering stats
 EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime)
 {
+	int finalVertexWritePos = 0;// position in finalVertexArray
+	int finalIndexWritePos = 0;// position in finalVertexIndexArray
+
+	int polygonReadPos = 0;// position in polygonIndexArray
+
+	GLuint currentShader;
+	GLuint currentTexture;
+	FBITFIELD currentPolyFlags;
+	FSurfaceInfo currentSurfaceInfo;
+
+	GLRGBAFloat firstMix = {0,0,0,0};
+	GLRGBAFloat firstFade = {0,0,0,0};
+
+	boolean needRebind = false;
+
+	int i;
+
 	//CONS_Printf("RenderBatches\n");
 	gl_batching = false;// no longer collecting batches
 	if (!polygonArraySize)
@@ -1862,19 +1879,19 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	*sNumCalls = 0;
 	*sNumShaders = *sNumTextures = *sNumPolyFlags = *sNumColors = 1;
 	// init polygonIndexArray
-	for (int i = 0; i < polygonArraySize; i++)
+	for (i = 0; i < polygonArraySize; i++)
 	{
 		polygonIndexArray[i] = i;
 	}
 
 	// sort polygons
 	//CONS_Printf("qsort polys\n");
-	*sSortTime = I_GetTimeMillis();// Using this function gives a compiler warning but works anyway...
+	*sSortTime = I_GetTimeMicros();
 	if (gl_allowshaders)
 		qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygons);
 	else
 		qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygonsNoShaders);
-	*sSortTime = I_GetTimeMillis() - *sSortTime;
+	*sSortTime = I_GetTimeMicros() - *sSortTime;
 	//CONS_Printf("sort done\n");
 	// sort order
 	// 1. shader
@@ -1883,17 +1900,12 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	// 4. colors + light level
 	// not sure about order of last 2, or if it even matters
 
-	*sDrawTime = I_GetTimeMillis();
+	*sDrawTime = I_GetTimeMicros();
 
-	int finalVertexWritePos = 0;// position in finalVertexArray
-	int finalIndexWritePos = 0;// position in finalVertexIndexArray
-
-	int polygonReadPos = 0;// position in polygonIndexArray
-
-	GLuint currentShader = polygonArray[polygonIndexArray[0]].shader;
-	GLuint currentTexture = polygonArray[polygonIndexArray[0]].texNum;
-	FBITFIELD currentPolyFlags = polygonArray[polygonIndexArray[0]].polyFlags;
-	FSurfaceInfo currentSurfaceInfo = polygonArray[polygonIndexArray[0]].surf;
+	currentShader = polygonArray[polygonIndexArray[0]].shader;
+	currentTexture = polygonArray[polygonIndexArray[0]].texNum;
+	currentPolyFlags = polygonArray[polygonIndexArray[0]].polyFlags;
+	currentSurfaceInfo = polygonArray[polygonIndexArray[0]].surf;
 	// For now, will sort and track the colors. Vertex attributes could be used instead of uniforms
 	// and a color array could replace the color calls.
 	
@@ -1901,8 +1913,6 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	//CONS_Printf("set first state\n");
 	gl_currentshaderprogram = currentShader;
 	gl_shaderprogramchanged = true;
-	GLRGBAFloat firstMix = {0,0,0,0};
-	GLRGBAFloat firstFade = {0,0,0,0};
 	if (currentPolyFlags & PF_Modulated)
 	{
 		// Mix color
@@ -1928,13 +1938,26 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	
 	SetBlend(currentPolyFlags);
 	
-	boolean needRebind = false;
 	//CONS_Printf("first pointers to ogl\n");
 	pglVertexPointer(3, GL_FLOAT, sizeof(FOutVector), &finalVertexArray[0].x);
 	pglTexCoordPointer(2, GL_FLOAT, sizeof(FOutVector), &finalVertexArray[0].s);
 	
 	while (1)// note: remember handling notexture polyflag as having texture number 0 (also in comparePolygons)
 	{
+		int firstIndex;
+		int lastIndex;
+
+		boolean stopFlag = false;
+		boolean changeState = false;
+		boolean changeShader = false;
+		GLuint nextShader;
+		boolean changeTexture = false;
+		GLuint nextTexture;
+		boolean changePolyFlags = false;
+		FBITFIELD nextPolyFlags;
+		boolean changeSurfaceInfo = false;
+		FSurfaceInfo nextSurfaceInfo;
+
 		//CONS_Printf("loop iter start\n");
 		// new try:
 		// write vertices
@@ -1948,21 +1971,23 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 		// repeat loop
 		
 		int index = polygonIndexArray[polygonReadPos++];
-		FUINT numVerts = polygonArray[index].numVerts;
+		int numVerts = polygonArray[index].numVerts;
 		// before writing, check if there is enough room
 		// using 'while' instead of 'if' here makes sure that there will *always* be enough room.
 		// probably never will this loop run more than once though
 		while (finalVertexWritePos + numVerts > finalVertexArrayAllocSize)
 		{
+			FOutVector* new_array;
+			unsigned int* new_index_array;
 			//CONS_Printf("final vert realloc\n");
 			finalVertexArrayAllocSize *= 2;
-			FOutVector* new_array = malloc(finalVertexArrayAllocSize * sizeof(FOutVector));
+			new_array = malloc(finalVertexArrayAllocSize * sizeof(FOutVector));
 			memcpy(new_array, finalVertexArray, finalVertexWritePos * sizeof(FOutVector));
 			free(finalVertexArray);
 			finalVertexArray = new_array;
 			// also increase size of index array, 3x of vertex array since
 			// going from fans to triangles increases vertex count to 3x
-			unsigned int* new_index_array = malloc(finalVertexArrayAllocSize * 3 * sizeof(UINT32));
+			new_index_array = malloc(finalVertexArrayAllocSize * 3 * sizeof(UINT32));
 			memcpy(new_index_array, finalVertexIndexArray, finalIndexWritePos * sizeof(UINT32));
 			free(finalVertexIndexArray);
 			finalVertexIndexArray = new_index_array;
@@ -1974,8 +1999,8 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 		memcpy(&finalVertexArray[finalVertexWritePos], &unsortedVertexArray[polygonArray[index].vertsIndex],
 			numVerts * sizeof(FOutVector));
 		// write the indexes, pointing to the fan vertexes but in triangles format
-		int firstIndex = finalVertexWritePos;
-		int lastIndex = finalVertexWritePos + numVerts;
+		firstIndex = finalVertexWritePos;
+		lastIndex = finalVertexWritePos + numVerts;
 		finalVertexWritePos += 2;
 		//CONS_Printf("write final vert indices\n");
 		while (finalVertexWritePos < lastIndex)
@@ -1985,16 +2010,6 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 			finalVertexIndexArray[finalIndexWritePos++] = finalVertexWritePos++;
 		}
 		
-		boolean stopFlag = false;
-		boolean changeState = false;
-		boolean changeShader = false;
-		GLuint nextShader;
-		boolean changeTexture = false;
-		GLuint nextTexture;
-		boolean changePolyFlags = false;
-		FBITFIELD nextPolyFlags;
-		boolean changeSurfaceInfo = false;
-		FSurfaceInfo nextSurfaceInfo;
 		if (polygonReadPos >= polygonArraySize)
 		{
 			stopFlag = true;
@@ -2074,10 +2089,10 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 		// change state according to change bools and next vars, update current vars and reset bools
 		if (changeShader)
 		{
-			gl_currentshaderprogram = nextShader;
-			gl_shaderprogramchanged = true;
 			GLRGBAFloat mix = {0,0,0,0};
 			GLRGBAFloat fade = {0,0,0,0};
+			gl_currentshaderprogram = nextShader;
+			gl_shaderprogramchanged = true;
 			if (nextPolyFlags & PF_Modulated)
 			{
 				// Mix color
@@ -2118,9 +2133,9 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 		}
 		if (changeSurfaceInfo)
 		{
-			gl_shaderprogramchanged = false;
 			GLRGBAFloat mix = {0,0,0,0};
 			GLRGBAFloat fade = {0,0,0,0};
+			gl_shaderprogramchanged = false;
 			if (nextPolyFlags & PF_Modulated)
 			{
 				// Mix color
@@ -2151,7 +2166,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	polygonArraySize = 0;
 	unsortedVertexArraySize = 0;
 	
-	*sDrawTime = I_GetTimeMillis() - *sDrawTime;
+	*sDrawTime = I_GetTimeMicros() - *sDrawTime;
 }
 
 // -----------------+
@@ -2166,9 +2181,10 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 			I_Error("Got a null FSurfaceInfo in batching");// nulls should only come in sky background pic drawing
 		if (polygonArraySize == polygonArrayAllocSize)
 		{
+			PolygonArrayEntry* new_array;
 			// ran out of space, make new array double the size
 			polygonArrayAllocSize *= 2;
-			PolygonArrayEntry* new_array = malloc(polygonArrayAllocSize * sizeof(PolygonArrayEntry));
+			new_array = malloc(polygonArrayAllocSize * sizeof(PolygonArrayEntry));
 			memcpy(new_array, polygonArray, polygonArraySize * sizeof(PolygonArrayEntry));
 			free(polygonArray);
 			polygonArray = new_array;
@@ -2177,11 +2193,12 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 			polygonIndexArray = malloc(polygonArrayAllocSize * sizeof(unsigned int));
 		}
 
-		while (unsortedVertexArraySize + iNumPts > unsortedVertexArrayAllocSize)
+		while (unsortedVertexArraySize + (int)iNumPts > unsortedVertexArrayAllocSize)
 		{
+			FOutVector* new_array;
 			// need more space for vertices in unsortedVertexArray
 			unsortedVertexArrayAllocSize *= 2;
-			FOutVector* new_array = malloc(unsortedVertexArrayAllocSize * sizeof(FOutVector));
+			new_array = malloc(unsortedVertexArrayAllocSize * sizeof(FOutVector));
 			memcpy(new_array, unsortedVertexArray, unsortedVertexArraySize * sizeof(FOutVector));
 			free(unsortedVertexArray);
 			unsortedVertexArray = new_array;
@@ -2202,10 +2219,10 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 	}
 	else
 	{
-		if (gl_test_disable_something) return;
-		
 		static GLRGBAFloat mix = {0,0,0,0};
 		static GLRGBAFloat fade = {0,0,0,0};
+
+		if (gl_test_disable_something) return;
 
 		SetBlend(PolyFlags);    //TODO: inline (#pragma..)
 
@@ -2337,6 +2354,15 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 			anisotropic_filter = min(Value,maximumAnisotropy);
 			if (maximumAnisotropy)
 				Flush(); //??? if we want to change filter mode by texture, remove this
+			break;
+
+		case HWD_SET_MSAA:
+			if (Value)
+			{
+				pglEnable(GL_MULTISAMPLE);
+				if (Value == 2)
+					pglEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+			}
 			break;
 
 		default:
@@ -2733,7 +2759,7 @@ static void DrawModelEx(model_t *model, INT32 frameIndex, INT32 duration, INT32 
 	pglDisable(GL_NORMALIZE);
 
 #ifdef GL_SHADERS
-	pglUseProgram(0);
+	//pglUseProgram(0);// no, bad
 #endif
 }
 

@@ -45,6 +45,7 @@
 
 #define  _CREATE_DLL_  // necessary for Unix AND Windows
 #include "../../doomdef.h"
+#include "../../i_system.h"
 #include "../hw_drv.h"
 
 // ==========================================================================

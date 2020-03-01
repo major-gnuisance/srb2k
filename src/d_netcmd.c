@@ -477,10 +477,10 @@ consvar_t cv_mute = {"mute", "Off", CV_NETVAR|CV_CALL, CV_OnOff, Mute_OnChange, 
 
 consvar_t cv_sleep = {"cpusleep", "1", CV_SAVE, sleeping_cons_t, NULL, -1, NULL, NULL, 0, 0, NULL};
 
-consvar_t cv_nodownloads = { "downloadnotice", "", CV_SAVE };
+consvar_t cv_nodownloads = { "downloadnotice", "", CV_SAVE, NULL, NULL, 0, NULL, NULL, 0, 0, NULL };
 
-consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo};
-consvar_t cv_lessencorevotes = {"lessencorevotes", "No", CV_SAVE, CV_YesNo};
+consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_lessencorevotes = {"lessencorevotes", "No", CV_SAVE, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 INT16 gametype = GT_RACE; // SRB2kart
 boolean forceresetplayers = false;
@@ -1004,7 +1004,8 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_renderview);
 	CV_RegisterVar(&cv_vhseffect);
 	CV_RegisterVar(&cv_shittyscreen);
-	CV_RegisterVar(&cv_framerate);
+	CV_RegisterVar(&cv_interpolationmode);
+	CV_RegisterVar(&cv_frameratecap);
 	CV_RegisterVar(&cv_extrapolation);
 	CV_RegisterVar(&cv_scr_depth);
 	CV_RegisterVar(&cv_scr_width);
