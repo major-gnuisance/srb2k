@@ -97,6 +97,15 @@
 
 #include "i_addrinfo.h"
 
+/* HTTP */
+int  HMS_in_use (void);
+void HMS_fetch_rooms (void);
+int  HMS_register (void);
+void HMS_unlist (void);
+void HMS_update (void);
+void HMS_list_servers (void);
+void HMS_fetch_servers (msg_server_t *list, int room);
+
 // ================================ DEFINITIONS ===============================
 
 #define PACKET_SIZE 1024
@@ -251,6 +260,8 @@ void AddMServCommands(void)
 {
 #ifndef NONET
 	CV_RegisterVar(&cv_masterserver);
+	CV_RegisterVar(&cv_http_masterserver);
+	CV_RegisterVar(&cv_masterserver_token);
 	CV_RegisterVar(&cv_servername);
 	COM_AddCommand("listserv", Command_Listserv_f);
 #endif
@@ -481,6 +492,12 @@ const msg_server_t *GetShortServersList(INT32 room)
 	msg_t msg;
 	INT32 i;
 
+	if (HMS_in_use())
+	{
+		HMS_fetch_servers(server_list, room);
+		return server_list;
+	}
+
 	// we must be connected to the master server before writing to it
 	if (MS_Connect(GetMasterServerIP(), GetMasterServerPort(), 0))
 	{
@@ -521,6 +538,12 @@ INT32 GetRoomsList(boolean hosting)
 	static msg_ban_t banned_info[1];
 	msg_t msg;
 	INT32 i;
+
+	if (HMS_in_use())
+	{
+		HMS_fetch_rooms();
+		return 1;
+	}
 
 	// we must be connected to the master server before writing to it
 	if (MS_Connect(GetMasterServerIP(), GetMasterServerPort(), 0))
@@ -587,6 +610,9 @@ const char *GetMODVersion(void)
 {
 	static msg_t msg;
 
+	if (HMS_in_use())
+		return NULL;
+
 	// we must be connected to the master server before writing to it
 	if (MS_Connect(GetMasterServerIP(), GetMasterServerPort(), 0))
 	{
@@ -629,6 +655,9 @@ const char *GetMODVersion(void)
 void GetMODVersion_Console(void)
 {
 	static msg_t msg;
+
+	if (HMS_in_use())
+		return;
 
 	// we must be connected to the master server before writing to it
 	if (MS_Connect(GetMasterServerIP(), GetMasterServerPort(), 0))
@@ -674,6 +703,12 @@ static void Command_Listserv_f(void)
 	}
 
 	CONS_Printf(M_GetText("Retrieving server list...\n"));
+
+	if (HMS_in_use())
+	{
+		HMS_list_servers();
+		return;
+	}
 
 	if (MS_Connect(GetMasterServerIP(), GetMasterServerPort(), 0))
 	{
@@ -728,6 +763,12 @@ static INT32 AddToMasterServer(boolean firstadd)
 	time_t timestamp = time(NULL);
 	UINT32 signature, tmp;
 	const char *insname;
+
+	if (HMS_in_use())
+	{
+		HMS_update();
+		return MS_NO_ERROR;
+	}
 
 	M_Memcpy(&tset, &wset, sizeof (tset));
 	res = select(255, NULL, &tset, NULL, &select_timeout);
@@ -912,6 +953,13 @@ void RegisterServer(void)
 
 	CONS_Printf(M_GetText("Registering this server on the Master Server...\n"));
 
+	if (HMS_in_use())
+	{
+		if (HMS_register())
+			con_state = MSCS_REGISTERED;
+		return;
+	}
+
 	strcpy(registered_server.ip, GetMasterServerIP());
 	strcpy(registered_server.port, GetMasterServerPort());
 
@@ -927,6 +975,8 @@ void RegisterServer(void)
 
 static inline void SendPingToMasterServer(void)
 {
+	if (HMS_in_use())
+		return;
 /*	static tic_t next_time = 0;
 	tic_t cur_time;
 	char *inbuffer = (char*)netbuffer;
@@ -1011,6 +1061,12 @@ void UnregisterServer(void)
 	con_state = MSCS_NONE;
 
 	CONS_Printf(M_GetText("Removing this server from the Master Server...\n"));
+
+	if (HMS_in_use())
+	{
+		HMS_unlist();
+		return;
+	}
 
 	if (MS_Connect(registered_server.ip, registered_server.port, 0))
 	{
