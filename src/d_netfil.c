@@ -1204,11 +1204,11 @@ void CURLGetFile(void)
 		}
 	}
 
-    if (!curl_running)
+    if (!curl_transfers)
     {
-    	curl_multi_cleanup(multi_handle);
+		curl_multi_cleanup(multi_handle);
 		curl_global_cleanup();
-		CONS_Printf("curl done");
+		CONS_Printf("All curl transfers done\n");
     }
 }
 #endif
