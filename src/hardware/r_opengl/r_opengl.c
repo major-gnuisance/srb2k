@@ -1848,7 +1848,7 @@ static int comparePolygonsNoShaders(const void *p1, const void *p2)
 
 
 // the parameters for this functions (numPolys etc.) are used to return rendering stats
-EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime)
+EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime)
 {
 	int finalVertexWritePos = 0;// position in finalVertexArray
 	int finalIndexWritePos = 0;// position in finalVertexIndexArray
@@ -1876,7 +1876,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	}
 	// init stats vars
 	*sNumPolys = polygonArraySize;
-	*sNumCalls = 0;
+	*sNumCalls = *sNumVerts = 0;
 	*sNumShaders = *sNumTextures = *sNumPolyFlags = *sNumColors = 1;
 	// init polygonIndexArray
 	for (i = 0; i < polygonArraySize; i++)
@@ -2073,11 +2073,12 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 			// execute draw call
 			pglDrawElements(GL_TRIANGLES, finalIndexWritePos, GL_UNSIGNED_INT, finalVertexIndexArray);
 			//CONS_Printf("draw call done\n");
+			// update stats
+			(*sNumCalls)++;
+			*sNumVerts += finalIndexWritePos;
 			// reset write positions
 			finalVertexWritePos = 0;
 			finalIndexWritePos = 0;
-			// update stats
-			(*sNumCalls)++;
 		}
 		else continue;
 		
@@ -2289,6 +2290,11 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 			break;
 		case HWD_SET_WIREFRAME:
 			pglPolygonMode(GL_FRONT_AND_BACK, Value ? GL_LINE : GL_FILL);
+			// this bit makes most things white (shaders need to be disabled)
+			/*if (Value)
+				pglDisable(GL_TEXTURE_2D);
+			else
+				pglEnable(GL_TEXTURE_2D);*/
 			break;
 		
 		case HWD_SET_SCREEN_TEXTURES:

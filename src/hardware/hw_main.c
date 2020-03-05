@@ -103,6 +103,7 @@ int rs_test = 0;
 
 // render stats for batching
 int rs_numpolys = 0;
+int rs_numverts = 0;
 int rs_numcalls = 0;
 int rs_numshaders = 0;
 int rs_numtextures = 0;
@@ -111,9 +112,12 @@ int rs_numcolors = 0;
 int rs_batchsorttime = 0;
 int rs_batchdrawtime = 0;
 
+boolean gr_kodahack = false;
+
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grfullskywalls = {"gr_fullskywalls", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_kodahack = {"kodahack", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 
 static void CV_screentextures_ONChange(void);
@@ -684,6 +688,8 @@ void HWR_ProjectWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend
 		HWR_NoColormapLighting(pSurf, lightlevel, GL_NORMALFOG, GL_FADEFOG);
 
 	HWD.pfnSetShader(2);	// wall shader
+	if (gr_kodahack)
+		HWR_GetTexture(52);
 	HWD.pfnDrawPolygon(pSurf, wallVerts, 4, blendmode|PF_Modulated|PF_Occlude);
 
 #ifdef WALLSPLATS
@@ -2737,6 +2743,8 @@ void HWR_Subsector(size_t num)
 			if (sub->validcount != validcount)
 			{
 				HWR_GetFlat(levelflats[gr_frontsector->floorpic].lumpnum, R_NoEncore(gr_frontsector, false));
+				if (gr_kodahack && levelflats[gr_frontsector->floorpic].lumpnum > 300000)// for kodahack the latter check makes boostpads visible
+					HWR_GetTexture(51);
 				HWR_RenderPlane(&extrasubsectors[num], false,
 					// Hack to make things continue to work around slopes.
 					locFloorHeight == cullFloorHeight ? locFloorHeight : gr_frontsector->floorheight,
@@ -2753,6 +2761,8 @@ void HWR_Subsector(size_t num)
 			if (sub->validcount != validcount)
 			{
 				HWR_GetFlat(levelflats[gr_frontsector->ceilingpic].lumpnum, R_NoEncore(gr_frontsector, true));
+				if (gr_kodahack)
+					HWR_GetTexture(51);
 				HWR_RenderPlane(&extrasubsectors[num], true,
 					// Hack to make things continue to work around slopes.
 					locCeilingHeight == cullCeilingHeight ? locCeilingHeight : gr_frontsector->ceilingheight,
@@ -4371,7 +4381,7 @@ void HWR_DrawSprites(void)
 		
 		int dummy = 0;// no stats for now at least
 		if (cv_enable_batching.value)
-			HWD.pfnRenderBatches(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
+			HWD.pfnRenderBatches(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
 		
 		// then solid models
 		for (i = 0; i < gr_visspritecount; i++)
@@ -5180,7 +5190,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 
 	// Draw the sky background.
 	// (unless wireframe is on, then tell opengl to render in wireframe)
-	if (cv_grwireframe.value)
+	if (cv_grwireframe.value && server)
 		HWD.pfnSetSpecialState(HWD_SET_WIREFRAME, 1);
 	else
 		HWR_DrawSkyBackground();
@@ -5227,7 +5237,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	if (do_stats) rs_bsptime = I_GetTimeMicros() - rs_bsptime;
 	
 	if (cv_enable_batching.value)
-		HWD.pfnRenderBatches(&rs_numpolys, &rs_numcalls, &rs_numshaders, &rs_numtextures, &rs_numpolyflags, &rs_numcolors, &rs_batchsorttime, &rs_batchdrawtime);
+		HWD.pfnRenderBatches(&rs_numpolys, &rs_numverts, &rs_numcalls, &rs_numshaders, &rs_numtextures, &rs_numpolyflags, &rs_numcolors, &rs_batchsorttime, &rs_batchdrawtime);
 
 	// Check for new console commands.
 	NetUpdate();
@@ -5304,6 +5314,11 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	if (viewnumber > 3)
 		return;
 
+	if (cv_kodahack.value && gamemap == 36)
+		gr_kodahack = true;
+	else
+		gr_kodahack = false;
+
 	// Render the skybox if there is one.
 	drewsky = false;
 	if (skybox)
@@ -5351,6 +5366,7 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_test_disable_something);
 	CV_RegisterVar(&cv_enable_batching);
 	CV_RegisterVar(&cv_grfullskywalls);
+	CV_RegisterVar(&cv_kodahack);
 }
 
 // --------------------------------------------------------------------------

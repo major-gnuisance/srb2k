@@ -175,6 +175,7 @@ extern int rs_numpolyobjects;
 
 // render stats for batching
 extern int rs_numpolys;
+extern int rs_numverts;
 extern int rs_numcalls;
 extern int rs_numshaders;
 extern int rs_numtextures;
@@ -187,7 +188,7 @@ extern int rs_batchdrawtime;
 extern consvar_t cv_test_disable_something;
 extern consvar_t cv_enable_batching;
 extern consvar_t cv_grfullskywalls;
-
+extern consvar_t cv_kodahack;
 extern consvar_t cv_enable_screen_textures;
 
 
