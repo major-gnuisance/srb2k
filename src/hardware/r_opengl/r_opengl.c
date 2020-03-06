@@ -563,6 +563,8 @@ static boolean gl_batching = false;// are we currently collecting batches?
 
 static INT32 gl_enable_screen_textures = 1;
 
+static boolean gl_extra_mipmapping = false;
+
 // 13062019
 typedef enum
 {
@@ -1539,7 +1541,7 @@ EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 		pglBindTexture(GL_TEXTURE_2D, pTexInfo->downloaded);
 
 		// disable texture filtering on any texture that has holes so there's no dumb borders or blending issues
-		if (pTexInfo->flags & TF_TRANSPARENT)
+		if (pTexInfo->flags & TF_TRANSPARENT && !gl_extra_mipmapping)
 		{
 			pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -1571,7 +1573,7 @@ EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 				pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
 #endif
 #ifdef GL_TEXTURE_MAX_LOD
-				if (pTexInfo->flags & TF_TRANSPARENT)
+				if (pTexInfo->flags & TF_TRANSPARENT && !gl_extra_mipmapping)
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0); // No mippmaps on transparent stuff
 				else
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 4);
@@ -1591,7 +1593,7 @@ EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 				pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
 #endif
 #ifdef GL_TEXTURE_MAX_LOD
-				if (pTexInfo->flags & TF_TRANSPARENT)
+				if (pTexInfo->flags & TF_TRANSPARENT && !gl_extra_mipmapping)
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0); // No mippmaps on transparent stuff
 				else
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 4);
@@ -1611,7 +1613,7 @@ EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 				pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0); // the lower the number, the higer the detail
 #endif
 #ifdef GL_TEXTURE_MAX_LOD
-				if (pTexInfo->flags & TF_TRANSPARENT)
+				if (pTexInfo->flags & TF_TRANSPARENT && !gl_extra_mipmapping)
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0); // No mippmaps on transparent stuff
 				else
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 5);
@@ -2320,29 +2322,53 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 					min_filter = GL_LINEAR_MIPMAP_LINEAR;
 					mag_filter = GL_LINEAR;
 					MipMap = GL_TRUE;
+					gl_extra_mipmapping = false;
 					break;
 				case HWD_SET_TEXTUREFILTER_BILINEAR:
 					min_filter = mag_filter = GL_LINEAR;
 					MipMap = GL_FALSE;
+					gl_extra_mipmapping = false;
 					break;
 				case HWD_SET_TEXTUREFILTER_POINTSAMPLED:
 					min_filter = mag_filter = GL_NEAREST;
 					MipMap = GL_FALSE;
+					gl_extra_mipmapping = false;
 					break;
 				case HWD_SET_TEXTUREFILTER_MIXED1:
 					min_filter = GL_NEAREST;
 					mag_filter = GL_LINEAR;
 					MipMap = GL_FALSE;
+					gl_extra_mipmapping = false;
 					break;
 				case HWD_SET_TEXTUREFILTER_MIXED2:
 					min_filter = GL_LINEAR;
 					mag_filter = GL_NEAREST;
 					MipMap = GL_FALSE;
+					gl_extra_mipmapping = false;
 					break;
 				case HWD_SET_TEXTUREFILTER_MIXED3:
 					min_filter = GL_LINEAR_MIPMAP_LINEAR;
 					mag_filter = GL_NEAREST;
 					MipMap = GL_TRUE;
+					gl_extra_mipmapping = false;
+					break;
+				case HWD_SET_TEXTUREFILTER_EXTRA1:
+					min_filter = GL_NEAREST_MIPMAP_NEAREST;
+					mag_filter = GL_NEAREST;
+					MipMap = GL_TRUE;
+					gl_extra_mipmapping = true;
+					break;
+				case HWD_SET_TEXTUREFILTER_EXTRA2:
+					min_filter = GL_LINEAR_MIPMAP_NEAREST;
+					mag_filter = GL_NEAREST;
+					MipMap = GL_TRUE;
+					gl_extra_mipmapping = true;
+					break;
+				case HWD_SET_TEXTUREFILTER_EXTRA3:
+					min_filter = GL_LINEAR_MIPMAP_LINEAR;
+					mag_filter = GL_NEAREST;
+					MipMap = GL_TRUE;
+					gl_extra_mipmapping = true;
 					break;
 				default:
 					mag_filter = GL_LINEAR;

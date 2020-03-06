@@ -66,6 +66,9 @@ static CV_PossibleValue_t grfiltermode_cons_t[]= {{HWD_SET_TEXTUREFILTER_POINTSA
 	{HWD_SET_TEXTUREFILTER_MIXED1, "Linear_Nearest"},
 	{HWD_SET_TEXTUREFILTER_MIXED2, "Nearest_Linear"},
 	{HWD_SET_TEXTUREFILTER_MIXED3, "Nearest_Mipmap"},
+	{HWD_SET_TEXTUREFILTER_EXTRA1, "Extra1"},
+	{HWD_SET_TEXTUREFILTER_EXTRA2, "Extra2"},
+	{HWD_SET_TEXTUREFILTER_EXTRA3, "Extra3"},
 	{0, NULL}};
 CV_PossibleValue_t granisotropicmode_cons_t[] = {{1, "MIN"}, {16, "MAX"}, {0, NULL}};
 
