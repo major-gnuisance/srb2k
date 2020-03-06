@@ -37,6 +37,7 @@
 
 // Networking and tick handling related.
 #define BACKUPTICS 32
+#define TICQUEUE 512 // more than enough for most timeouts....
 #define MAXTEXTCMD 256
 //
 // Packet structure
@@ -585,7 +586,7 @@ extern consvar_t
 	cv_autoresetdownloads;
 
 // Used in d_net, the only dependence
-tic_t ExpandTics(INT32 low);
+tic_t ExpandTics(INT32 low, tic_t basetic);
 void D_ClientServerInit(void);
 
 // Initialise the other field
