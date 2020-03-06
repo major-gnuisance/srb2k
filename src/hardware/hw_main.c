@@ -5240,7 +5240,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 		HWD.pfnRenderBatches(&rs_numpolys, &rs_numverts, &rs_numcalls, &rs_numshaders, &rs_numtextures, &rs_numpolyflags, &rs_numcolors, &rs_batchsorttime, &rs_batchdrawtime);
 
 	// Check for new console commands.
-	NetUpdate();
+	// this was removed since it caused crashes on leaving record attack with models on since it was removing mobjs that were about to be rendered
+	//NetUpdate();
 
 	// Draw MD2 and sprites
 	rs_numsprites = gr_visspritecount;
