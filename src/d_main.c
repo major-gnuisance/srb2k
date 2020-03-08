@@ -768,7 +768,9 @@ static boolean D_Display(void)
 				V_DrawString(44, 12, V_SNAPTOLEFT|V_SNAPTOTOP|V_ALLOWLOWERCASE, va("Frame Time: %2d (%2dD %2dU)", startms, downscalecount, upscalecount));
 			}
 
+			rs_swaptime = I_GetTimeMicros();
 			I_FinishUpdate(); // page flip or blit buffer
+			rs_swaptime = I_GetTimeMicros() - rs_swaptime;
 
 			if (downscalecount >= cv_dynamicdownticsover.value)
 			{
@@ -842,11 +844,13 @@ static boolean D_Display(void)
 					break;
 				}
 			}
-		} else
-
-		rs_swaptime = I_GetTimeMicros();
-		I_FinishUpdate(); // page flip or blit buffer
-		rs_swaptime = I_GetTimeMicros() - rs_swaptime;
+		}
+		else
+		{
+			rs_swaptime = I_GetTimeMicros();
+			I_FinishUpdate(); // page flip or blit buffer
+			rs_swaptime = I_GetTimeMicros() - rs_swaptime;
+		}
 
 		if (scaling)
 		{
