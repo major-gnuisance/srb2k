@@ -104,7 +104,7 @@ void HWR_ProjectWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend
 void HWR_AddTransparentWall(FOutVector *wallVerts, FSurfaceInfo * pSurf, INT32 texnum, FBITFIELD blend, boolean fogwall, INT32 lightlevel, extracolormap_t *wallcolormap);
 void HWR_SplitWall(sector_t *sector, FOutVector *wallVerts, INT32 texnum, FSurfaceInfo* Surf, INT32 cutflag, ffloor_t *pfloor);
 void HWR_DrawSkyWall(FOutVector *wallVerts, FSurfaceInfo *Surf, fixed_t bottom, fixed_t top);
-void HWR_DrawSkyBackground(void);
+void HWR_DrawSkyBackground(float fpov);
 
 #ifdef POLYOBJECTS
 void HWR_AddPolyObjectSegs(void);
@@ -189,6 +189,7 @@ extern consvar_t cv_test_disable_something;
 extern consvar_t cv_enable_batching;
 extern consvar_t cv_grfullskywalls;
 extern consvar_t cv_kodahack;
+extern consvar_t cv_grskydome;
 extern consvar_t cv_enable_screen_textures;
 
 
