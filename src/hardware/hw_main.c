@@ -4960,7 +4960,7 @@ void HWR_DrawSkyBackground(void)
 	if (drewsky)
 		return;
 
-	HWR_GetTexture(skytexture);
+	HWR_GetTexture(texturetranslation[skytexture]);
 	aspectratio = (float)vid.width/(float)vid.height;
 
 	//Hurdler: the sky is the only texture who need 4.0f instead of 1.0
@@ -4985,8 +4985,8 @@ void HWR_DrawSkyBackground(void)
 	// software doesn't draw any further than 1024 for skies anyway, but this doesn't overlap properly
 	// The only time this will probably be an issue is when a sky wider than 1024 is used as a sky AND a regular wall texture
 
-	angle = (viewangle/2 + xtoviewangle[0]);
-	dimensionmultiply = ((float)textures[skytexture]->width/256.0f);
+	angle = (viewangle + xtoviewangle[0]);
+	dimensionmultiply = ((float)textures[texturetranslation[skytexture]]->width/256.0f);
 
 	if (atransform.mirror)
 	{
@@ -4999,7 +4999,7 @@ void HWR_DrawSkyBackground(void)
 
 	// Y
 	angle = aimingangle;
-	dimensionmultiply = ((float)textures[skytexture]->height/(128.0f*aspectratio));
+	dimensionmultiply = ((float)textures[texturetranslation[skytexture]]->height/(128.0f*aspectratio));
 
 	if (splitscreen == 1)
 	{
