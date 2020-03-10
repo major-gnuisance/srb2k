@@ -720,6 +720,8 @@ static boolean D_Display(void)
 					V_DrawThinString(130, 20, V_MONOSPACE | V_PURPLEMAP, s);
 					snprintf(s, sizeof s - 1, "nshd %d", rs_numshaders);
 					V_DrawThinString(130, 30, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "nvrt %d", rs_numverts);
+					V_DrawThinString(130, 40, V_MONOSPACE | V_PURPLEMAP, s);
 					snprintf(s, sizeof s - 1, "ntex %d", rs_numtextures);
 					V_DrawThinString(185, 10, V_MONOSPACE | V_PURPLEMAP, s);
 					snprintf(s, sizeof s - 1, "npf  %d", rs_numpolyflags);
@@ -766,7 +768,9 @@ static boolean D_Display(void)
 				V_DrawString(44, 12, V_SNAPTOLEFT|V_SNAPTOTOP|V_ALLOWLOWERCASE, va("Frame Time: %2d (%2dD %2dU)", startms, downscalecount, upscalecount));
 			}
 
+			rs_swaptime = I_GetTimeMicros();
 			I_FinishUpdate(); // page flip or blit buffer
+			rs_swaptime = I_GetTimeMicros() - rs_swaptime;
 
 			if (downscalecount >= cv_dynamicdownticsover.value)
 			{
@@ -840,11 +844,13 @@ static boolean D_Display(void)
 					break;
 				}
 			}
-		} else
-
-		rs_swaptime = I_GetTimeMicros();
-		I_FinishUpdate(); // page flip or blit buffer
-		rs_swaptime = I_GetTimeMicros() - rs_swaptime;
+		}
+		else
+		{
+			rs_swaptime = I_GetTimeMicros();
+			I_FinishUpdate(); // page flip or blit buffer
+			rs_swaptime = I_GetTimeMicros() - rs_swaptime;
+		}
 
 		if (scaling)
 		{

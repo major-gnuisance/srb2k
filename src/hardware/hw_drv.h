@@ -51,6 +51,8 @@ EXPORT void HWRAPI(CreateModelVBOs) (model_t *model);
 EXPORT void HWRAPI(SetTransform) (FTransform *stransform);
 EXPORT INT32 HWRAPI(GetTextureUsed) (void);
 
+EXPORT void HWRAPI(RenderSkyDome) (INT32 tex, INT32 texture_width, INT32 texture_height, FTransform transform);
+
 EXPORT void HWRAPI(FlushScreenTextures) (void);
 EXPORT void HWRAPI(StartScreenWipe) (void);
 EXPORT void HWRAPI(EndScreenWipe) (void);
@@ -75,7 +77,7 @@ EXPORT void HWRAPI(InitCustomShaders) (void);
 
 // batching
 EXPORT void HWRAPI(StartBatching) (void);
-EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime);
+EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime);
 
 // ==========================================================================
 //                                      HWR DRIVER OBJECT, FOR CLIENT PROGRAM
@@ -111,6 +113,8 @@ struct hwdriver_s
 	RenderVhsEffect     pfnRenderVhsEffect;
 	MakeScreenFinalTexture  pfnMakeScreenFinalTexture;
 	DrawScreenFinalTexture  pfnDrawScreenFinalTexture;
+
+	RenderSkyDome pfnRenderSkyDome;
 
 	LoadShaders pfnLoadShaders;
 	KillShaders pfnKillShaders;

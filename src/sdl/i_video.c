@@ -1936,6 +1936,8 @@ void I_StartupGraphics(void)
 		HWD.pfnMakeScreenFinalTexture=hwSym("MakeScreenFinalTexture",NULL);
 		HWD.pfnDrawScreenFinalTexture=hwSym("DrawScreenFinalTexture",NULL);
 
+		HWD.pfnRenderSkyDome = hwSym("RenderSkyDome",NULL);
+
 		HWD.pfnLoadShaders = hwSym("LoadShaders",NULL);
 		HWD.pfnKillShaders = hwSym("KillShaders",NULL);
 		HWD.pfnSetShader = hwSym("SetShader",NULL);

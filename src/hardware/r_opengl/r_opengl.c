@@ -495,8 +495,11 @@ static float glstate_fog_density = 0;
 INT32 gl_leveltime = 0;
 
 // for wireframe mode, not sure where and how and what and why to put this
-typedef void    (APIENTRY *PFNglPolygonMode)                (GLenum, GLenum);
+typedef void    (APIENTRY *PFNglPolygonMode)        (GLenum, GLenum);
 static PFNglPolygonMode pglPolygonMode;
+
+typedef void    (APIENTRY *PFNglColorPointer)       (GLint, GLenum, GLsizei, const GLvoid*);
+static PFNglColorPointer pglColorPointer;
 
 #ifdef GL_SHADERS
 typedef GLuint 	(APIENTRY *PFNglCreateShader)		(GLenum);
@@ -562,6 +565,8 @@ static INT32 gl_test_disable_something = 0;
 static boolean gl_batching = false;// are we currently collecting batches?
 
 static INT32 gl_enable_screen_textures = 1;
+
+static boolean gl_extra_mipmapping = false;
 
 // 13062019
 typedef enum
@@ -732,6 +737,8 @@ void SetupGLFunc4(void)
 
 	// wireframe
 	pglPolygonMode = GetGLFunc("glPolygonMode");
+
+	pglColorPointer = GetGLFunc("glColorPointer");
 
 #ifdef GL_SHADERS
 	pglCreateShader = GetGLFunc("glCreateShader");
@@ -1539,7 +1546,7 @@ EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 		pglBindTexture(GL_TEXTURE_2D, pTexInfo->downloaded);
 
 		// disable texture filtering on any texture that has holes so there's no dumb borders or blending issues
-		if (pTexInfo->flags & TF_TRANSPARENT)
+		if (pTexInfo->flags & TF_TRANSPARENT && !gl_extra_mipmapping)
 		{
 			pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -1571,7 +1578,7 @@ EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 				pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
 #endif
 #ifdef GL_TEXTURE_MAX_LOD
-				if (pTexInfo->flags & TF_TRANSPARENT)
+				if (pTexInfo->flags & TF_TRANSPARENT && !gl_extra_mipmapping)
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0); // No mippmaps on transparent stuff
 				else
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 4);
@@ -1591,7 +1598,7 @@ EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 				pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
 #endif
 #ifdef GL_TEXTURE_MAX_LOD
-				if (pTexInfo->flags & TF_TRANSPARENT)
+				if (pTexInfo->flags & TF_TRANSPARENT && !gl_extra_mipmapping)
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0); // No mippmaps on transparent stuff
 				else
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 4);
@@ -1611,7 +1618,7 @@ EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 				pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0); // the lower the number, the higer the detail
 #endif
 #ifdef GL_TEXTURE_MAX_LOD
-				if (pTexInfo->flags & TF_TRANSPARENT)
+				if (pTexInfo->flags & TF_TRANSPARENT && !gl_extra_mipmapping)
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0); // No mippmaps on transparent stuff
 				else
 					pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 5);
@@ -1848,7 +1855,7 @@ static int comparePolygonsNoShaders(const void *p1, const void *p2)
 
 
 // the parameters for this functions (numPolys etc.) are used to return rendering stats
-EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime)
+EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime)
 {
 	int finalVertexWritePos = 0;// position in finalVertexArray
 	int finalIndexWritePos = 0;// position in finalVertexIndexArray
@@ -1876,7 +1883,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 	}
 	// init stats vars
 	*sNumPolys = polygonArraySize;
-	*sNumCalls = 0;
+	*sNumCalls = *sNumVerts = 0;
 	*sNumShaders = *sNumTextures = *sNumPolyFlags = *sNumColors = 1;
 	// init polygonIndexArray
 	for (i = 0; i < polygonArraySize; i++)
@@ -2073,11 +2080,12 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumCalls, int *sNumShad
 			// execute draw call
 			pglDrawElements(GL_TRIANGLES, finalIndexWritePos, GL_UNSIGNED_INT, finalVertexIndexArray);
 			//CONS_Printf("draw call done\n");
+			// update stats
+			(*sNumCalls)++;
+			*sNumVerts += finalIndexWritePos;
 			// reset write positions
 			finalVertexWritePos = 0;
 			finalIndexWritePos = 0;
-			// update stats
-			(*sNumCalls)++;
 		}
 		else continue;
 		
@@ -2269,6 +2277,260 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 	}
 }
 
+// Sky dome code, taken/backported from SRB2
+
+typedef struct vbo_vertex_s
+{
+	float x, y, z;
+	float u, v;
+	unsigned char r, g, b, a;
+} vbo_vertex_t;
+
+typedef struct
+{
+	int mode;
+	int vertexcount;
+	int vertexindex;
+	int use_texture;
+} GLSkyLoopDef;
+
+typedef struct
+{
+	unsigned int id;
+	int rows, columns;
+	int loopcount;
+	GLSkyLoopDef *loops;
+	vbo_vertex_t *data;
+} GLSkyVBO;
+
+static const boolean gl_ext_arb_vertex_buffer_object = true;
+
+#define NULL_VBO_VERTEX ((vbo_vertex_t*)NULL)
+#define sky_vbo_x (gl_ext_arb_vertex_buffer_object ? &NULL_VBO_VERTEX->x : &vbo->data[0].x)
+#define sky_vbo_u (gl_ext_arb_vertex_buffer_object ? &NULL_VBO_VERTEX->u : &vbo->data[0].u)
+#define sky_vbo_r (gl_ext_arb_vertex_buffer_object ? &NULL_VBO_VERTEX->r : &vbo->data[0].r)
+
+// The texture offset to be applied to the texture coordinates in SkyVertex().
+static int rows, columns;
+static signed char yflip;
+static int texw, texh;
+static boolean foglayer;
+static float delta = 0.0f;
+
+static int gl_sky_detail = 16;
+
+static INT32 lasttex = -1;
+
+#define MAP_COEFF 128.0f
+
+static void SkyVertex(vbo_vertex_t *vbo, int r, int c)
+{
+	const float radians = (float)(M_PIl / 180.0f);
+	const float scale = 10000.0f;
+	const float maxSideAngle = 60.0f;
+
+	float topAngle = (c / (float)columns * 360.0f);
+	float sideAngle = (maxSideAngle * (rows - r) / rows);
+	float height = (float)(sin(sideAngle * radians));
+	float realRadius = (float)(scale * cos(sideAngle * radians));
+	float x = (float)(realRadius * cos(topAngle * radians));
+	float y = (!yflip) ? scale * height : -scale * height;
+	float z = (float)(realRadius * sin(topAngle * radians));
+	float timesRepeat = (4 * (256.0f / texw));
+	if (fpclassify(timesRepeat) == FP_ZERO)
+		timesRepeat = 1.0f;
+
+	if (!foglayer)
+	{
+		vbo->r = 255;
+		vbo->g = 255;
+		vbo->b = 255;
+		vbo->a = (r == 0 ? 0 : 255);
+
+		// And the texture coordinates.
+		//vbo->u = (-timesRepeat * c / (float)columns);
+		vbo->u = (timesRepeat * c / (float)columns);// TEST
+		if (!yflip)	// Flipped Y is for the lower hemisphere.
+			vbo->v = (r / (float)rows) + 0.5f;
+		else
+			vbo->v = 1.0f + ((rows - r) / (float)rows) + 0.5f;
+	}
+
+	if (r != 4)
+	{
+		y += 300.0f;
+	}
+
+	// And finally the vertex.
+	vbo->x = x;
+	vbo->y = y + delta;
+	vbo->z = z;
+}
+
+static GLSkyVBO sky_vbo;
+
+static void gld_BuildSky(int row_count, int col_count)
+{
+	int c, r;
+	vbo_vertex_t *vertex_p;
+	int vertex_count = 2 * row_count * (col_count * 2 + 2) + col_count * 2;
+
+	GLSkyVBO *vbo = &sky_vbo;
+
+	if ((vbo->columns != col_count) || (vbo->rows != row_count))
+	{
+		free(vbo->loops);
+		free(vbo->data);
+		memset(vbo, 0, sizeof(&vbo));
+	}
+
+	if (!vbo->data)
+	{
+		memset(vbo, 0, sizeof(&vbo));
+		vbo->loops = malloc((row_count * 2 + 2) * sizeof(vbo->loops[0]));
+		// create vertex array
+		vbo->data = malloc(vertex_count * sizeof(vbo->data[0]));
+	}
+
+	vbo->columns = col_count;
+	vbo->rows = row_count;
+
+	vertex_p = &vbo->data[0];
+	vbo->loopcount = 0;
+
+	for (yflip = 0; yflip < 2; yflip++)
+	{
+		vbo->loops[vbo->loopcount].mode = GL_TRIANGLE_FAN;
+		vbo->loops[vbo->loopcount].vertexindex = vertex_p - &vbo->data[0];
+		vbo->loops[vbo->loopcount].vertexcount = col_count;
+		vbo->loops[vbo->loopcount].use_texture = false;
+		vbo->loopcount++;
+
+		delta = 0.0f;
+		foglayer = true;
+		for (c = 0; c < col_count; c++)
+		{
+			SkyVertex(vertex_p, 1, c);
+			vertex_p->r = 255;
+			vertex_p->g = 255;
+			vertex_p->b = 255;
+			vertex_p->a = 255;
+			vertex_p++;
+		}
+		foglayer = false;
+
+		delta = (yflip ? 5.0f : -5.0f) / MAP_COEFF;
+
+		for (r = 0; r < row_count; r++)
+		{
+			vbo->loops[vbo->loopcount].mode = GL_TRIANGLE_STRIP;
+			vbo->loops[vbo->loopcount].vertexindex = vertex_p - &vbo->data[0];
+			vbo->loops[vbo->loopcount].vertexcount = 2 * col_count + 2;
+			vbo->loops[vbo->loopcount].use_texture = true;
+			vbo->loopcount++;
+
+			for (c = 0; c <= col_count; c++)
+			{
+				SkyVertex(vertex_p++, r + (yflip ? 1 : 0), (c ? c : 0));
+				SkyVertex(vertex_p++, r + (yflip ? 0 : 1), (c ? c : 0));
+			}
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+//
+//
+//
+//-----------------------------------------------------------------------------
+
+static void RenderDome(INT32 skytexture)
+{
+	int i, j;
+	int vbosize;
+	GLSkyVBO *vbo = &sky_vbo;
+
+	rows = 4;
+	columns = 4 * gl_sky_detail;
+
+	vbosize = 2 * rows * (columns * 2 + 2) + columns * 2;
+
+	// Build the sky dome! Yes!
+	if (lasttex != skytexture)
+	{
+		// delete VBO when already exists
+		if (gl_ext_arb_vertex_buffer_object)
+		{
+			if (vbo->id)
+				pglDeleteBuffers(1, &vbo->id);
+		}
+
+		lasttex = skytexture;
+		gld_BuildSky(rows, columns);
+
+		if (gl_ext_arb_vertex_buffer_object)
+		{
+			// generate a new VBO and get the associated ID
+			pglGenBuffers(1, &vbo->id);
+
+			// bind VBO in order to use
+			pglBindBuffer(GL_ARRAY_BUFFER, vbo->id);
+
+			// upload data to VBO
+			pglBufferData(GL_ARRAY_BUFFER, vbosize * sizeof(vbo->data[0]), vbo->data, GL_STATIC_DRAW);
+		}
+	}
+
+	// bind VBO in order to use
+	if (gl_ext_arb_vertex_buffer_object)
+		pglBindBuffer(GL_ARRAY_BUFFER, vbo->id);
+
+	// activate and specify pointers to arrays
+	pglVertexPointer(3, GL_FLOAT, sizeof(vbo->data[0]), sky_vbo_x);
+	pglTexCoordPointer(2, GL_FLOAT, sizeof(vbo->data[0]), sky_vbo_u);
+	pglColorPointer(4, GL_UNSIGNED_BYTE, sizeof(vbo->data[0]), sky_vbo_r);
+
+	// activate color arrays
+	pglEnableClientState(GL_COLOR_ARRAY);
+
+	// set transforms
+	pglScalef(1.0f, (float)texh / 230.0f, 1.0f);
+	pglRotatef(270.0f, 0.0f, 1.0f, 0.0f);
+
+	for (j = 0; j < 2; j++)
+	{
+		for (i = 0; i < vbo->loopcount; i++)
+		{
+			GLSkyLoopDef *loop = &vbo->loops[i];
+
+			if (j == 0 ? loop->use_texture : !loop->use_texture)
+				continue;
+
+			pglDrawArrays(loop->mode, loop->vertexindex, loop->vertexcount);
+		}
+	}
+
+	pglScalef(1.0f, 1.0f, 1.0f);
+	pglColor4ubv(white);
+
+	// bind with 0, so, switch back to normal pointer operation
+	if (gl_ext_arb_vertex_buffer_object)
+		pglBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// deactivate color array
+	pglDisableClientState(GL_COLOR_ARRAY);
+}
+
+EXPORT void HWRAPI(RenderSkyDome) (INT32 tex, INT32 texture_width, INT32 texture_height, FTransform transform)
+{
+	SetBlend(PF_Translucent|PF_NoDepthTest|PF_Modulated);
+	SetTransform(&transform);
+	texw = texture_width;
+	texh = texture_height;
+	RenderDome(tex);
+	SetBlend(0);
+}
+
 // ==========================================================================
 //
 // ==========================================================================
@@ -2289,6 +2551,11 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 			break;
 		case HWD_SET_WIREFRAME:
 			pglPolygonMode(GL_FRONT_AND_BACK, Value ? GL_LINE : GL_FILL);
+			// this bit makes most things white (shaders need to be disabled)
+			/*if (Value)
+				pglDisable(GL_TEXTURE_2D);
+			else
+				pglEnable(GL_TEXTURE_2D);*/
 			break;
 		
 		case HWD_SET_SCREEN_TEXTURES:
@@ -2314,29 +2581,53 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 					min_filter = GL_LINEAR_MIPMAP_LINEAR;
 					mag_filter = GL_LINEAR;
 					MipMap = GL_TRUE;
+					gl_extra_mipmapping = false;
 					break;
 				case HWD_SET_TEXTUREFILTER_BILINEAR:
 					min_filter = mag_filter = GL_LINEAR;
 					MipMap = GL_FALSE;
+					gl_extra_mipmapping = false;
 					break;
 				case HWD_SET_TEXTUREFILTER_POINTSAMPLED:
 					min_filter = mag_filter = GL_NEAREST;
 					MipMap = GL_FALSE;
+					gl_extra_mipmapping = false;
 					break;
 				case HWD_SET_TEXTUREFILTER_MIXED1:
 					min_filter = GL_NEAREST;
 					mag_filter = GL_LINEAR;
 					MipMap = GL_FALSE;
+					gl_extra_mipmapping = false;
 					break;
 				case HWD_SET_TEXTUREFILTER_MIXED2:
 					min_filter = GL_LINEAR;
 					mag_filter = GL_NEAREST;
 					MipMap = GL_FALSE;
+					gl_extra_mipmapping = false;
 					break;
 				case HWD_SET_TEXTUREFILTER_MIXED3:
 					min_filter = GL_LINEAR_MIPMAP_LINEAR;
 					mag_filter = GL_NEAREST;
 					MipMap = GL_TRUE;
+					gl_extra_mipmapping = false;
+					break;
+				case HWD_SET_TEXTUREFILTER_EXTRA1:
+					min_filter = GL_NEAREST_MIPMAP_NEAREST;
+					mag_filter = GL_NEAREST;
+					MipMap = GL_TRUE;
+					gl_extra_mipmapping = true;
+					break;
+				case HWD_SET_TEXTUREFILTER_EXTRA2:
+					min_filter = GL_LINEAR_MIPMAP_NEAREST;
+					mag_filter = GL_NEAREST;
+					MipMap = GL_TRUE;
+					gl_extra_mipmapping = true;
+					break;
+				case HWD_SET_TEXTUREFILTER_EXTRA3:
+					min_filter = GL_LINEAR_MIPMAP_LINEAR;
+					mag_filter = GL_NEAREST;
+					MipMap = GL_TRUE;
+					gl_extra_mipmapping = true;
 					break;
 				default:
 					mag_filter = GL_LINEAR;
