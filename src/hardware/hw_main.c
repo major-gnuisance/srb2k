@@ -4961,13 +4961,14 @@ void HWR_DrawSkyBackground(float fpov)
 
 		//04/01/2000: Hurdler: added for T&L
 		//                     It should replace all other gr_viewxxx when finished
-		dometransform.anglex = (float)(aimingangle>>ANGLETOFINESHIFT)*(360.0f/(float)FINEANGLES);
+		if (!atransform.shearing)
+			dometransform.anglex = (float)(aimingangle>>ANGLETOFINESHIFT)*(360.0f/(float)FINEANGLES);
 		dometransform.angley = (float)((viewangle-ANGLE_270)>>ANGLETOFINESHIFT)*(360.0f/(float)FINEANGLES);
 
 		dometransform.flip = atransform.flip;
 		dometransform.mirror = atransform.mirror;
 		dometransform.shearing = atransform.shearing;
-		dometransform.viewaiming = atransform.viewaiming;// Bug: software perspective does not work right with this
+		dometransform.viewaiming = atransform.viewaiming;
 
 		dometransform.scalex = 1;
 		dometransform.scaley = (float)vid.width/vid.height;
