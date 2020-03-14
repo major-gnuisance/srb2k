@@ -81,7 +81,10 @@ void *GetGLFunc(const char *proc)
 		else
 			return NULL;
 	}
-	return SDL_GL_GetProcAddress(proc);
+	void* address = SDL_GL_GetProcAddress(proc);
+	if (!address)
+		CONS_Printf("WARNING: could not find OpenGL function: %s\n", proc);
+	return address;
 }
 
 boolean LoadGL(void)
