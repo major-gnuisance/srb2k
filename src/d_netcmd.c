@@ -477,7 +477,7 @@ consvar_t cv_mute = {"mute", "Off", CV_NETVAR|CV_CALL, CV_OnOff, Mute_OnChange, 
 
 consvar_t cv_sleep = {"cpusleep", "1", CV_SAVE, sleeping_cons_t, NULL, -1, NULL, NULL, 0, 0, NULL};
 
-consvar_t cv_nodownloads = { "downloadnotice", "", CV_SAVE, NULL, NULL, 0, NULL, NULL, 0, 0, NULL };
+consvar_t cv_nodownloads = {"downloadnotice", "", CV_SAVE, NULL, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_lessencorevotes = {"lessencorevotes", "No", CV_SAVE, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -713,6 +713,9 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_noticedownload);
 	CV_RegisterVar(&cv_downloadspeed);
 	CV_RegisterVar(&cv_autoresetdownloads);
+#ifdef HAVE_CURL
+	CV_RegisterVar(&cv_httpsource);
+#endif
 #ifndef NONET
 	CV_RegisterVar(&cv_allownewplayer);
 #ifdef VANILLAJOINNEXTROUND

@@ -30,7 +30,8 @@ typedef enum
 	FS_REQUESTED,
 	FS_DOWNLOADING,
 	FS_OPEN, // Is opened and used in w_wad
-	FS_MD5SUMBAD
+	FS_MD5SUMBAD,
+	FS_FALLBACK, // HTTP failed
 } filestatus_t;
 
 typedef struct
@@ -44,6 +45,10 @@ typedef struct
 	UINT32 totalsize;
 	filestatus_t status; // The value returned by recsearch
 } fileneeded_t;
+
+#ifdef HAVE_CURL
+extern tic_t curltic;
+#endif
 
 extern INT32 fileneedednum;
 extern fileneeded_t fileneeded[MAX_WADFILES];
@@ -82,5 +87,13 @@ filestatus_t checkfilemd5(char *filename, const UINT8 *wantedmd5sum);
 
 void nameonly(char *s);
 size_t nameonlylength(const char *s);
+
+#ifdef HAVE_CURL
+void CURLPrepareFile(const char* url, int dfilenum);
+void CURLGetFile(void);
+extern boolean curl_failedwebdownload;
+extern boolean curl_running;
+extern INT32 curl_transfers;
+#endif
 
 #endif // __D_NETFIL__

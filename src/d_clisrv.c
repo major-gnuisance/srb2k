@@ -177,6 +177,10 @@ consvar_t cv_showjoinaddress = {"showjoinaddress", "On", CV_SAVE, CV_OnOff, NULL
 static CV_PossibleValue_t playbackspeed_cons_t[] = {{1, "MIN"}, {10, "MAX"}, {0, NULL}};
 consvar_t cv_playbackspeed = {"playbackspeed", "1", 0, playbackspeed_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
+#ifdef HAVE_CURL
+consvar_t cv_httpsource = {"http_source", "", CV_SAVE, NULL, NULL, 0, NULL, NULL, 0, 0, NULL};
+#endif
+
 static inline void *G_DcpyTiccmd(void* dest, const ticcmd_t* src, const size_t n)
 {
 	const size_t d = n / sizeof(ticcmd_t);
@@ -1109,6 +1113,10 @@ typedef enum
 	CL_ASKFULLFILELIST,
 	CL_ASKDOWNLOADFILES,
 	CL_WAITDOWNLOADFILESRESPONSE,
+#ifdef HAVE_CURL
+	CL_PREPARENETFILES,
+	CL_DOWNLOADNETFILES,
+#endif
 	CL_CHALLENGE
 } cl_mode_t;
 
@@ -1123,6 +1131,10 @@ static UINT8 cl_challengequestion[MD5_LEN+1];
 static char cl_challengepassword[65];
 static UINT8 cl_challengeanswer[MD5_LEN+1];
 static UINT8 cl_challengeattempted = 0;
+
+#ifdef HAVE_CURL
+const char *http_source;
+#endif
 
 // Player name send/load
 
@@ -1177,7 +1189,12 @@ static inline void CL_DrawConnectionStatus(void)
 	M_DrawTextBox(BASEVIDWIDTH/2-128-8, BASEVIDHEIGHT-24-8, 32, 1);
 	V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24-24, V_YELLOWMAP, "Press ESC to abort");
 
-	if (cl_mode != CL_DOWNLOADFILES)
+	if (cl_mode != CL_DOWNLOADFILES
+#ifdef HAVE_CURL
+	&& cl_mode != CL_DOWNLOADNETFILES
+#endif
+	)
+
 	{
 		INT32 i, animtime = ((ccstime / 4) & 15) + 16;
 		UINT8 palstart = (cl_mode == CL_SEARCHING) ? 128 : 160;
@@ -1244,6 +1261,7 @@ static inline void CL_DrawConnectionStatus(void)
 				break;
 			case CL_ASKDOWNLOADFILES:
 			case CL_WAITDOWNLOADFILESRESPONSE:
+			case CL_PREPARENETFILES:
 				cltext = M_GetText("Waiting to download files...");
 			default:
 				cltext = M_GetText("Connecting to server...");
@@ -1492,6 +1510,29 @@ static void SV_SendServerInfo(INT32 node, tic_t servertime)
 	HSendPacket(node, false, 0, p - ((UINT8 *)&netbuffer->u));
 }
 
+static void
+SV_SendBirbInfo (int node)
+{
+	size_t mirror_length;
+
+	birbinfo_pak *pak;
+	UINT8 *p;
+
+	netbuffer->packettype = PT_BIRBINFO;
+	pak = &netbuffer->u.birbinfo;
+
+	mirror_length = strlen(cv_httpsource.string);
+	if (mirror_length > MAX_MIRROR_LENGTH)
+		mirror_length = MAX_MIRROR_LENGTH;
+
+	pak->mirror_length = mirror_length;
+
+	p = pak->variable_length_data;
+	WRITEMEM (p, cv_httpsource.string, mirror_length);
+
+	HSendPacket(node, false, 0, p - ((UINT8 *)&netbuffer->u));
+}
+
 static void SV_SendPlayerInfo(INT32 node)
 {
 	UINT8 i;
@@ -1603,6 +1644,7 @@ static boolean SV_SendServerConfig(INT32 node)
 
 	CV_SavePlayerNames(&p);
 	CV_SaveNetVars(&p, false);
+	//WRITESTRINGN(&p, cv_httpsource.string, 256);
 	{
 		const size_t len = sizeof (serverconfig_pak) + (size_t)(p - op);
 
@@ -1826,7 +1868,7 @@ static void SendAskInfo(INT32 node, boolean viams)
 {
 	const tic_t asktime = I_GetTime();
 	netbuffer->packettype = PT_ASKINFO;
-	netbuffer->u.askinfo.version = VERSION;
+	netbuffer->u.askinfo._255 = 255;
 	netbuffer->u.askinfo.time = (tic_t)LONG(asktime);
 
 	// Even if this never arrives due to the host being firewalled, we've
@@ -1886,6 +1928,7 @@ static void SL_InsertServer(serverinfo_pak* info, SINT8 node)
 		i = serverlistcount++;
 	}
 
+	serverlist[i].birb_info.birb_powered = false;
 	serverlist[i].info = *info;
 	serverlist[i].node = node;
 
@@ -2003,23 +2046,36 @@ static boolean CL_FinishedFileList(void)
 	{
 		// must download something
 		// can we, though?
-		if (!CL_CheckDownloadable()) // nope!
+#ifdef HAVE_CURL
+		if (http_source[0] == '\0' || curl_failedwebdownload)
+#endif
 		{
-			D_QuitNetGame();
-			CL_Reset();
-			D_StartTitle();
-			M_StartMessage(M_GetText(
-				"You cannot connect to this server\n"
-				"because you cannot download the files\n"
-				"that you are missing from the server.\n\n"
-				"See the console or log file for\n"
-				"more details.\n\n"
-				"Press ESC\n"
-			), NULL, MM_NOTHING);
-			return false;
-		}
+			if (!CL_CheckDownloadable()) // nope!
+			{
+				D_QuitNetGame();
+				CL_Reset();
+				D_StartTitle();
+				M_StartMessage(M_GetText(
+					"You cannot connect to this server\n"
+					"because you cannot download the files\n"
+					"that you are missing from the server.\n\n"
+					"See the console or log file for\n"
+					"more details.\n\n"
+					"Press ESC\n"
+				), NULL, MM_NOTHING);
+				return false;
+			}
 
-		cl_mode = CL_ASKDOWNLOADFILES;
+			cl_mode = CL_ASKDOWNLOADFILES;
+			return true;
+		}
+#ifdef HAVE_CURL
+		else
+		{
+			cl_mode = CL_PREPARENETFILES;
+			return true;
+		}
+#endif
 	}
 	return true;
 }
@@ -2067,6 +2123,17 @@ static boolean CL_ServerConnectionSearchTicker(boolean viams, tic_t *asksent)
 
 		if (client)
 		{
+#ifdef HAVE_CURL
+			if (serverlist[i].birb_info.birb_powered)
+			{
+				http_source = serverlist[i].birb_info.http_source;
+			}
+			else
+			{
+				http_source = "";
+			}
+#endif
+
 			D_ParseFileneeded(serverlist[i].info.fileneedednum, serverlist[i].info.fileneeded, 0);
 			if (serverlist[i].info.kartvars & SV_LOTSOFADDONS)
 			{
@@ -2142,6 +2209,55 @@ static boolean CL_ServerConnectionTicker(boolean viams, const char *tmpsave, tic
 				}
 			}
 			break;
+
+		case CL_PREPARENETFILES:
+			if (http_source[0])
+			{
+				CONS_Printf("%s\n", http_source);
+
+				for (i = 0; i < fileneedednum; i++)
+					if (fileneeded[i].status == FS_NOTFOUND)
+						curl_transfers++;
+
+				cl_mode = CL_DOWNLOADNETFILES;
+			}
+			break;
+
+#ifdef HAVE_CURL
+		case CL_DOWNLOADNETFILES:
+			waitmore = false;
+			for (i = 0; i < fileneedednum; i++)
+				if (fileneeded[i].status == FS_NOTFOUND)
+				{
+					if (!curl_running)
+					{
+						CONS_Printf("curl_transfers: %d\n", curl_transfers);
+						CURLPrepareFile(http_source, i);
+					}
+					waitmore = true;
+					break;
+				}
+
+			if (curl_running)
+				CURLGetFile();
+
+			if (waitmore)
+				break; // exit the case
+
+			if (curl_failedwebdownload && !curl_transfers)
+			{
+				cl_mode = CL_ASKDOWNLOADFILES;
+				break;
+			}
+
+			if (!curl_transfers)
+			{
+				CONS_Printf("curl_transfers: %d\n", curl_transfers);
+				cl_mode = CL_ASKJOIN; // don't break case continue to cljoin request now
+			}
+
+			break;
+#endif
 
 		case CL_DOWNLOADFILES:
 			waitmore = false;
@@ -2821,6 +2937,13 @@ void CL_Reset(void)
 	fileneedednum = 0;
 	memset(fileneeded, 0, sizeof(fileneeded));
 
+#ifdef HAVE_CURL
+	curl_failedwebdownload = false;
+	curl_transfers = 0;
+	curl_running = false;
+	http_source = "";
+#endif
+
 	// D_StartTitle should get done now, but the calling function will handle it
 }
 
@@ -3389,13 +3512,7 @@ consvar_t cv_noticedownload = {"noticedownload", "Off", CV_SAVE, CV_OnOff, NULL,
 static CV_PossibleValue_t downloadspeed_cons_t[] = {{0, "MIN"}, {32, "MAX"}, {0, NULL}};
 consvar_t cv_downloadspeed = {"downloadspeed", "16", CV_SAVE, downloadspeed_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
-consvar_t cv_autoresetdownloads =
-{
-	"autoresetdownloads", "Off",
-	CV_SAVE,
-	CV_OnOff,
-	NULL, 0, NULL, NULL, 0, 0, NULL
-};
+consvar_t cv_autoresetdownloads = {"autoresetdownloads", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 static void Got_AddPlayer(UINT8 **p, INT32 playernum);
 static void Got_RemovePlayer(UINT8 **p, INT32 playernum);
@@ -4185,6 +4302,33 @@ static void HandleServerInfo(SINT8 node)
 }
 #endif
 
+static void
+HandleBirbInfo (int node)
+{
+	birbinfo_pak *pak;
+	UINT8 *p;
+
+	UINT32         list_index;
+	cl_birbinfo_t *list_info;
+
+	list_index = SL_SearchServer(node);
+
+	if (list_index != UINT32_MAX)
+	{
+		list_info = &serverlist[list_index].birb_info;
+		list_info->birb_powered = true;
+
+		pak = &netbuffer->u.birbinfo;
+		p = pak->variable_length_data;
+
+#ifdef HAVE_CURL
+		memcpy(list_info->http_source, p, pak->mirror_length);
+		list_info->http_source[pak->mirror_length] = '\0';
+#endif
+		p += pak->mirror_length;
+	}
+}
+
 /** Handles a packet received from a node that isn't in game
   *
   * \param node The packet sender
@@ -4272,8 +4416,17 @@ static void HandlePacketFromAwayNode(SINT8 node)
 		case PT_ASKINFO:
 			if (server && serverrunning)
 			{
+				boolean birb_powered;
+
+				birb_powered = ( netbuffer->u.askinfo._255 == 255 );
+
 				SV_SendServerInfo(node, (tic_t)LONG(netbuffer->u.askinfo.time));
 				SV_SendPlayerInfo(node); // Send extra info
+
+				if (birb_powered)
+				{
+					SV_SendBirbInfo(node);
+				}
 			}
 			Net_CloseConnection(node);
 			break;
@@ -4374,8 +4527,9 @@ static void HandlePacketFromAwayNode(SINT8 node)
 
 			cl_challengeattempted = 2;
 			CONS_Printf("trying to download\n");
+
 			if (CL_SendRequestFile())
-					cl_mode = CL_DOWNLOADFILES;
+				cl_mode = CL_DOWNLOADFILES;
 			break;
 
 		case PT_SERVERCFG: // Positive response of client join request
@@ -4437,6 +4591,7 @@ static void HandlePacketFromAwayNode(SINT8 node)
 			scp = netbuffer->u.servercfg.varlengthinputs;
 			CV_LoadPlayerNames(&scp);
 			CV_LoadNetVars(&scp);
+			//READSTRINGN(scp, http_source, 256);
 #ifdef JOININGAME
 			/// \note Wait. What if a Lua script uses some global custom variables synched with the NetVars hook?
 			///       Shouldn't them be downloaded even at intermission time?
@@ -5041,6 +5196,12 @@ FILESTAMP
 
 		if (netbuffer->packettype == PT_PLAYERINFO)
 			continue; // We do nothing with PLAYERINFO, that's for the MS browser.
+
+		if (netbuffer->packettype == PT_BIRBINFO)
+		{
+			HandleBirbInfo(node);
+			continue;
+		}
 
 		// Packet received from someone already playing
 		if (nodeingame[node])
