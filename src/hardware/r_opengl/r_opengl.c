@@ -768,11 +768,17 @@ void SetupGLFunc4(void)
 }
 
 // jimita
-EXPORT void HWRAPI(LoadShaders) (void)
+EXPORT boolean HWRAPI(LoadShaders) (void)
 {
 #ifdef GL_SHADERS
 	GLuint gl_vertShader, gl_fragShader;
 	GLint i, result;
+
+	if (!pglUseProgram)
+	{
+		CONS_Printf("Lack of shader support detected in LoadShaders\n");
+		return false;
+	}
 
 	gl_customvertexshaders[0] = NULL;
 	gl_customfragmentshaders[0] = NULL;
@@ -879,11 +885,13 @@ EXPORT void HWRAPI(LoadShaders) (void)
 #undef GETUNI
 	}
 #endif
+	return true;
 }
 
 EXPORT void HWRAPI(LoadCustomShader) (int number, char *shader, size_t size, boolean fragment)
 {
 #ifdef GL_SHADERS
+	if (!pglUseProgram) return;
 	if (number < 1 || number > MAXSHADERS)
 		I_Error("LoadCustomShader(): cannot load shader %d (max %d)", number, MAXSHADERS);
 
@@ -933,6 +941,7 @@ EXPORT void HWRAPI(UnSetShader) (void)
 	gl_shadersenabled = false;
 	gl_currentshaderprogram = 0;
 	gl_shaderprogramchanged = true;// not sure if this is needed
+	if (!pglUseProgram) return;
 	pglUseProgram(0);
 #endif
 }
@@ -1655,7 +1664,7 @@ EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *fade)
 {
 #ifdef GL_SHADERS
-	if (gl_shadersenabled)
+	if (gl_shadersenabled && pglUseProgram)
 	{
 		//gl_shaderprogramchanged = true;// test for comparing with/without optimization
 		gl_shaderprogram_t *shader = &gl_shaderprograms[gl_currentshaderprogram];

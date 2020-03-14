@@ -1549,7 +1549,6 @@ void R_RegisterEngineStuff(void)
 	CV_RegisterVar(&cv_grfogdensity);
 	CV_RegisterVar(&cv_grspritebillboarding);
 	CV_RegisterVar(&cv_grshearing);
-	CV_RegisterVar(&cv_grshaders);
 #endif
 
 	// render stats

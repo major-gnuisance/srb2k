@@ -117,6 +117,8 @@ int rs_batchdrawtime = 0;
 
 boolean gr_kodahack = false;
 
+boolean gr_shadersavailable = true;
+
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grfullskywalls = {"gr_fullskywalls", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -125,6 +127,9 @@ consvar_t cv_grskydome = {"gr_skydome", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, 
 
 static void CV_screentextures_ONChange(void);
 consvar_t cv_enable_screen_textures = {"gr_screen_textures", "On", CV_CALL, CV_OnOff, CV_screentextures_ONChange, 0, NULL, NULL, 0, 0, NULL};
+
+static void CV_grshaders_ONChange(void);
+consvar_t cv_grshaders = {"gr_shaders", "On", CV_SAVE|CV_CALL, CV_OnOff, CV_grshaders_ONChange, 0, NULL, NULL, 0, 0, NULL};
 
 // used to make it so that skybox drawing is not taken into account
 // thought the stats could overwrite on that but not sure ...
@@ -146,6 +151,12 @@ static void CV_anisotropic_ONChange(void)
 static void CV_screentextures_ONChange(void)
 {
 	HWD.pfnSetSpecialState(HWD_SET_SCREEN_TEXTURES, cv_enable_screen_textures.value);
+}
+
+static void CV_grshaders_ONChange(void)
+{
+	if (!gr_shadersavailable)
+		cv_grshaders.value = 0;
 }
 
 // ==========================================================================
@@ -5395,7 +5406,8 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_granisotropicmode);
 	CV_RegisterVar(&cv_grcorrecttricks);
 	CV_RegisterVar(&cv_grsolvetjoin);
-	
+	CV_RegisterVar(&cv_grshaders);
+
 	CV_RegisterVar(&cv_enable_screen_textures);
 	CV_RegisterVar(&cv_grwireframe);
 	CV_RegisterVar(&cv_test_disable_something);
@@ -5432,7 +5444,8 @@ void HWR_Startup(void)
 
 	// jimita
 	HWD.pfnKillShaders();
-	HWD.pfnLoadShaders();
+	if (!HWD.pfnLoadShaders())
+		gr_shadersavailable = false;
 
 	if (M_CheckParm("-msaa"))
 	{
