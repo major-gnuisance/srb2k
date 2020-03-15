@@ -211,85 +211,19 @@ static INT32 drawcount = 0;
 
 void HWR_Lighting(FSurfaceInfo *Surface, INT32 light_level, UINT32 mixcolor, UINT32 fadecolor)
 {
-
-	RGBA_t mix_color, fog_color, final_color;
-	INT32 mix;
-	float fog_alpha;
-
-	mix_color.rgba = mixcolor;
-	fog_color.rgba = fadecolor;
-
-	mix = mix_color.s.alpha*10/5;
-	if (mix > 25) mix = 25;
-	mix *= 255;
-	mix /= 25;
-
-	// Modulate the colors by alpha.
-	mix_color.s.red = (UINT8)(CALCLIGHT(mix,mix_color.s.red));
-	mix_color.s.green = (UINT8)(CALCLIGHT(mix,mix_color.s.green));
-	mix_color.s.blue = (UINT8)(CALCLIGHT(mix,mix_color.s.blue));
-
-	// Set the surface colors and further modulate the colors by light.
-	final_color.s.red = (UINT8)(CALCLIGHT((0xFF-mix),0xFF)+CALCLIGHT(mix_color.s.red,0xFF));
-	final_color.s.green = (UINT8)(CALCLIGHT((0xFF-mix),0xFF)+CALCLIGHT(mix_color.s.green,0xFF));
-	final_color.s.blue = (UINT8)(CALCLIGHT((0xFF-mix),0xFF)+CALCLIGHT(mix_color.s.blue,0xFF));
-	final_color.s.alpha = 0xFF;
-
-	// Fog.
-	fog_alpha = (0xFF - fog_color.s.alpha) / 255.0f;
-
-	// Set the surface colors and further modulate the colors by light.
-	fog_color.s.red = (UINT8)(((float)fog_color.s.red) * fog_alpha);
-	fog_color.s.green = (UINT8)(((float)fog_color.s.green) * fog_alpha);
-	fog_color.s.blue = (UINT8)(((float)fog_color.s.blue) * fog_alpha);
-// TEST REMOVED THIS
-	if (cv_grfog.value)
-	{
-		float red;
-		float green;
-		float blue;
-		// be careful, this may get negative for high lightlevel values.
-		float fog = (fog_alpha - (light_level/255.0f))*3/2;
-		if (fog < 0)
-			fog = 0;
-
-		red = ((fog_color.s.red/255.0f) * fog) + ((final_color.s.red/255.0f) * (1.0f - fog));
-		green = ((fog_color.s.green/255.0f) * fog) + ((final_color.s.green/255.0f) * (1.0f - fog));
-		blue = ((fog_color.s.blue/255.0f) * fog) + ((final_color.s.blue/255.0f) * (1.0f - fog));
-		final_color.s.red = (UINT8)(red*255.0f);
-		final_color.s.green = (UINT8)(green*255.0f);
-		final_color.s.blue = (UINT8)(blue*255.0f);
-	}
-
-	Surface->PolyColor.rgba = final_color.rgba;
-	Surface->FadeColor.rgba = fog_color.rgba;
-	Surface->LightInfo.light_level = light_level;
-}
-
-void HWR_NoColormapLighting(FSurfaceInfo *Surface, INT32 light_level, UINT32 mixcolor, UINT32 fadecolor)
-{
-	RGBA_t mix_color, fog_color, final_color;
-	INT32 mix, fogmix, lightmix;
-	float fog_alpha;
-
-	// You see the problem is that darker light isn't actually as dark as it SHOULD be.
-	lightmix = 255 - ((255 - light_level)*10/7);
-
-	// Don't go out of bounds
-	if (lightmix < 0)
-		lightmix = 0;
-	else if (lightmix > 255)
-		lightmix = 255;
-
-	mix_color.rgba = mixcolor;
-	fog_color.rgba = fadecolor;
-
-	// if shaders are off, or shaders are on, but fog is off:
-	// modulate colors by light here
 	if (!cv_grshaders.value || (cv_grshaders.value && !cv_grfog.value))
 	{
-		mix = (mix_color.s.alpha*255)/25;
-		fogmix = (fog_color.s.alpha*255)/25;
+		RGBA_t mix_color, fog_color, final_color;
+		INT32 mix;
+		float fog_alpha;
+
+		mix_color.rgba = mixcolor;
+		fog_color.rgba = fadecolor;
+
+		mix = mix_color.s.alpha*10/5;
+		if (mix > 25) mix = 25;
+		mix *= 255;
+		mix /= 25;
 
 		// Modulate the colors by alpha.
 		mix_color.s.red = (UINT8)(CALCLIGHT(mix,mix_color.s.red));
@@ -297,38 +231,123 @@ void HWR_NoColormapLighting(FSurfaceInfo *Surface, INT32 light_level, UINT32 mix
 		mix_color.s.blue = (UINT8)(CALCLIGHT(mix,mix_color.s.blue));
 
 		// Set the surface colors and further modulate the colors by light.
-		final_color.s.red = (UINT8)(CALCLIGHT((0xFF-mix),lightmix)+CALCLIGHT(mix_color.s.red,lightmix));
-		final_color.s.green = (UINT8)(CALCLIGHT((0xFF-mix),lightmix)+CALCLIGHT(mix_color.s.green,lightmix));
-		final_color.s.blue = (UINT8)(CALCLIGHT((0xFF-mix),lightmix)+CALCLIGHT(mix_color.s.blue,lightmix));
+		final_color.s.red = (UINT8)(CALCLIGHT((0xFF-mix),0xFF)+CALCLIGHT(mix_color.s.red,0xFF));
+		final_color.s.green = (UINT8)(CALCLIGHT((0xFF-mix),0xFF)+CALCLIGHT(mix_color.s.green,0xFF));
+		final_color.s.blue = (UINT8)(CALCLIGHT((0xFF-mix),0xFF)+CALCLIGHT(mix_color.s.blue,0xFF));
+		final_color.s.alpha = 0xFF;
 
-		// Modulate the colors by alpha.
-		fog_color.s.red = (UINT8)(CALCLIGHT(fogmix,fog_color.s.red));
-		fog_color.s.green = (UINT8)(CALCLIGHT(fogmix,fog_color.s.green));
-		fog_color.s.blue = (UINT8)(CALCLIGHT(fogmix,fog_color.s.blue));
+		// Fog.
+		fog_alpha = (0xFF - fog_color.s.alpha) / 255.0f;
 
 		// Set the surface colors and further modulate the colors by light.
-		final_color.s.red = final_color.s.red+((UINT8)(CALCLIGHT((0xFF-fogmix),(0xFF-lightmix))+CALCLIGHT(fog_color.s.red,(0xFF-lightmix))));
-		final_color.s.green = final_color.s.green+((UINT8)(CALCLIGHT((0xFF-fogmix),(0xFF-lightmix))+CALCLIGHT(fog_color.s.green,(0xFF-lightmix))));
-		final_color.s.blue = final_color.s.blue+((UINT8)(CALCLIGHT((0xFF-fogmix),(0xFF-lightmix))+CALCLIGHT(fog_color.s.blue,(0xFF-lightmix))));
-		final_color.s.alpha = 0xFF;
+		fog_color.s.red = (UINT8)(((float)fog_color.s.red) * fog_alpha);
+		fog_color.s.green = (UINT8)(((float)fog_color.s.green) * fog_alpha);
+		fog_color.s.blue = (UINT8)(((float)fog_color.s.blue) * fog_alpha);
+
+		if (cv_grfog.value)
+		{
+			float red;
+			float green;
+			float blue;
+			// be careful, this may get negative for high lightlevel values.
+			float fog = (fog_alpha - (light_level/255.0f))*3/2;
+			if (fog < 0)
+				fog = 0;
+
+			red = ((fog_color.s.red/255.0f) * fog) + ((final_color.s.red/255.0f) * (1.0f - fog));
+			green = ((fog_color.s.green/255.0f) * fog) + ((final_color.s.green/255.0f) * (1.0f - fog));
+			blue = ((fog_color.s.blue/255.0f) * fog) + ((final_color.s.blue/255.0f) * (1.0f - fog));
+			final_color.s.red = (UINT8)(red*255.0f);
+			final_color.s.green = (UINT8)(green*255.0f);
+			final_color.s.blue = (UINT8)(blue*255.0f);
+		}
+
+		Surface->PolyColor.rgba = final_color.rgba;
+		Surface->FadeColor.rgba = fog_color.rgba;
+		Surface->LightInfo.light_level = light_level;
 	}
-	// if shaders are on:
-	// modulate colors by light on the shader
 	else
-		final_color.rgba = 0xFFFFFFFF;
+	{
+		Surface->PolyColor.rgba = 0xFFFFFFFF;
+		Surface->TintColor.rgba = mixcolor;
+		Surface->FadeColor.rgba = fadecolor;
+		Surface->LightInfo.light_level = light_level;
+	}
+}
 
-	// Fog.
-	fog_color.rgba = fadecolor;
-	fog_alpha = (0xFF - fog_color.s.alpha*10/7) / 255.0f;
+void HWR_NoColormapLighting(FSurfaceInfo *Surface, INT32 light_level, UINT32 mixcolor, UINT32 fadecolor)
+{
+	if (!cv_grshaders.value || (cv_grshaders.value && !cv_grfog.value))
+	{
+		RGBA_t mix_color, fog_color, final_color;
+		INT32 mix, fogmix, lightmix;
+		float fog_alpha;
 
-	// Set the surface colors and further modulate the colors by light.
-	fog_color.s.red = (UINT8)(((float)fog_color.s.red) * fog_alpha);
-	fog_color.s.green = (UINT8)(((float)fog_color.s.green) * fog_alpha);
-	fog_color.s.blue = (UINT8)(((float)fog_color.s.blue) * fog_alpha);
+		// You see the problem is that darker light isn't actually as dark as it SHOULD be.
+		lightmix = 255 - ((255 - light_level)*10/7);
 
-	Surface->PolyColor.rgba = final_color.rgba;
-	Surface->FadeColor.rgba = fog_color.rgba;
-	Surface->LightInfo.light_level = light_level;//lightmix;
+		// Don't go out of bounds
+		if (lightmix < 0)
+			lightmix = 0;
+		else if (lightmix > 255)
+			lightmix = 255;
+
+		mix_color.rgba = mixcolor;
+		fog_color.rgba = fadecolor;
+
+		// if shaders are off, or shaders are on, but fog is off:
+		// modulate colors by light here
+		if (!cv_grshaders.value || (cv_grshaders.value && !cv_grfog.value))// TODO make more sense in lighting code
+		{
+			mix = (mix_color.s.alpha*255)/25;
+			fogmix = (fog_color.s.alpha*255)/25;
+
+			// Modulate the colors by alpha.
+			mix_color.s.red = (UINT8)(CALCLIGHT(mix,mix_color.s.red));
+			mix_color.s.green = (UINT8)(CALCLIGHT(mix,mix_color.s.green));
+			mix_color.s.blue = (UINT8)(CALCLIGHT(mix,mix_color.s.blue));
+
+			// Set the surface colors and further modulate the colors by light.
+			final_color.s.red = (UINT8)(CALCLIGHT((0xFF-mix),lightmix)+CALCLIGHT(mix_color.s.red,lightmix));
+			final_color.s.green = (UINT8)(CALCLIGHT((0xFF-mix),lightmix)+CALCLIGHT(mix_color.s.green,lightmix));
+			final_color.s.blue = (UINT8)(CALCLIGHT((0xFF-mix),lightmix)+CALCLIGHT(mix_color.s.blue,lightmix));
+
+			// Modulate the colors by alpha.
+			fog_color.s.red = (UINT8)(CALCLIGHT(fogmix,fog_color.s.red));
+			fog_color.s.green = (UINT8)(CALCLIGHT(fogmix,fog_color.s.green));
+			fog_color.s.blue = (UINT8)(CALCLIGHT(fogmix,fog_color.s.blue));
+
+			// Set the surface colors and further modulate the colors by light.
+			final_color.s.red = final_color.s.red+((UINT8)(CALCLIGHT((0xFF-fogmix),(0xFF-lightmix))+CALCLIGHT(fog_color.s.red,(0xFF-lightmix))));
+			final_color.s.green = final_color.s.green+((UINT8)(CALCLIGHT((0xFF-fogmix),(0xFF-lightmix))+CALCLIGHT(fog_color.s.green,(0xFF-lightmix))));
+			final_color.s.blue = final_color.s.blue+((UINT8)(CALCLIGHT((0xFF-fogmix),(0xFF-lightmix))+CALCLIGHT(fog_color.s.blue,(0xFF-lightmix))));
+			final_color.s.alpha = 0xFF;
+		}
+		// if shaders are on:
+		// modulate colors by light on the shader
+		else
+			final_color.rgba = 0xFFFFFFFF;
+
+		// Fog.
+		fog_color.rgba = fadecolor;
+		fog_alpha = (0xFF - fog_color.s.alpha*10/7) / 255.0f;
+
+		// Set the surface colors and further modulate the colors by light.
+		fog_color.s.red = (UINT8)(((float)fog_color.s.red) * fog_alpha);
+		fog_color.s.green = (UINT8)(((float)fog_color.s.green) * fog_alpha);
+		fog_color.s.blue = (UINT8)(((float)fog_color.s.blue) * fog_alpha);
+
+		Surface->PolyColor.rgba = final_color.rgba;
+		Surface->FadeColor.rgba = fog_color.rgba;
+		Surface->LightInfo.light_level = light_level;//lightmix;
+	}
+	else
+	{
+		Surface->PolyColor.rgba = 0xFFFFFFFF;
+		Surface->TintColor.rgba = mixcolor;
+		Surface->FadeColor.rgba = fadecolor;
+		Surface->LightInfo.light_level = light_level;
+	}
 }
 
 UINT8 HWR_FogBlockAlpha(INT32 light, UINT32 color) // Let's see if this can work
