@@ -211,6 +211,7 @@ static INT32 drawcount = 0;
 
 void HWR_Lighting(FSurfaceInfo *Surface, INT32 light_level, UINT32 mixcolor, UINT32 fadecolor)
 {
+
 	RGBA_t mix_color, fog_color, final_color;
 	INT32 mix;
 	float fog_alpha;
@@ -241,7 +242,7 @@ void HWR_Lighting(FSurfaceInfo *Surface, INT32 light_level, UINT32 mixcolor, UIN
 	fog_color.s.red = (UINT8)(((float)fog_color.s.red) * fog_alpha);
 	fog_color.s.green = (UINT8)(((float)fog_color.s.green) * fog_alpha);
 	fog_color.s.blue = (UINT8)(((float)fog_color.s.blue) * fog_alpha);
-
+// TEST REMOVED THIS
 	if (cv_grfog.value)
 	{
 		float red;
@@ -327,7 +328,7 @@ void HWR_NoColormapLighting(FSurfaceInfo *Surface, INT32 light_level, UINT32 mix
 
 	Surface->PolyColor.rgba = final_color.rgba;
 	Surface->FadeColor.rgba = fog_color.rgba;
-	Surface->LightInfo.light_level = lightmix;
+	Surface->LightInfo.light_level = light_level;//lightmix;
 }
 
 UINT8 HWR_FogBlockAlpha(INT32 light, UINT32 color) // Let's see if this can work

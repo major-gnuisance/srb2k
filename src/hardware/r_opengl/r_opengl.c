@@ -602,14 +602,42 @@ static gl_shaderprogram_t gl_shaderprograms[MAXSHADERPROGRAMS];
 // GLSL Software fragment shader
 //
 
+
+// testing with the new functions
+#define GLSL_DOOM_COLORMAP \
+	"float R_DoomColormap(float light, float z)\n" \
+	"{\n" \
+		"float lightnum = clamp(light / 17.0, 0.0, 15.0);\n" \
+		"float lightz = clamp(z / 16.0, 0.0, 127.0);\n" \
+		"float startmap = (15.0 - lightnum) * 4.0;\n" \
+		"float scale = 160.0 / (lightz + 1.0);\n" \
+		"return startmap - scale * 0.5;\n" \
+	"}\n"
+
+#define GLSL_DOOM_LIGHT_EQUATION \
+	"float R_DoomLightingEquation(float light)\n" \
+	"{\n" \
+		"float z = gl_FragCoord.z / gl_FragCoord.w;\n" \
+		"float colormap = floor(R_DoomColormap(light, z)) + 0.5;\n" \
+		"return clamp(colormap, 0.0, 31.0) / 32.0;\n" \
+	"}\n"
+
+
+/*
 #define GLSL_INTERNAL_FOG_FUNCTION \
 	"float fog(const float dist, const float density,  const float globaldensity) {\n" \
 		"const float LOG2 = -1.442695;\n" \
 		"float d = density * dist;\n" \
 		"return 1.0 - clamp(exp2(d * sqrt(d) * globaldensity * LOG2), 0.0, 1.0);\n" \
 	"}\n"
-
+*/
 // https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_gpu_shader_fp64.txt
+#define GLSL_INTERNAL_FOG_MIX \
+	"float fog_attenuation = R_DoomLightingEquation(lighting);\n" \
+	"vec4 mixed_color = texel * mix_color;\n" \
+	"vec4 final_color = mix(mixed_color, fade_color, fog_attenuation);\n" \
+	"final_color[3] = mixed_color[3];\n"
+/*
 #define GLSL_INTERNAL_FOG_MIX \
 	"float fog_distance = gl_FragCoord.z / gl_FragCoord.w;\n" \
 	"float fog_attenuation = floor(fog(fog_distance, 0.0001 * ((256.0-lighting)/24.0), fog_density)*10.0)/10.0;\n" \
@@ -618,7 +646,22 @@ static gl_shaderprogram_t gl_shaderprograms[MAXSHADERPROGRAMS];
 	"vec4 fog_mix = mix(mixed_color, fog_color, fog_attenuation);\n" \
 	"vec4 final_color = mix(fog_mix, fog_color, ((256.0-lighting)/256.0));\n" \
 	"final_color[3] = mixed_color[3];\n"
-
+*/
+#define GLSL_SOFTWARE_FRAGMENT_SHADER \
+	"uniform sampler2D tex;\n" \
+	"uniform vec4 mix_color;\n" \
+	"uniform vec4 fade_color;\n" \
+	"uniform float lighting;\n" \
+	"uniform int fog_mode;\n" \
+	"uniform float fog_density;\n" \
+	GLSL_DOOM_COLORMAP \
+	GLSL_DOOM_LIGHT_EQUATION \
+	"void main(void) {\n" \
+		"vec4 texel = texture2D(tex, gl_TexCoord[0].st);\n" \
+		GLSL_INTERNAL_FOG_MIX \
+		"gl_FragColor = final_color;\n" \
+	"}\0"
+/*
 #define GLSL_SOFTWARE_FRAGMENT_SHADER \
 	"uniform sampler2D tex;\n" \
 	"uniform vec4 mix_color;\n" \
@@ -632,7 +675,7 @@ static gl_shaderprogram_t gl_shaderprograms[MAXSHADERPROGRAMS];
 		GLSL_INTERNAL_FOG_MIX \
 		"gl_FragColor = final_color;\n" \
 	"}\0"
-
+*/
 //
 // GLSL generic fragment shader
 //
