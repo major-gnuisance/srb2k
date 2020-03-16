@@ -1,0 +1,177 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+
+    //These configurations assume you've installed MSYS2 at C:\MSYS64 and have followed James compilation guide here: https://www.jameds.org/SRB2/compile/
+    //You'll need gdb installed, run (pacman -S gdb mingw-w64-i686-gdb mingw-w64-x86_64-gdb) from MSYS2 cli
+    //You'll also need to change "sourceFileMap" below, since the compiler will put source locations into MSYS style and VScode won't be able to find them. 
+    //  My repos are on my E: drive so they look like /e/Kart-Public-Reference to gdb, you'll have to change it based on where yours are, such as /c/srb2kartrepos/Kart-Public
+    //They also assume that you're opening VSCode on the root folder, not the src folder, for git integration
+    //They also assume that you have folders called SRB2Kart32 and SRB2Kart64 inside the root folder that contain full installs of srb2kart + resources, and overwrite the exes there for testing builds
+
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch 64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/SRB2Kart64/srb2kart.exe",
+            "args": ["-consisdump","-port","0" ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/SRB2Kart64",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:\\msys64\\usr\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "sourceFileMap": {
+                "/e/${workspaceFolderBasename}/src": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "(gdb) Launch OpenGL 64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/SRB2Kart64/srb2kart.exe",
+            "args": ["-consisdump","-port","0", "-opengl" ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/SRB2Kart64",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:\\msys64\\usr\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "sourceFileMap": {
+                "/e/${workspaceFolderBasename}/src": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "(gdb) Launch OpenGL w/port 64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/SRB2Kart64/srb2kart.exe",
+            "args": ["-consisdump", "-opengl" ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/SRB2Kart64",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:\\msys64\\usr\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "sourceFileMap": {
+                "/e/${workspaceFolderBasename}/src": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "(gdb) Launch 32",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/SRB2Kart32/srb2kart.exe",
+            "args": ["-consisdump","-port","0" ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/SRB2Kart32",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:\\msys64\\usr\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "sourceFileMap": {
+                "/e/${workspaceFolderBasename}/src": "${workspaceFolder}/src"
+            },
+        },
+        {
+            "name": "(gdb) Launch OpenGL 32",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/SRB2Kart32/srb2kart.exe",
+            "args": ["-consisdump","-port","0", "-opengl" ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/SRB2Kart32",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:\\msys64\\usr\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "sourceFileMap": {
+                "/e/${workspaceFolderBasename}/src": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "(gdb) Launch Server 64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/SRB2Kart64/srb2kart.exe",
+            "args": ["-dedicated","-consisdump"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/SRB2Kart64",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:\\msys64\\usr\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "sourceFileMap": {
+                "/e/${workspaceFolderBasename}/src": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "(gdb) Launch Server 32",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/SRB2Kart32/srb2kart.exe",
+            "args": ["-dedicated","-consisdump"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/SRB2Kart32",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "C:\\msys64\\usr\\bin\\gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "sourceFileMap": {
+                "/e/${workspaceFolderBasename}/src": "${workspaceFolder}/src"
+            }
+        },
+    ]
+}

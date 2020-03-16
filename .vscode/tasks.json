@@ -1,0 +1,339 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558 
+    // for the documentation about the tasks.json format
+
+    //These configurations assume you've installed MSYS2 at C:\MSYS64 and have followed James compilation guide here: https://www.jameds.org/SRB2/compile/
+    //They also assume that you're opening VSCode on the root folder, not the src folder, for git integration
+    //They also assume that you have folders called SRB2Kart32 and SRB2Kart64 inside the root folder that contain full installs of srb2kart + resources, and overwrite the exes there for testing builds
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "options": {
+                "cwd": "${workspaceFolder}/src",
+                "env": {
+                    "CC": "x86_64-w64-mingw32-gcc",
+                    "MSYSTEM": "MINGW64", 
+                },
+            },
+            "type": "shell",
+            "label": "clean debug objs 64",
+            "command": "mingw32-make",
+            "args": [
+                "MINGW64=1",
+                "WINDOWSHELL=1",
+                "SDL=1",
+                "NOUPX=1",
+                "NOOBJDUMP=1",
+                "DEBUGMODE=1",
+                "cleandep",
+                "clean",
+                "-j8"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "type": "shell",
+            "label": "clean debug objs 32",
+            "options": {
+                "cwd": "${workspaceFolder}/src",
+                "env": {
+                    "CC": "i686-w64-mingw32-gcc",
+                    "MSYSTEM": "MINGW32", 
+                },
+            },
+            "command": "mingw32-make",
+            "args": [
+                "MINGW=1",
+                "WINDOWSHELL=1",
+                "SDL=1",
+                "NOUPX=1",
+                "NOOBJDUMP=1",
+                "DEBUGMODE=1",
+                "cleandep",
+                "clean",
+                "-j8"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "options": {
+                "cwd": "${workspaceFolder}/src",
+                "env": {
+                    "CC": "x86_64-w64-mingw32-gcc",
+                    "MSYSTEM": "MINGW64", 
+                },
+            },
+            "type": "shell",
+            "label": "clean objs 64",
+            "command": "mingw32-make",
+            "args": [
+                "MINGW64=1",
+                "WINDOWSHELL=1",
+                "SDL=1",
+                "NOUPX=1",
+                "NOOBJDUMP=1",
+                "cleandep",
+                "clean",
+                "-j8"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "type": "shell",
+            "label": "clean objs 32",
+            "options": {
+                "cwd": "${workspaceFolder}/src",
+                "env": {
+                    "CC": "i686-w64-mingw32-gcc",
+                    "MSYSTEM": "MINGW32", 
+                },
+            },
+            "command": "mingw32-make",
+            "args": [
+                "MINGW=1",
+                "WINDOWSHELL=1",
+                "SDL=1",
+                "NOUPX=1",
+                "NOOBJDUMP=1",
+                "cleandep",
+                "clean",
+                "-j8"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "options": {
+                "cwd": "${workspaceFolder}/src",
+                "env": {
+                    "CC": "x86_64-w64-mingw32-gcc",
+                    "MSYSTEM": "MINGW64", 
+                },
+            },
+            // https://www.jameds.org/SRB2/compile/
+            "type": "shell",
+            "label": "make build debug srb2kart 64",
+            "command": "mingw32-make",
+            "args": [
+                "MINGW64=1",
+                "WINDOWSHELL=1",
+                "SDL=1",
+                "NOUPX=1",
+                "NOOBJDUMP=1",
+                "DEBUGMODE=1",
+                "-j8"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "options": {
+                "cwd": "${workspaceFolder}/src",
+                "env": {
+                    "CC": "i686-w64-mingw32-gcc",
+                    "MSYSTEM": "MINGW32", 
+                },
+            },
+            // https://www.jameds.org/SRB2/compile/
+            "type": "shell",
+            "label": "make build debug srb2kart 32",
+            "command": "mingw32-make",
+            "args": [
+                "MINGW=1",
+                "WINDOWSHELL=1",
+                "SDL=1",
+                "NOUPX=1",
+                "NOOBJDUMP=1",
+                "DEBUGMODE=1",
+                "-j8"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "options": {
+                "cwd": "${workspaceFolder}/src",
+                "env": {
+                    "CC": "x86_64-w64-mingw32-gcc",
+                    "MSYSTEM": "MINGW64", 
+                },
+            },
+            // https://www.jameds.org/SRB2/compile/
+            "type": "shell",
+            "label": "make build srb2kart 64",
+            "command": "mingw32-make",
+            "args": [
+                "MINGW64=1",
+                "WINDOWSHELL=1",
+                "SDL=1",
+                "NOUPX=1",
+                "NOOBJDUMP=1",
+                "-j8"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "options": {
+                "cwd": "${workspaceFolder}/src",
+                "env": {
+                    "CC": "i686-w64-mingw32-gcc",
+                    "MSYSTEM": "MINGW32", 
+                },
+            },
+            // https://www.jameds.org/SRB2/compile/
+            "type": "shell",
+            "label": "make build srb2kart 32",
+            "command": "mingw32-make",
+            "args": [
+                "MINGW=1",
+                "WINDOWSHELL=1",
+                "SDL=1",
+                "NOUPX=1",
+                "NOOBJDUMP=1",
+                "-j8"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "type": "shell",
+            "label": "copy debug exe 32",
+            "command": "cp",
+            "args": [
+                "-f",
+                "./bin/Mingw/Debug/srb2kart.exe*",
+                "./SRB2Kart32/",
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "copy debug exe 64",
+            "command": "cp",
+            "args": [
+                "-f",
+                "./bin/Mingw64/Debug/srb2kart.exe*",
+                "./SRB2Kart64/",
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "copy exe 32",
+            "command": "cp",
+            "args": [
+                "-f",
+                "./bin/Mingw/Release/srb2kart.exe*",
+                "./SRB2Kart32/",
+            ],
+        },
+        {
+            "type": "shell",
+            "label": "copy exe 64",
+            "command": "cp",
+            "args": [
+                "-f",
+                "./bin/Mingw64/Release/srb2kart.exe*",
+                "./SRB2Kart64/",
+            ],
+        },
+        {
+            "label": "Build-Debug-64",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "clean debug objs 64",
+                "make build debug srb2kart 64",
+                "copy debug exe 64"
+            ],
+            "group": "build",
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "label": "Build-Debug-32",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "clean debug objs 32",
+                "make build debug srb2kart 32",
+                "copy debug exe 32"
+            ],
+            "group": "build",
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "label": "Build-Debug-All",
+            "dependsOn": [
+                "Build-Debug-64",
+                "Build-Debug-32"
+            ],
+            "group": "build",
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "label": "Build-64",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "clean objs 64",
+                "make build srb2kart 64",
+                "copy exe 64"
+            ],
+            "group": "build",
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "label": "Build-32",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "clean objs 32",
+                "make build srb2kart 32",
+                "copy exe 32"
+            ],
+            "group": "build",
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        },
+        {
+            "label": "Build-All",
+            "dependsOn": [
+                "Build-64",
+                "Build-32"
+            ],
+            "group": "build",
+            "problemMatcher": {
+                "base": "$gcc",
+				"fileLocation": ["relative", "${workspaceRoot}/src"]
+            }
+        }
+    ]
+}
