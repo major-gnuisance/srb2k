@@ -5385,6 +5385,13 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	else
 		gr_kodahack = false;
 
+	// use modulo of wave cycle (3.14159) to prevent value infinitely growing
+	// otherwise could get wonky floating point accuracy effects after some time?
+	// it says "set leveltime" but the value set is currently tailored for the water shader
+	// if other uses for this var appear then maybe should just pass I_GetTimeMillis here
+	// and calculate further values in r_opengl.c
+	HWD.pfnSetSpecialState(HWD_SET_LEVELTIME, I_GetTimeMillis() % 3141);
+
 	// Render the skybox if there is one.
 	drewsky = false;
 	if (skybox)
