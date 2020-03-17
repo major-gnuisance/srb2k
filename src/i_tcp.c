@@ -735,6 +735,8 @@ static SOCKET_TYPE UDP_Bind(int family, struct sockaddr *addr, socklen_t addrlen
 #endif
 #endif
 	mysockaddr_t straddr;
+	struct sockaddr_in sin;
+	socklen_t len = sizeof(sin);
 
 	if (s == (SOCKET_TYPE)ERRSOCKET)
 		return (SOCKET_TYPE)ERRSOCKET;
@@ -827,6 +829,11 @@ static SOCKET_TYPE UDP_Bind(int family, struct sockaddr *addr, socklen_t addrlen
 		else
 			CONS_Printf(M_GetText("Network system buffer set to: %dKb\n"), opt>>10);
 	}
+
+	if (getsockname(s, (struct sockaddr *)&sin, &len) == -1)
+		CONS_Alert(CONS_WARNING, M_GetText("Failed to get port number\n"));
+	else
+		current_port = (UINT16)ntohs(sin.sin_port);
 
 	return s;
 }
@@ -1231,7 +1238,7 @@ static SINT8 SOCK_NetMakeNodewPort(const char *address, const char *port)
 	int gaie;
 
 	 if (!port || !port[0])
-		port = port_name;
+		port = DEFAULTPORT;
 
 	DEBFILE(va("Creating new node: %s@%s\n", address, port));
 
@@ -1402,7 +1409,6 @@ boolean I_InitTcpNetwork(void)
 		if (M_IsNextParm())
 			strcpy(port_name, M_GetNextParm());
 	}
-	current_port = (UINT16)atoi(port_name);
 
 #ifdef HAVE_MINIUPNPC
 	// Enable UPnP support, if possible
