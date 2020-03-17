@@ -1419,10 +1419,7 @@ boolean I_InitTcpNetwork(void)
 
 #ifdef HAVE_MINIUPNPC
 	// Enable UPnP support, if possible
-		if (M_CheckParm("-useUPnP"))
-			InitUPnP();
-		else
-			UPNP_support = false;
+	InitUPnP();
 #endif
 
 	// parse network game options,
