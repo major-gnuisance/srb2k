@@ -1033,6 +1033,9 @@ static boolean UDP_Socket(void)
 #ifdef HAVE_MINIUPNPC
 	if (UPNP_support)
 	{
+		//In case anything else has a mapping. If so it would cause a failure when trying to map, so we delete first.
+		//Will error normally, but will ensure the most recent launch of kart on a network will have an updated local ip.
+		DeletePortMapping(portnum); 
 		if (AddPortMapping(NULL, portnum))
 			added_port_mapping = true; // Set this to prevent multiple attempts.
 	}
