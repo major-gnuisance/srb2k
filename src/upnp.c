@@ -1,6 +1,6 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
-// Copyright (C) 2019 by Victor "Steel Titanium" Fuentes.
+// Copyright (C) 2019 by Victor "SteelT" Fuentes.
 // Copyright (C) 2019 by Sonic Team Junior.
 //
 // This program is free software distributed under the
@@ -32,7 +32,12 @@ char wan_address[64];
 struct UPNPUrls upnp_urls;
 struct IGDdatas upnp_data;
 
-static void ShutdownUPnP(void)
+void ShutdownUPnP(void);
+void InitUPnP(void);
+boolean AddPortMapping(const char *addr, const char *port);
+boolean DeletePortMapping(const char *port);
+
+void ShutdownUPnP(void)
 {
 	FreeUPNPUrls(&upnp_urls);
 	freeUPNPDevlist(upnp_dev);
@@ -74,9 +79,8 @@ void InitUPnP(void)
 	}
 
 	if (!UPNP_support)
-		CONS_Alert(CONS_ERROR, M_GetText("Failed to initialize UPnP, UPnP support will be initialize\n"));
+		CONS_Alert(CONS_ERROR, M_GetText("Failed to initialize UPnP...\n"));
 
-	I_AddExitFunc(ShutdownUPnP);
 	return;
 }
 
