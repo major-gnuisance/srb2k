@@ -572,7 +572,8 @@ static boolean gl_extra_mipmapping = false;
 typedef enum
 {
 	// lighting
-	gluniform_mix_color,
+	gluniform_poly_color,
+	gluniform_tint_color,
 	gluniform_fade_color,
 	gluniform_lighting,
 
@@ -602,14 +603,42 @@ static gl_shaderprogram_t gl_shaderprograms[MAXSHADERPROGRAMS];
 // GLSL Software fragment shader
 //
 
+
+// testing with the new functions
+#define GLSL_DOOM_COLORMAP \
+	"float R_DoomColormap(float light, float z)\n" \
+	"{\n" \
+		"float lightnum = clamp(light / 17.0, 0.0, 15.0);\n" \
+		"float lightz = clamp(z / 16.0, 0.0, 127.0);\n" \
+		"float startmap = (15.0 - lightnum) * 4.0;\n" \
+		"float scale = 160.0 / (lightz + 1.0);\n" \
+		"return startmap - scale * 0.5;\n" \
+	"}\n"
+
+#define GLSL_DOOM_LIGHT_EQUATION \
+	"float R_DoomLightingEquation(float light)\n" \
+	"{\n" \
+		"float z = gl_FragCoord.z / gl_FragCoord.w;\n" \
+		"float colormap = floor(R_DoomColormap(light, z)) + 0.5;\n" \
+		"return clamp(colormap, 0.0, 31.0) / 32.0;\n" \
+	"}\n"
+
+
+/*
 #define GLSL_INTERNAL_FOG_FUNCTION \
 	"float fog(const float dist, const float density,  const float globaldensity) {\n" \
 		"const float LOG2 = -1.442695;\n" \
 		"float d = density * dist;\n" \
 		"return 1.0 - clamp(exp2(d * sqrt(d) * globaldensity * LOG2), 0.0, 1.0);\n" \
 	"}\n"
-
+*/
 // https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_gpu_shader_fp64.txt
+#define GLSL_INTERNAL_FOG_MIX \
+	"float fog_attenuation = R_DoomLightingEquation(lighting);\n" \
+	"vec4 mixed_color = texel * mix_color;\n" \
+	"vec4 final_color = mix(mixed_color, fade_color, fog_attenuation);\n" \
+	"final_color[3] = mixed_color[3];\n"
+/*
 #define GLSL_INTERNAL_FOG_MIX \
 	"float fog_distance = gl_FragCoord.z / gl_FragCoord.w;\n" \
 	"float fog_attenuation = floor(fog(fog_distance, 0.0001 * ((256.0-lighting)/24.0), fog_density)*10.0)/10.0;\n" \
@@ -618,7 +647,24 @@ static gl_shaderprogram_t gl_shaderprograms[MAXSHADERPROGRAMS];
 	"vec4 fog_mix = mix(mixed_color, fog_color, fog_attenuation);\n" \
 	"vec4 final_color = mix(fog_mix, fog_color, ((256.0-lighting)/256.0));\n" \
 	"final_color[3] = mixed_color[3];\n"
-
+*/
+/*
+#define GLSL_SOFTWARE_FRAGMENT_SHADER \
+	"uniform sampler2D tex;\n" \
+	"uniform vec4 mix_color;\n" \
+	"uniform vec4 fade_color;\n" \
+	"uniform float lighting;\n" \
+	"uniform int fog_mode;\n" \
+	"uniform float fog_density;\n" \
+	GLSL_DOOM_COLORMAP \
+	GLSL_DOOM_LIGHT_EQUATION \
+	"void main(void) {\n" \
+		"vec4 texel = texture2D(tex, gl_TexCoord[0].st);\n" \
+		GLSL_INTERNAL_FOG_MIX \
+		"gl_FragColor = final_color;\n" \
+	"}\0"
+*/
+/*
 #define GLSL_SOFTWARE_FRAGMENT_SHADER \
 	"uniform sampler2D tex;\n" \
 	"uniform vec4 mix_color;\n" \
@@ -632,6 +678,64 @@ static gl_shaderprogram_t gl_shaderprograms[MAXSHADERPROGRAMS];
 		GLSL_INTERNAL_FOG_MIX \
 		"gl_FragColor = final_color;\n" \
 	"}\0"
+*/
+
+// new shader stuff taken from srb2 shader branch)
+
+#define GLSL_SOFTWARE_TINT_EQUATION \
+	"if (tint_color.a > 0.0) {\n" \
+		"float color_bright = sqrt((base_color.r * base_color.r) + (base_color.g * base_color.g) + (base_color.b * base_color.b));\n" \
+		"float strength = sqrt(9.0 * tint_color.a);\n" \
+		"final_color.r = clamp((color_bright * (tint_color.r * strength)) + (base_color.r * (1.0 - strength)), 0.0, 1.0);\n" \
+		"final_color.g = clamp((color_bright * (tint_color.g * strength)) + (base_color.g * (1.0 - strength)), 0.0, 1.0);\n" \
+		"final_color.b = clamp((color_bright * (tint_color.b * strength)) + (base_color.b * (1.0 - strength)), 0.0, 1.0);\n" \
+	"}\n"
+
+#define GLSL_SOFTWARE_FADE_EQUATION \
+	"float darkness = R_DoomLightingEquation(lighting);\n" \
+	"final_color = mix(final_color, fade_color, darkness);\n"
+
+#define GLSL_SOFTWARE_FRAGMENT_SHADER \
+	"uniform sampler2D tex;\n" \
+	"uniform vec4 poly_color;\n" \
+	"uniform vec4 tint_color;\n" \
+	"uniform vec4 fade_color;\n" \
+	"uniform float lighting;\n" \
+	GLSL_DOOM_COLORMAP \
+	GLSL_DOOM_LIGHT_EQUATION \
+	"void main(void) {\n" \
+		"vec4 texel = texture2D(tex, gl_TexCoord[0].st);\n" \
+		"vec4 base_color = texel * poly_color;\n" \
+		"vec4 final_color = base_color;\n" \
+		GLSL_SOFTWARE_TINT_EQUATION \
+		GLSL_SOFTWARE_FADE_EQUATION \
+		"final_color.a = texel.a * poly_color.a;\n" \
+		"gl_FragColor = final_color;\n" \
+	"}\0"
+
+
+//
+// Fog block shader (Taken from srb2 shader branch)
+//
+// Alpha of the planes themselves are still slightly off -- see HWR_FogBlockAlpha
+//
+
+#define GLSL_FOG_FRAGMENT_SHADER \
+	"uniform vec4 tint_color;\n" \
+	"uniform vec4 fade_color;\n" \
+	"uniform float lighting;\n" \
+	GLSL_DOOM_COLORMAP \
+	GLSL_DOOM_LIGHT_EQUATION \
+	"void main(void) {\n" \
+		"vec4 base_color = gl_Color;\n" \
+		"vec4 final_color = base_color;\n" \
+		GLSL_SOFTWARE_TINT_EQUATION \
+		GLSL_SOFTWARE_FADE_EQUATION \
+		"gl_FragColor = final_color;\n" \
+	"}\0"
+
+
+
 
 //
 // GLSL generic fragment shader
@@ -664,9 +768,11 @@ static const char *fragment_shaders[] = {
 	GLSL_SOFTWARE_FRAGMENT_SHADER,
 
 	// Fog fragment shader
+	GLSL_FOG_FRAGMENT_SHADER,
+/*
 	"void main(void) {\n"
 		"gl_FragColor = gl_Color;\n"
-	"}\0",
+	"}\0",*/
 
 	// Sky fragment shader
 	"uniform sampler2D tex;\n"
@@ -768,11 +874,17 @@ void SetupGLFunc4(void)
 }
 
 // jimita
-EXPORT void HWRAPI(LoadShaders) (void)
+EXPORT boolean HWRAPI(LoadShaders) (void)
 {
 #ifdef GL_SHADERS
 	GLuint gl_vertShader, gl_fragShader;
 	GLint i, result;
+
+	if (!pglUseProgram)
+	{
+		CONS_Printf("Lack of shader support detected in LoadShaders\n");
+		return false;
+	}
 
 	gl_customvertexshaders[0] = NULL;
 	gl_customfragmentshaders[0] = NULL;
@@ -865,7 +977,8 @@ EXPORT void HWRAPI(LoadShaders) (void)
 #define GETUNI(uniform) pglGetUniformLocation(shader->program, uniform);
 
 		// lighting
-		shader->uniforms[gluniform_mix_color] = GETUNI("mix_color");
+		shader->uniforms[gluniform_poly_color] = GETUNI("poly_color");
+		shader->uniforms[gluniform_tint_color] = GETUNI("tint_color");
 		shader->uniforms[gluniform_fade_color] = GETUNI("fade_color");
 		shader->uniforms[gluniform_lighting] = GETUNI("lighting");
 
@@ -879,11 +992,13 @@ EXPORT void HWRAPI(LoadShaders) (void)
 #undef GETUNI
 	}
 #endif
+	return true;
 }
 
 EXPORT void HWRAPI(LoadCustomShader) (int number, char *shader, size_t size, boolean fragment)
 {
 #ifdef GL_SHADERS
+	if (!pglUseProgram) return;
 	if (number < 1 || number > MAXSHADERS)
 		I_Error("LoadCustomShader(): cannot load shader %d (max %d)", number, MAXSHADERS);
 
@@ -933,6 +1048,7 @@ EXPORT void HWRAPI(UnSetShader) (void)
 	gl_shadersenabled = false;
 	gl_currentshaderprogram = 0;
 	gl_shaderprogramchanged = true;// not sure if this is needed
+	if (!pglUseProgram) return;
 	pglUseProgram(0);
 #endif
 }
@@ -1652,10 +1768,10 @@ EXPORT void HWRAPI(SetTexture) (FTextureInfo *pTexInfo)
 	}
 }
 
-static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *fade)
+static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *poly, GLRGBAFloat *tint, GLRGBAFloat *fade)
 {
 #ifdef GL_SHADERS
-	if (gl_shadersenabled)
+	if (gl_shadersenabled && pglUseProgram)
 	{
 		//gl_shaderprogramchanged = true;// test for comparing with/without optimization
 		gl_shaderprogram_t *shader = &gl_shaderprograms[gl_currentshaderprogram];
@@ -1712,7 +1828,8 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *mix, GLRGBAFloat *f
 						function (uniform, a, b, c, d);
 
 				// polygon
-				UNIFORM_4(shader->uniforms[gluniform_mix_color], mix->red, mix->green, mix->blue, mix->alpha, pglUniform4f);
+				UNIFORM_4(shader->uniforms[gluniform_poly_color], poly->red, poly->green, poly->blue, poly->alpha, pglUniform4f);
+				UNIFORM_4(shader->uniforms[gluniform_tint_color], tint->red, tint->green, tint->blue, tint->alpha, pglUniform4f);
 
 				// 13062019
 				// Check for fog
@@ -1821,6 +1938,8 @@ static int comparePolygons(const void *p1, const void *p2)
 	
 	diff64 = poly1->surf.PolyColor.rgba - poly2->surf.PolyColor.rgba;
 	if (diff64 < 0) return -1; else if (diff64 > 0) return 1;
+	diff64 = poly1->surf.TintColor.rgba - poly2->surf.TintColor.rgba;
+	if (diff64 < 0) return -1; else if (diff64 > 0) return 1;
 	diff64 = poly1->surf.FadeColor.rgba - poly2->surf.FadeColor.rgba;
 	if (diff64 < 0) return -1; else if (diff64 > 0) return 1;
 	
@@ -1867,7 +1986,8 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 	FBITFIELD currentPolyFlags;
 	FSurfaceInfo currentSurfaceInfo;
 
-	GLRGBAFloat firstMix = {0,0,0,0};
+	GLRGBAFloat firstPoly = {0,0,0,0}; // may be misleading but this means first PolyColor
+	GLRGBAFloat firstTint = {0,0,0,0};
 	GLRGBAFloat firstFade = {0,0,0,0};
 
 	boolean needRebind = false;
@@ -1922,13 +2042,18 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 	gl_shaderprogramchanged = true;
 	if (currentPolyFlags & PF_Modulated)
 	{
-		// Mix color
-		firstMix.red    = byte2float[currentSurfaceInfo.PolyColor.s.red];
-		firstMix.green  = byte2float[currentSurfaceInfo.PolyColor.s.green];
-		firstMix.blue   = byte2float[currentSurfaceInfo.PolyColor.s.blue];
-		firstMix.alpha  = byte2float[currentSurfaceInfo.PolyColor.s.alpha];
+		// Poly color
+		firstPoly.red    = byte2float[currentSurfaceInfo.PolyColor.s.red];
+		firstPoly.green  = byte2float[currentSurfaceInfo.PolyColor.s.green];
+		firstPoly.blue   = byte2float[currentSurfaceInfo.PolyColor.s.blue];
+		firstPoly.alpha  = byte2float[currentSurfaceInfo.PolyColor.s.alpha];
 		pglColor4ubv((GLubyte*)&currentSurfaceInfo.PolyColor.s);
 	}
+	// Tint color
+	firstTint.red   = byte2float[currentSurfaceInfo.TintColor.s.red];
+	firstTint.green = byte2float[currentSurfaceInfo.TintColor.s.green];
+	firstTint.blue  = byte2float[currentSurfaceInfo.TintColor.s.blue];
+	firstTint.alpha = byte2float[currentSurfaceInfo.TintColor.s.alpha];
 	// Fade color
 	firstFade.red   = byte2float[currentSurfaceInfo.FadeColor.s.red];
 	firstFade.green = byte2float[currentSurfaceInfo.FadeColor.s.green];
@@ -1936,7 +2061,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 	firstFade.alpha = byte2float[currentSurfaceInfo.FadeColor.s.alpha];
 	
 	if (gl_allowshaders)
-		load_shaders(&currentSurfaceInfo, &firstMix, &firstFade);
+		load_shaders(&currentSurfaceInfo, &firstPoly, &firstTint, &firstFade);
 	
 	if (currentPolyFlags & PF_NoTexture)
 		currentTexture = 0;
@@ -2050,6 +2175,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 			if (gl_allowshaders)
 			{
 				if (currentSurfaceInfo.PolyColor.rgba != nextSurfaceInfo.PolyColor.rgba ||
+					currentSurfaceInfo.TintColor.rgba != nextSurfaceInfo.TintColor.rgba ||
 					currentSurfaceInfo.FadeColor.rgba != nextSurfaceInfo.FadeColor.rgba ||
 					currentSurfaceInfo.LightInfo.light_level != nextSurfaceInfo.LightInfo.light_level)
 				{
@@ -2097,25 +2223,31 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 		// change state according to change bools and next vars, update current vars and reset bools
 		if (changeShader)
 		{
-			GLRGBAFloat mix = {0,0,0,0};
+			GLRGBAFloat poly = {0,0,0,0};
+			GLRGBAFloat tint = {0,0,0,0};
 			GLRGBAFloat fade = {0,0,0,0};
 			gl_currentshaderprogram = nextShader;
 			gl_shaderprogramchanged = true;
 			if (nextPolyFlags & PF_Modulated)
 			{
-				// Mix color
-				mix.red    = byte2float[nextSurfaceInfo.PolyColor.s.red];
-				mix.green  = byte2float[nextSurfaceInfo.PolyColor.s.green];
-				mix.blue   = byte2float[nextSurfaceInfo.PolyColor.s.blue];
-				mix.alpha  = byte2float[nextSurfaceInfo.PolyColor.s.alpha];
+				// Poly color
+				poly.red    = byte2float[nextSurfaceInfo.PolyColor.s.red];
+				poly.green  = byte2float[nextSurfaceInfo.PolyColor.s.green];
+				poly.blue   = byte2float[nextSurfaceInfo.PolyColor.s.blue];
+				poly.alpha  = byte2float[nextSurfaceInfo.PolyColor.s.alpha];
 			}
+			// Tint color
+			tint.red   = byte2float[nextSurfaceInfo.TintColor.s.red];
+			tint.green = byte2float[nextSurfaceInfo.TintColor.s.green];
+			tint.blue  = byte2float[nextSurfaceInfo.TintColor.s.blue];
+			tint.alpha = byte2float[nextSurfaceInfo.TintColor.s.alpha];
 			// Fade color
 			fade.red   = byte2float[nextSurfaceInfo.FadeColor.s.red];
 			fade.green = byte2float[nextSurfaceInfo.FadeColor.s.green];
 			fade.blue  = byte2float[nextSurfaceInfo.FadeColor.s.blue];
 			fade.alpha = byte2float[nextSurfaceInfo.FadeColor.s.alpha];
 			
-			load_shaders(&nextSurfaceInfo, &mix, &fade);
+			load_shaders(&nextSurfaceInfo, &poly, &tint, &fade);
 			currentShader = nextShader;
 			changeShader = false;
 
@@ -2123,7 +2255,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 		}
 		if (changeTexture)
 		{
-			// texture should be already set up by calls to SetTexture during batch collection
+			// texture should be already ready for use from calls to SetTexture during batch collection
 			pglBindTexture(GL_TEXTURE_2D, nextTexture);
 			tex_downloaded = nextTexture;
 			currentTexture = nextTexture;
@@ -2141,27 +2273,33 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 		}
 		if (changeSurfaceInfo)
 		{
-			GLRGBAFloat mix = {0,0,0,0};
+			GLRGBAFloat poly = {0,0,0,0};
+			GLRGBAFloat tint = {0,0,0,0};
 			GLRGBAFloat fade = {0,0,0,0};
 			gl_shaderprogramchanged = false;
 			if (nextPolyFlags & PF_Modulated)
 			{
-				// Mix color
-				mix.red    = byte2float[nextSurfaceInfo.PolyColor.s.red];
-				mix.green  = byte2float[nextSurfaceInfo.PolyColor.s.green];
-				mix.blue   = byte2float[nextSurfaceInfo.PolyColor.s.blue];
-				mix.alpha  = byte2float[nextSurfaceInfo.PolyColor.s.alpha];
+				// Poly color
+				poly.red    = byte2float[nextSurfaceInfo.PolyColor.s.red];
+				poly.green  = byte2float[nextSurfaceInfo.PolyColor.s.green];
+				poly.blue   = byte2float[nextSurfaceInfo.PolyColor.s.blue];
+				poly.alpha  = byte2float[nextSurfaceInfo.PolyColor.s.alpha];
 				pglColor4ubv((GLubyte*)&nextSurfaceInfo.PolyColor.s);
 			}
 			if (gl_allowshaders)
 			{
+				// Tint color
+				tint.red   = byte2float[nextSurfaceInfo.TintColor.s.red];
+				tint.green = byte2float[nextSurfaceInfo.TintColor.s.green];
+				tint.blue  = byte2float[nextSurfaceInfo.TintColor.s.blue];
+				tint.alpha = byte2float[nextSurfaceInfo.TintColor.s.alpha];
 				// Fade color
 				fade.red   = byte2float[nextSurfaceInfo.FadeColor.s.red];
 				fade.green = byte2float[nextSurfaceInfo.FadeColor.s.green];
 				fade.blue  = byte2float[nextSurfaceInfo.FadeColor.s.blue];
 				fade.alpha = byte2float[nextSurfaceInfo.FadeColor.s.alpha];
 				
-				load_shaders(&nextSurfaceInfo, &mix, &fade);
+				load_shaders(&nextSurfaceInfo, &poly, &tint, &fade);
 			}
 			currentSurfaceInfo = nextSurfaceInfo;
 			changeSurfaceInfo = false;
@@ -2227,7 +2365,8 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 	}
 	else
 	{
-		static GLRGBAFloat mix = {0,0,0,0};
+		static GLRGBAFloat poly = {0,0,0,0};
+		static GLRGBAFloat tint = {0,0,0,0};
 		static GLRGBAFloat fade = {0,0,0,0};
 
 		if (gl_test_disable_something) return;
@@ -2240,14 +2379,19 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 			// If Modulated, mix the surface colour to the texture
 			if (CurrentPolyFlags & PF_Modulated)
 			{
-				// Mix color
-				mix.red    = byte2float[pSurf->PolyColor.s.red];
-				mix.green  = byte2float[pSurf->PolyColor.s.green];
-				mix.blue   = byte2float[pSurf->PolyColor.s.blue];
-				mix.alpha  = byte2float[pSurf->PolyColor.s.alpha];
-
+				// Poly color
+				poly.red    = byte2float[pSurf->PolyColor.s.red];
+				poly.green  = byte2float[pSurf->PolyColor.s.green];
+				poly.blue   = byte2float[pSurf->PolyColor.s.blue];
+				poly.alpha  = byte2float[pSurf->PolyColor.s.alpha];
 				pglColor4ubv((GLubyte*)&pSurf->PolyColor.s);
 			}
+
+			// Tint color
+			tint.red   = byte2float[pSurf->TintColor.s.red];
+			tint.green = byte2float[pSurf->TintColor.s.green];
+			tint.blue  = byte2float[pSurf->TintColor.s.blue];
+			tint.alpha = byte2float[pSurf->TintColor.s.alpha];
 
 			// Fade color
 			fade.red   = byte2float[pSurf->FadeColor.s.red];
@@ -2256,7 +2400,7 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 			fade.alpha = byte2float[pSurf->FadeColor.s.alpha];
 		}
 
-		load_shaders(pSurf, &mix, &fade);
+		load_shaders(pSurf, &poly, &tint, &fade);
 
 		pglVertexPointer(3, GL_FLOAT, sizeof(FOutVector), &pOutVerts[0].x);
 		pglTexCoordPointer(2, GL_FLOAT, sizeof(FOutVector), &pOutVerts[0].s);
@@ -2863,7 +3007,8 @@ EXPORT void HWRAPI(CreateModelVBOs) (model_t *model)
 
 static void DrawModelEx(model_t *model, INT32 frameIndex, INT32 duration, INT32 tics, INT32 nextFrameIndex, FTransform *pos, float scale, UINT8 flipped, FSurfaceInfo *Surface)
 {
-	static GLRGBAFloat mix = {0,0,0,0};
+	static GLRGBAFloat poly = {0,0,0,0};
+	static GLRGBAFloat tint = {0,0,0,0};
 	static GLRGBAFloat fade = {0,0,0,0};
 
 	float pol = 0.0f;
@@ -2892,24 +3037,29 @@ static void DrawModelEx(model_t *model, INT32 frameIndex, INT32 duration, INT32 
 			pol = 0.0f;
 	}
 
-	mix.red    = byte2float[Surface->PolyColor.s.red];
-	mix.green  = byte2float[Surface->PolyColor.s.green];
-	mix.blue   = byte2float[Surface->PolyColor.s.blue];
-	mix.alpha  = byte2float[Surface->PolyColor.s.alpha];
+	poly.red    = byte2float[Surface->PolyColor.s.red];
+	poly.green  = byte2float[Surface->PolyColor.s.green];
+	poly.blue   = byte2float[Surface->PolyColor.s.blue];
+	poly.alpha  = byte2float[Surface->PolyColor.s.alpha];
 
-	if (mix.alpha < 1)
+	if (poly.alpha < 1)
 		SetBlend(PF_Translucent|PF_Modulated);
 	else
 		SetBlend(PF_Masked|PF_Modulated|PF_Occlude);
 
 	pglColor4ubv((GLubyte*)&Surface->PolyColor.s);
 
+	tint.red    = byte2float[Surface->TintColor.s.red];
+	tint.green  = byte2float[Surface->TintColor.s.green];
+	tint.blue   = byte2float[Surface->TintColor.s.blue];
+	tint.alpha  = byte2float[Surface->TintColor.s.alpha];
+
 	fade.red   = byte2float[Surface->FadeColor.s.red];
 	fade.green = byte2float[Surface->FadeColor.s.green];
 	fade.blue  = byte2float[Surface->FadeColor.s.blue];
 	fade.alpha = byte2float[Surface->FadeColor.s.alpha];
 
-	load_shaders(Surface, &mix, &fade);
+	load_shaders(Surface, &poly, &tint, &fade);
 
 	pglEnable(GL_CULL_FACE);
 	pglEnable(GL_NORMALIZE);
