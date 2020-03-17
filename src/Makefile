@@ -392,7 +392,8 @@ LIBS+=-lminiupnpc
 ifdef MINGW
 LIBS+=-lws2_32 -liphlpapi
 endif
-CFLAGS+=-DHAVE_MINIUPNPC
+CFLAGS+=-DHAVE_MINIUPNPC -DSTATICLIB -DMINIUPNP_STATICLIB
+OBJS:=$(OBJDIR)/upnp.o $(OBJS)
 endif
 endif
 

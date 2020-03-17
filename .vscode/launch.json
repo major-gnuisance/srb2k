@@ -59,7 +59,7 @@
             }
         },
         {
-            "name": "(gdb) Launch OpenGL w/listen server capability 64",
+            "name": "(gdb) Launch OpenGL w/port 64",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/SRB2Kart64/srb2kart.exe",
@@ -128,7 +128,7 @@
             }
         },
         {
-            "name": "(gdb) Launch Dedicated Server 64",
+            "name": "(gdb) Launch Server 64",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/SRB2Kart64/srb2kart.exe",
@@ -151,7 +151,7 @@
             }
         },
         {
-            "name": "(gdb) Launch Dedicated Server 32",
+            "name": "(gdb) Launch Server 32",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/SRB2Kart32/srb2kart.exe",
