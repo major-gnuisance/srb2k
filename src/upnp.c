@@ -95,7 +95,7 @@ boolean AddPortMapping(const char *addr, const char *port)
 		return false;
 
 	CONS_Printf(M_GetText("Adding port mapping for port: %s, protocol: UDP\n"), port);
-	status = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port, port, addr, "SRB2", "UDP", NULL, 0);
+	status = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port, port, addr, "SRB2Kart", "UDP", NULL, 0);
 
 	if (status != UPNPCOMMAND_SUCCESS)
 	{
