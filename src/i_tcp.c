@@ -833,7 +833,10 @@ static SOCKET_TYPE UDP_Bind(int family, struct sockaddr *addr, socklen_t addrlen
 	if (getsockname(s, (struct sockaddr *)&sin, &len) == -1)
 		CONS_Alert(CONS_WARNING, M_GetText("Failed to get port number\n"));
 	else
+	{
 		current_port = (UINT16)ntohs(sin.sin_port);
+		sprintf(portnum, "%d", current_port);
+	}
 
 	return s;
 }
@@ -982,8 +985,6 @@ static boolean UDP_Socket(void)
 		clientaddress[s].ip4.sin_addr.s_addr = htonl(INADDR_LOOPBACK); //GetLocalAddress(); // my own ip
 		s++;
 	}
-
-	sprintf(portnum, "%d", ntohs(clientaddress[s].ip4.sin_port));
 
 	s = 0;
 
@@ -1195,10 +1196,13 @@ void I_ShutdownTcpDriver(void)
 {
 #ifdef HAVE_MINIUPNPC
 	if (UPNP_support)
+	{
 		if (DeletePortMapping(portnum))
 		{
 			added_port_mapping = false;
 		}
+		ShutdownUPnP();
+	}
 #endif
 #ifndef NONET
 	SOCK_CloseSocket();

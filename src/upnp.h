@@ -1,18 +1,23 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
-// Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2018 by Sonic Team Junior.
+// Copyright (C) 2020 by Victor "SteelT" Fuentes.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
 // See the 'LICENSE' file for more details.
 //-----------------------------------------------------------------------------
-/// \file  i_tcp.h
-/// \brief TCP driver, sockets.
+/// \file  upnp.h
+/// \brief UPnP initialization code and port mapping routines
 
 #ifdef HAVE_MINIUPNPC
 
 extern boolean UPNP_support;
+
+/**	\brief ShutdownUPnP function
+
+	\return	none
+*/
+void ShutdownUPnP(void);
 
 /**	\brief InitUPnP function
 
