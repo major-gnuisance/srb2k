@@ -161,17 +161,6 @@ typedef union
 #endif
 } mysockaddr_t;
 
-#ifdef HAVE_MINIUPNPC
-#ifdef STATIC_MINIUPNPC
-#define STATICLIB
-#endif
-#include "miniupnpc/miniwget.h"
-#include "miniupnpc/miniupnpc.h"
-#include "miniupnpc/upnpcommands.h"
-#undef STATICLIB
-static UINT8 UPNP_support = TRUE;
-#endif
-
 #endif // !NONET
 
 #define MAXBANS 100
@@ -182,6 +171,10 @@ static UINT8 UPNP_support = TRUE;
 #include "d_netfil.h"
 #include "i_tcp.h"
 #include "m_argv.h"
+
+#ifdef HAVE_MINIUPNPC
+#include "upnp.h"
+#endif
 
 #include "doomstat.h"
 
@@ -245,8 +238,10 @@ static UINT8 bannedmask[MAXBANS];
 static size_t numbans = 0;
 static boolean SOCK_bannednode[MAXNETNODES+1]; /// \note do we really need the +1?
 static boolean init_tcp_driver = false;
+static boolean added_port_mapping = false;
 
 static char port_name[8] = DEFAULTPORT;
+static char portnum[6];
 
 #ifndef NONET
 
@@ -337,79 +332,6 @@ static const char* inet_ntopA(short af, const void *cp, char *buf, socklen_t len
 }
 #elif !defined (USE_WINSOCK1)
 #define HAVE_NTOP
-#endif
-
-#ifdef HAVE_MINIUPNPC // based on old XChat patch
-static struct UPNPUrls urls;
-static struct IGDdatas data;
-static char lanaddr[64];
-
-static void I_ShutdownUPnP(void)
-{
-	FreeUPNPUrls(&urls);
-}
-
-static inline void I_InitUPnP(void)
-{
-	struct UPNPDev * devlist = NULL;
-	int upnp_error = -2;
-	CONS_Printf(M_GetText("Looking for UPnP Internet Gateway Device\n"));
-	devlist = upnpDiscover(2000, NULL, NULL, 0, false, &upnp_error);
-	if (devlist)
-	{
-		struct UPNPDev *dev = devlist;
-		char * descXML;
-		int descXMLsize = 0;
-		while (dev)
-		{
-			if (strstr (dev->st, "InternetGatewayDevice"))
-				break;
-			dev = dev->pNext;
-		}
-		if (!dev)
-			dev = devlist; /* defaulting to first device */
-
-		CONS_Printf(M_GetText("Found UPnP device:\n desc: %s\n st: %s\n"),
-		           dev->descURL, dev->st);
-
-		UPNP_GetValidIGD(devlist, &urls, &data, lanaddr, sizeof(lanaddr));
-		CONS_Printf(M_GetText("Local LAN IP address: %s\n"), lanaddr);
-		descXML = miniwget(dev->descURL, &descXMLsize);
-		if (descXML)
-		{
-			parserootdesc(descXML, descXMLsize, &data);
-			free(descXML);
-			descXML = NULL;
-			memset(&urls, 0, sizeof(struct UPNPUrls));
-			memset(&data, 0, sizeof(struct IGDdatas));
-			GetUPNPUrls(&urls, &data, dev->descURL);
-			I_AddExitFunc(I_ShutdownUPnP);
-		}
-		freeUPNPDevlist(devlist);
-	}
-	else if (upnp_error == UPNPDISCOVER_SOCKET_ERROR)
-	{
-		CONS_Printf(M_GetText("No UPnP devices discovered\n"));
-	}
-}
-
-static inline void I_UPnP_add(const char * addr, const char *port, const char * servicetype)
-{
-	if (addr == NULL)
-		addr = lanaddr;
-	if (!urls.controlURL || urls.controlURL[0] == '\0')
-		return;
-	UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
-	                    port, port, addr, "SRB2", servicetype, NULL, NULL);
-}
-
-static inline void I_UPnP_rem(const char *port, const char * servicetype)
-{
-	if (!urls.controlURL || urls.controlURL[0] == '\0')
-		return;
-	UPNP_DeletePortMapping(urls.controlURL, data.first.servicetype,
-	                       port, servicetype, NULL);
-}
 #endif
 
 static const char *SOCK_AddrToStr(mysockaddr_t *sk)
@@ -925,7 +847,6 @@ static boolean UDP_Socket(void)
 	const INT32 b_ipv6 = M_CheckParm("-ipv6");
 #endif
 
-
 	for (s = 0; s < mysocketses; s++)
 		mysockets[s] = ERRSOCKET;
 	for (s = 0; s < MAXNETNODES+1; s++)
@@ -976,13 +897,6 @@ static boolean UDP_Socket(void)
 					FD_SET(mysockets[s], &masterset);
 					myfamily[s] = hints.ai_family;
 					s++;
-#ifdef HAVE_MINIUPNPC
-					if (UPNP_support)
-					{
-						I_UPnP_rem(port_name, "UDP");
-						I_UPnP_add(NULL, port_name, "UDP");
-					}
-#endif
 				}
 				runp = runp->ai_next;
 			}
@@ -1069,6 +983,8 @@ static boolean UDP_Socket(void)
 		s++;
 	}
 
+	sprintf(portnum, "%d", ntohs(clientaddress[s].ip4.sin_port));
+
 	s = 0;
 
 	// setup broadcast adress to BROADCASTADDR entry
@@ -1111,6 +1027,15 @@ static boolean UDP_Socket(void)
 #endif
 
 	broadcastaddresses = s;
+
+
+#ifdef HAVE_MINIUPNPC
+	if (UPNP_support)
+	{
+		if (AddPortMapping(NULL, portnum))
+			added_port_mapping = true; // Set this to prevent multiple attempts.
+	}
+#endif
 
 	doomcom->extratics = 1; // internet is very high ping
 
@@ -1243,12 +1168,6 @@ boolean I_InitTcpDriver(void)
 	if (!tcp_was_up && init_tcp_driver)
 	{
 		I_AddExitFunc(I_ShutdownTcpDriver);
-#ifdef HAVE_MINIUPNPC
-		if (M_CheckParm("-useUPnP"))
-			I_InitUPnP();
-		else
-			UPNP_support = false;
-#endif
 	}
 	return init_tcp_driver;
 }
@@ -1274,6 +1193,13 @@ static void SOCK_CloseSocket(void)
 
 void I_ShutdownTcpDriver(void)
 {
+#ifdef HAVE_MINIUPNPC
+	if (UPNP_support)
+		if (DeletePortMapping(portnum))
+		{
+			added_port_mapping = false;
+		}
+#endif
 #ifndef NONET
 	SOCK_CloseSocket();
 
@@ -1298,6 +1224,7 @@ void I_ShutdownTcpDriver(void)
 #ifdef _PS3
 	netDeinitialize();
 #endif
+
 	CONS_Printf("shut down\n");
 	init_tcp_driver = false;
 #endif
@@ -1481,9 +1408,15 @@ boolean I_InitTcpNetwork(void)
 	{
 		if (M_IsNextParm())
 			strcpy(port_name, M_GetNextParm());
-		else
-			strcpy(port_name, "0");
 	}
+
+#ifdef HAVE_MINIUPNPC
+	// Enable UPnP support, if possible
+		if (M_CheckParm("-useUPnP"))
+			InitUPnP();
+		else
+			UPNP_support = false;
+#endif
 
 	// parse network game options,
 	if (M_CheckParm("-server") || dedicated)

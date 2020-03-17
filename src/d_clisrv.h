@@ -20,6 +20,7 @@
 #include "d_player.h"
 
 #include "md5.h"
+#include "i_tcp.h"
 
 // Network play related stuff.
 // There is a data struct that stores network
