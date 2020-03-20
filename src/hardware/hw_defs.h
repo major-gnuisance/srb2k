@@ -255,6 +255,8 @@ enum hwdsetspecialstate
 
 	HWD_SET_LEVELTIME,
 
+	HWD_SET_DEPTH_ONLY_MODE,// for portals
+
 	HWD_NUMSTATE
 };
 typedef enum hwdsetspecialstate hwdspecialstate_t;

@@ -2844,6 +2844,18 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 			gl_leveltime = (float)Value / 1000.0;
 			break;
 
+		case HWD_SET_DEPTH_ONLY_MODE:// for portals
+			if (Value)
+			{
+				pglClear(GL_DEPTH_BUFFER_BIT);
+				pglColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+			}
+			else
+			{
+				pglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			}
+			break;
+
 		default:
 			break;
 	}
