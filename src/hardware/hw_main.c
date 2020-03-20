@@ -229,12 +229,13 @@ typedef struct portal_s
 	angle_t viewangle;
 
 	UINT8 pass;			/**< Keeps track of the portal's recursion depth. */
-	INT32 clipline;		/**< Optional clipline for line-based portals. */
+	INT32 clipline;		/**< Optional clipline for line-based portals. */   // for ogl portal purposes this will be mandatory
 	INT32 drawcount;	/**< For OpenGL. */
 } portal_t;
 
 sector_t *portalcullsector;
 line_t *portalclipline;
+INT32 portalviewside;
 
 // Linked list for portals.
 portal_t *portal_base, *portal_cap;
@@ -321,6 +322,7 @@ void HWR_PortalFrame(portal_t* portal)
 		portalclipline = &lines[portal->clipline];
 		portalcullsector = portalclipline->frontsector;
 		viewsector = portalclipline->frontsector;
+		portalviewside = P_PointOnLineSide(viewx, viewy, portalclipline);
 	}
 	else
 	{
@@ -3322,6 +3324,24 @@ skip_stuff_for_portals:
 	sub->validcount = validcount;
 }
 
+
+// idea for portal culling: if none of the bounding box points are on the correct side, stop dividing.
+
+boolean HWR_PortalCheckBBox(fixed_t *bspcoord)
+{
+	if (gr_portal != GRPORTAL_INSIDE)
+		return true;
+	if (P_PointOnLineSide(bspcoord[BOXLEFT], bspcoord[BOXTOP], portalclipline) != portalviewside)
+		return true;
+	if (P_PointOnLineSide(bspcoord[BOXLEFT], bspcoord[BOXBOTTOM], portalclipline) != portalviewside)
+		return true;
+	if (P_PointOnLineSide(bspcoord[BOXRIGHT], bspcoord[BOXTOP], portalclipline) != portalviewside)
+		return true;
+	if (P_PointOnLineSide(bspcoord[BOXRIGHT], bspcoord[BOXBOTTOM], portalclipline) != portalviewside)
+		return true;
+	return false;
+}
+
 //
 // Renders all subsectors below a given node,
 //  traversing subtree recursively.
@@ -3364,15 +3384,16 @@ void HWR_RenderBSPNode(INT32 bspnum)
 	// Decide which side the view point is on.
 	side = R_PointOnSide(viewx, viewy, bsp);
 
-	// Recursively divide front space.
-	HWR_RenderBSPNode(bsp->children[side]);
+	// Recursively divide front space. Possibly not when rendering portals.
+	if (HWR_PortalCheckBBox(bsp->bbox[side]))
+		HWR_RenderBSPNode(bsp->children[side]);
 
 	// in portal checking phase we can stop after one is found
 	if (gr_portal == GRPORTAL_FOUND)
 		return;
 
 	// Possibly divide back space.
-	if (HWR_CheckBBox(bsp->bbox[side^1]))
+	if (HWR_CheckBBox(bsp->bbox[side^1]) && HWR_PortalCheckBBox(bsp->bbox[side^1]))
 		HWR_RenderBSPNode(bsp->children[side^1]);
 }
 
@@ -5631,6 +5652,10 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 
 	// hwd settransform used to be here
 
+	// need to apply the transform again since skydome changed it
+	// maybe figure out some better way to do this
+	HWR_SetTransform(fpov, player);
+
 	// Reset the shader state.
 	HWD.pfnSetSpecialState(HWD_SET_SHADERS, cv_grshaders.value);
 	HWD.pfnSetShader(0);
@@ -5649,7 +5674,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	// Lactozilla: First, we have to find portal lines.
 	// The entire level needs to be drawn with the color mask off,
 	// but with the depth mask on.
-	if (cv_grportals.value)
+	if (!skybox && cv_grportals.value)
 	{
 		HWR_Portal_InitList();
 		portalcullsector = NULL;
@@ -5678,6 +5703,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 		HWR_ClearClipper();
 		validcount++;
 	}
+
+	HWR_SetTransform(fpov, player);// not sure if needed
 
 	//CONS_Printf("About to call StartBatching\n");
 	if (cv_enable_batching.value)
@@ -5719,7 +5746,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	if (do_stats) rs_nodetime = I_GetTimeMicros() - rs_nodetime;
 
 	// Now, draw every portal.
-	if (portal_base && cv_grportals.value)
+	if (!skybox && portal_base && cv_grportals.value)
 	{
 		portal_t *portal;
 		size_t addportal = 0;
