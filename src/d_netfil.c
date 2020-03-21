@@ -1119,7 +1119,6 @@ void CURLPrepareFile(const char* url, int dfilenum)
 		curl_easy_setopt(http_handle, CURLOPT_VERBOSE, 1L);
 #endif
 		curl_easy_setopt(http_handle, CURLOPT_URL, va("%s/%s", url, curl_realname));
-		curl_easy_setopt(http_handle, CURLOPT_SSL_VERIFYPEER, 0);
 		curl_easy_setopt(http_handle, CURLOPT_USERAGENT, "SRB2Kart Birbmod/v3"); // Set user agent as some servers won't accept invalid user agents.
 
 		// Follow a redirect request, if sent by the server.
