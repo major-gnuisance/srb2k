@@ -229,16 +229,28 @@ typedef struct portal_s
 	angle_t viewangle;
 
 	UINT8 pass;			/**< Keeps track of the portal's recursion depth. */
+	INT32 startline;
 	INT32 clipline;		/**< Optional clipline for line-based portals. */   // for ogl portal purposes this will be mandatory
 	INT32 drawcount;	/**< For OpenGL. */
+
+	seg_t *seg;
 } portal_t;
 
-sector_t *portalcullsector;
-line_t *portalclipline;
+typedef struct portallist_s
+{
+	portal_t *base;
+	portal_t *cap;
+} portallist_t;
+
+sector_t *portalcullsector = NULL;
+line_t *portalclipline = NULL;
 INT32 portalviewside;
 
 // Linked list for portals.
 portal_t *portal_base, *portal_cap;
+
+// new thing
+portallist_t *currentportallist;
 
 boolean printportals = false;
 
@@ -260,7 +272,7 @@ void HWR_Portal_Remove (portal_t* portal)
 	Z_Free(portal);
 }
 
-void HWR_Portal_Add2Lines (const INT32 line1, const INT32 line2)
+void HWR_Portal_Add2Lines (const INT32 line1, const INT32 line2, seg_t *seg)
 {
 	line_t *start, *dest;
 
@@ -271,23 +283,35 @@ void HWR_Portal_Add2Lines (const INT32 line1, const INT32 line2)
 
 	vertex_t dest_c, start_c;
 
-	portal_t *portal = Z_Malloc(sizeof(portal_t), PU_LEVEL, NULL);
+	portal_t *portal;
+
+	// check for duplicate
+	/*if (currentportallist->base && currentportallist->cap->startline == line1 && currentportallist->cap->clipline == line2)
+	{
+		if (printportals)
+			CONS_Printf("Duplicate portal skipped\n");
+		return;
+	}*/
+
+	portal = Z_Malloc(sizeof(portal_t), PU_STATIC, NULL);
 
 	// Linked list.
-	if (!portal_base)
+	if (!currentportallist->base)
 	{
-		portal_base	= portal;
-		portal_cap	= portal;
+		currentportallist->base = portal;
+		currentportallist->cap = portal;
 	}
 	else
 	{
-		portal_cap->next = portal;
-		portal_cap = portal;
+		currentportallist->cap->next = portal;
+		currentportallist->cap = portal;
 	}
 	portal->next = NULL;
 
 	// Increase recursion level.
 	portal->pass = portalrender+1;
+
+	portal->seg = seg;
 
 	// Offset the portal view by the linedef centers
 	start	= &lines[line1];
@@ -319,6 +343,7 @@ void HWR_Portal_Add2Lines (const INT32 line1, const INT32 line2)
 	portal->viewz = viewz + dest->frontsector->floorheight - start->frontsector->floorheight;
 	portal->viewangle = viewangle + dangle;
 
+	portal->startline = line1;
 	portal->clipline = line2;
 
 	if (printportals)
@@ -350,6 +375,7 @@ void HWR_PortalFrame(portal_t* portal)
 	}
 }
 
+/*
 enum
 {
 	GRPORTAL_OFF = 0,
@@ -359,6 +385,15 @@ enum
 	// https://www.youtube.com/watch?v=6MXofKuMAmM
 	GRPORTAL_INSIDE, GRPORTAL_INSIDEMASK,
 	GRPORTAL_OUTSIDE,
+};
+*/
+enum
+{
+	GRPORTAL_OFF,
+	GRPORTAL_SEARCH,
+	GRPORTAL_STENCIL,
+	GRPORTAL_DEPTH,
+	GRPORTAL_INSIDE,
 };
 
 void HWR_RenderSinglePortal(portal_t *portal, size_t portalnum, float fpov, player_t *player);
@@ -901,6 +936,14 @@ FBITFIELD HWR_TranstableToAlpha(INT32 transtablenum, FSurfaceInfo *pSurf)
 //
 void HWR_ProjectWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blendmode, INT32 lightlevel, extracolormap_t *wallcolormap)
 {
+	if (printportals)
+	{
+		if (gr_portal == GRPORTAL_STENCIL)
+			CONS_Printf("projectwall called on stencil mode\n");
+		if (gr_portal == GRPORTAL_DEPTH)
+			CONS_Printf("projectwall called on depth mode\n");
+	}
+
 	if (wallcolormap)
 		HWR_Lighting(pSurf, lightlevel, wallcolormap->rgba, wallcolormap->fadergba);
 	else
@@ -2509,6 +2552,8 @@ void HWR_AddLine(seg_t *line)
 	static sector_t tempsec;
 
 	fixed_t v1x, v1y, v2x, v2y; // the seg's vertexes as fixed_t
+
+	boolean dont_draw = false;
 #ifdef POLYOBJECTS
 	if (line->polyseg && !(line->polyseg->flags & POF_RENDERSIDES))
 		return;
@@ -2525,12 +2570,18 @@ void HWR_AddLine(seg_t *line)
 	angle1 = R_PointToAngleEx(viewx, viewy, v1x, v1y);
 	angle2 = R_PointToAngleEx(viewx, viewy, v2x, v2y);
 
+	if (gr_portal == GRPORTAL_STENCIL || gr_portal == GRPORTAL_DEPTH)
+	{
+		gr_backsector = line->backsector;
+		goto doaddline;
+	}
+
 	 // PrBoom: Back side, i.e. backface culling - read: endAngle >= startAngle!
 	if (angle2 - angle1 < ANGLE_180)
 		return;
 
-	if (gr_portal == GRPORTAL_INSIDEMASK)
-		goto doaddline;
+	//if (gr_portal == GRPORTAL_INSIDEMASK)
+	//	goto doaddline;
 
 	// PrBoom: use REAL clipping math YAYYYYYYY!!!
 	if (!gld_clipper_SafeCheckRange(angle2, angle1))
@@ -2541,6 +2592,7 @@ void HWR_AddLine(seg_t *line)
 	gr_backsector = line->backsector;
 
 	// Portal line
+/*
 	if (cv_grportals.value && line->linedef->special == 40 && line->side == 0)
 	{
 		if (portalrender < cv_maxportals.value)
@@ -2615,12 +2667,27 @@ void HWR_AddLine(seg_t *line)
 	else if (gr_portal == GRPORTAL_MASKING)
 		return;
 #endif
+*/
+	if (line->linedef->special == 40 && line->side == 0)
+	{
+		// Find the other side!
+		INT32 line2 = P_FindSpecialLineFromTag(40, line->linedef->tag, -1);
+		if (line->linedef == &lines[line2])
+			line2 = P_FindSpecialLineFromTag(40, line->linedef->tag, line2);
+		if (line2 >= 0) // found it!
+		{
+			if (gr_portal == GRPORTAL_SEARCH)
+				HWR_Portal_Add2Lines(line->linedef-lines, line2, line);
+			else if (gr_portal == GRPORTAL_INSIDE)
+				dont_draw = true;
+		}
+	}
 
 doaddline:
 
 	if (!line->backsector)
 	{
-		if (gr_portal != GRPORTAL_MASKING)
+		//if (gr_portal != GRPORTAL_MASKING)
 			gld_clipper_SafeAddClipRange(angle2, angle1);
 	}
 	else
@@ -2628,7 +2695,7 @@ doaddline:
 		gr_backsector = R_FakeFlat(gr_backsector, &tempsec, NULL, NULL, true);
 		if (CheckClip(gr_frontsector, gr_backsector))
 		{
-			if (gr_portal != GRPORTAL_MASKING)
+			//if (gr_portal != GRPORTAL_MASKING)
 				gld_clipper_SafeAddClipRange(angle2, angle1);
 			checkforemptylines = false;
 		}
@@ -2640,7 +2707,15 @@ doaddline:
 			return;
     }
 
-	if (gr_portal != GRPORTAL_PROCESS)// no need to do this during the portal check
+	if (printportals)
+	{
+		if (gr_portal == GRPORTAL_STENCIL)
+			CONS_Printf("processseg about to be called on stencil mode\n");
+		if (gr_portal == GRPORTAL_DEPTH)
+			CONS_Printf("processseg about to be called on depth mode\n");
+	}
+
+	if (gr_portal != GRPORTAL_SEARCH && !dont_draw)// no need to do this during the portal check
 		HWR_ProcessSeg(); // Doesn't need arguments because they're defined globally :D
 	return;
 }
@@ -3035,7 +3110,7 @@ void HWR_Subsector(size_t num)
 								&ceilinglightlevel, false);
 	//FIXME: Use floorlightlevel and ceilinglightlevel insted of lightlevel.
 
-	if (gr_portal == GRPORTAL_PROCESS || gr_portal == GRPORTAL_MASKING || gr_portal == GRPORTAL_INSIDEMASK)
+	if (gr_portal == GRPORTAL_SEARCH)
 	{
 		skipSprites = true;
 		goto skip_stuff_for_portals;// hopefully this goto is okay
@@ -3347,7 +3422,7 @@ skip_stuff_for_portals:
 
 boolean HWR_PortalCheckBBox(fixed_t *bspcoord)
 {
-	if (gr_portal != GRPORTAL_INSIDE)
+	if (!portalclipline)
 		return true;
 	if (P_PointOnLineSide(bspcoord[BOXLEFT], bspcoord[BOXTOP], portalclipline) != portalviewside)
 		return true;
@@ -3380,6 +3455,7 @@ void HWR_RenderBSPNode(INT32 bspnum)
 	if (bspnum & NF_SUBSECTOR)
 	{
 		// PORTAL CULLING
+		/*
 		if (gr_portal != GRPORTAL_OUTSIDE)
 		{
 			sector_t *sect = subsectors[bspnum & ~NF_SUBSECTOR].sector;
@@ -3390,14 +3466,15 @@ void HWR_RenderBSPNode(INT32 bspnum)
 				portalcullsector = NULL;
 			}
 		}
+		*/
 		if (bspnum != -1)
 			HWR_Subsector(bspnum&(~NF_SUBSECTOR));
 		return;
 	}
 
 	// in portal checking phase we can stop after one is found
-	if (gr_portal == GRPORTAL_FOUND)
-		return;
+	//if (gr_portal == GRPORTAL_FOUND)
+	//	return;
 
 	// Decide which side the view point is on.
 	side = R_PointOnSide(viewx, viewy, bsp);
@@ -3407,8 +3484,8 @@ void HWR_RenderBSPNode(INT32 bspnum)
 		HWR_RenderBSPNode(bsp->children[side]);
 
 	// in portal checking phase we can stop after one is found
-	if (gr_portal == GRPORTAL_FOUND)
-		return;
+	//if (gr_portal == GRPORTAL_FOUND)
+	//	return;
 
 	// Possibly divide back space.
 	if (HWR_CheckBBox(bsp->bbox[side^1]) && HWR_PortalCheckBBox(bsp->bbox[side^1]))
@@ -5608,6 +5685,101 @@ void HWR_ClearClipper(void)
 #endif
 }
 
+//
+// Render portals recursively depth first. With portals disabled only current scene is rendered.
+//
+void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *player, int stencil_level, boolean allow_portals)
+{
+	portallist_t portallist;
+	portal_t *portal;
+	portal_t *portal_temp;
+	portallist.base = portallist.cap = NULL;
+
+	if (allow_portals && cv_grportals.value && stencil_level < cv_maxportals.value)// if recursion limit is not reached
+	{
+		// search for portals in current frame
+		currentportallist = &portallist;
+		gr_portal = GRPORTAL_SEARCH;
+
+		HWR_ClearClipper();
+		if (!rootportal)
+			portalclipline = NULL;
+		validcount++;
+		HWR_RenderBSPNode((INT32)numnodes-1);// no actual rendering happens
+
+		// for each found portal:
+		// note: if necessary, could sort the portals here?
+		for (portal = portallist.base; portal; portal = portal->next)
+		{
+			if (printportals)
+				CONS_Printf("Portal for loop iteration on level %d\n", stencil_level);
+			// draw portal seg to stencil buffer with increment
+			HWR_SetTransform(fpov, player);
+			HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
+			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_STENCIL_SEGS);
+			gr_portal = GRPORTAL_STENCIL;// currently grportal_stencil and grportal_depth are not used, but it needs to be something else than "inside" or "search"
+			gr_frontsector = portal->seg->frontsector;
+			//gr_backsector = addportal_p->backsector;    gr_backsector is set in hwr_addline
+			validcount++;
+			HWR_AddLine(portal->seg);
+			// go to portal frame
+			HWR_PortalFrame(portal);
+			// call RecursivePortalRendering
+			RecursivePortalRendering(portal, fpov, player, stencil_level + 1, true);
+			// return to current frame
+			if (rootportal)
+				HWR_PortalFrame(rootportal);
+			else// current frame is not a portal frame but the main view!
+				R_SetupFrame(player, false);
+			// remove portal seg from stencil buffer
+			HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
+			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_STENCIL_REVERSE_SEGS);
+			gr_portal = GRPORTAL_STENCIL;
+			gr_frontsector = portal->seg->frontsector;
+			validcount++;
+			HWR_AddLine(portal->seg);
+
+			HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
+			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_DEPTH_SEGS);// this also removes last portal seg from stencil buffer not
+			// draw portal seg to depth buffer
+			gr_portal = GRPORTAL_DEPTH;
+			gr_frontsector = portal->seg->frontsector;
+			validcount++;
+			HWR_AddLine(portal->seg);
+		}
+		gr_portal = GRPORTAL_INSIDE;// when portal walls are encountered in following bsp traversal, nothing should be drawn
+	}
+	else
+		gr_portal = GRPORTAL_OFF;// there may be portals and they need to be drawn as regural walls
+	// draw normal things in current frame in current incremented stencil buffer area
+	HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
+	HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_NORMAL);
+	HWR_ClearClipper();
+	HWR_ClearSprites();
+	// the frame should be correct, set by either the for loop or the above layer in recursion
+	HWR_SetTransform(fpov, player);
+	if (!rootportal)
+		portalclipline = NULL;
+	drawcount = 0;
+	validcount++;
+	HWR_RenderBSPNode((INT32)numnodes-1);
+	HWR_SortVisSprites();
+	HWR_DrawSprites();
+	if (numplanes || numpolyplanes || numwalls) // Render translucent surfaces after everything, should be correct since portals are done depth first
+		HWR_RenderDrawNodes();
+	// free memory from portal list allocated by calls to Add2Lines
+	portal_temp = portallist.base;
+	while (portal_temp)
+	{
+		portal_t *nextportal = portal_temp->next;
+		Z_Free(portal_temp);
+		portal_temp = nextportal;
+	}
+
+	// TODO: batching at some point
+	// TODO: is it okay if stencil test is on all the time even when its not needed?
+}
+
 
 // ==========================================================================
 // Render the current frame.
@@ -5661,7 +5833,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 		HWR_DrawSkyBackground(fpov);
 	if (skybox)
 		drewsky = true;
-
+	
 	// polygon disabling test
 	if (cv_test_disable_something.value)
 		HWD.pfnSetSpecialState(HWD_SET_TEST_DISABLE_SOMETHING, 1);
@@ -5687,6 +5859,10 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	drawcount = 0;
 	validcount++;
 
+	portalclipline = NULL;
+	RecursivePortalRendering(NULL, fpov, player, 0, !skybox);
+
+/*
 	gr_portal = GRPORTAL_OFF;
 
 	// Lactozilla: First, we have to find portal lines.
@@ -5721,7 +5897,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 		HWR_ClearClipper();
 		validcount++;
 	}
-
+*/
+/*
 	HWR_SetTransform(fpov, player);// not sure if needed
 
 	//CONS_Printf("About to call StartBatching\n");
@@ -5732,6 +5909,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	rs_numpolyobjects = 0;
 	// Recursively "render" the BSP tree.
 	rs_numbspcalls = 0;
+	HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_NORMAL);// TEST does this cause problems?
 	HWR_RenderBSPNode((INT32)numnodes-1);
 
 	if (do_stats) rs_bsptime = I_GetTimeMicros() - rs_bsptime;
@@ -5762,7 +5940,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	if (numplanes || numpolyplanes || numwalls) // Render FOFs and translucent walls after everything
 		HWR_RenderDrawNodes();
 	if (do_stats) rs_nodetime = I_GetTimeMicros() - rs_nodetime;
-
+*/
+/*
 	// Now, draw every portal.
 	if (!skybox && portal_base && cv_grportals.value)
 	{
@@ -5827,8 +6006,9 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 
 	//HWD.pfnPortalFrame(0); dont think this is needed
 	gr_portal = GRPORTAL_OFF;
-	printportals = false;
+*/
 
+	printportals = false;
 
 	rs_posttime = I_GetTimeMicros();
 
@@ -5847,6 +6027,10 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	// polygon disabling test
 	if (cv_test_disable_something.value)
 		HWD.pfnSetSpecialState(HWD_SET_TEST_DISABLE_SOMETHING, 0);
+
+	// i want white screen
+	//HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_DEPTH_SEGS);
+	//HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_NORMAL);
 
 	// Run post processor effects
 	if (!skybox && cv_enable_screen_textures.value)
