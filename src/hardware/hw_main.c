@@ -240,6 +240,13 @@ INT32 portalviewside;
 // Linked list for portals.
 portal_t *portal_base, *portal_cap;
 
+boolean printportals = false;
+
+void Command_Printportals()
+{
+	printportals = true;
+}
+
 // maybe at some point these could be organized better
 void HWR_Portal_InitList (void)
 {
@@ -299,12 +306,23 @@ void HWR_Portal_Add2Lines (const INT32 line1, const INT32 line2)
 	angtopoint = R_PointToAngle2(start_c.x, start_c.y, viewx, viewy);
 	angtopoint += dangle;
 
-	portal->viewx = dest_c.x + FixedMul(FINECOSINE(angtopoint>>ANGLETOFINESHIFT), disttopoint);
-	portal->viewy = dest_c.y + FixedMul(FINESINE(angtopoint>>ANGLETOFINESHIFT), disttopoint);
+	if (dangle == 0)
+	{
+		portal->viewx = viewx + dest_c.x - start_c.x;
+		portal->viewy = viewy + dest_c.y - start_c.y;
+	}
+	else
+	{
+		portal->viewx = dest_c.x + FixedMul(FINECOSINE(angtopoint>>ANGLETOFINESHIFT), disttopoint);
+		portal->viewy = dest_c.y + FixedMul(FINESINE(angtopoint>>ANGLETOFINESHIFT), disttopoint);
+	}
 	portal->viewz = viewz + dest->frontsector->floorheight - start->frontsector->floorheight;
 	portal->viewangle = viewangle + dangle;
 
 	portal->clipline = line2;
+
+	if (printportals)
+		CONS_Printf("Portal line1: %d line2: %d pass: %d\n", line1, line2, portal->pass);
 }
 
 void HWR_PortalFrame(portal_t* portal)
@@ -5809,6 +5827,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 
 	//HWD.pfnPortalFrame(0); dont think this is needed
 	gr_portal = GRPORTAL_OFF;
+	printportals = false;
 
 
 	rs_posttime = I_GetTimeMicros();
@@ -5946,6 +5965,8 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_kodahack);
 	CV_RegisterVar(&cv_grskydome);
 	CV_RegisterVar(&cv_grportals);
+
+	COM_AddCommand("printportals", Command_Printportals);
 }
 
 // --------------------------------------------------------------------------
