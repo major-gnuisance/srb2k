@@ -5697,6 +5697,34 @@ void HWR_ClearClipper(void)
 #endif
 }
 
+
+// Adds an entry to the clipper for portal rendering
+void HWR_PortalClipping(portal_t *portal)
+{
+	angle_t angle1, angle2;
+/*
+	fixed_t v1x, v1y, v2x, v2y; // the seg's vertexes as fixed_t
+
+	seg_t *seg = portal->seg;
+
+	v1x = FLOAT_TO_FIXED(((polyvertex_t *)seg->pv1)->x);
+	v1y = FLOAT_TO_FIXED(((polyvertex_t *)seg->pv1)->y);
+	v2x = FLOAT_TO_FIXED(((polyvertex_t *)seg->pv2)->x);
+	v2y = FLOAT_TO_FIXED(((polyvertex_t *)seg->pv2)->y);
+	
+	angle1 = R_PointToAngleEx(viewx, viewy, v1x, v1y);
+	angle2 = R_PointToAngleEx(viewx, viewy, v2x, v2y);
+*/
+	line_t *line = &lines[portal->clipline];
+
+	angle1 = R_PointToAngleEx(viewx, viewy, line->v1->x, line->v1->y);
+	angle2 = R_PointToAngleEx(viewx, viewy, line->v2->x, line->v2->y);
+
+	// clip things that are not inside the portal window from our viewpoint
+	gld_clipper_SafeAddClipRange(angle2, angle1);
+}
+
+
 //
 // Render portals recursively depth first. With portals disabled only current scene is rendered.
 //
@@ -5787,6 +5815,8 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 		HWR_SetTransform(fpov, player);
 		if (!rootportal)
 			portalclipline = NULL;
+		else
+			HWR_PortalClipping(rootportal);
 		drawcount = 0;
 		validcount++;
 		HWR_RenderBSPNode((INT32)numnodes-1);
