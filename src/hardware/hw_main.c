@@ -5732,6 +5732,7 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 			else// current frame is not a portal frame but the main view!
 				R_SetupFrame(player, false);
 			// remove portal seg from stencil buffer
+			HWR_SetTransform(fpov, player);
 			HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
 			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_STENCIL_REVERSE_SEGS);
 			gr_portal = GRPORTAL_STENCIL;
