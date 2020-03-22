@@ -2960,12 +2960,12 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 					pglStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_DECR, GL_DECR);// dont think z-buffer is used at this point
 					pglDepthMask(GL_FALSE);
 					break;
-				case HWD_PORTAL_DEPTH_SEGS:
+				case HWD_PORTAL_DEPTH_SEGS:// possible fix !! depth test is disabled before entering this, so enable it !!!!
 					// draw only to depth, only to current level of stencil
 					// also revert last stencil buffer write at this point
 					//RevertStencilBuffer();
 					pglDisable(GL_TEXTURE_2D);
-					//pglDisable(GL_DEPTH_TEST);
+					pglEnable(GL_DEPTH_TEST);
 					pglDisable(GL_BLEND);
 					pglColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 					pglStencilFuncSeparate(GL_FRONT_AND_BACK, GL_EQUAL, gl_portal_stencil_level, 0xFF);

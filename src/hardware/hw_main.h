@@ -193,6 +193,7 @@ extern consvar_t cv_grfullskywalls;
 extern consvar_t cv_kodahack;
 extern consvar_t cv_grskydome;
 extern consvar_t cv_grportals;
+extern consvar_t cv_nostencil;
 extern consvar_t cv_enable_screen_textures;
 
 

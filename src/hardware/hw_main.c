@@ -124,7 +124,11 @@ consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL,
 consvar_t cv_grfullskywalls = {"gr_fullskywalls", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kodahack = {"kodahack", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grskydome = {"gr_skydome", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
 consvar_t cv_grportals = {"gr_portals", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_nostencil = {"nostencil", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_portalline = {"portalline", "0", 0, CV_Unsigned, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_portalonly = {"portalonly", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 static void CV_screentextures_ONChange(void);
 consvar_t cv_enable_screen_textures = {"gr_screen_textures", "On", CV_CALL, CV_OnOff, CV_screentextures_ONChange, 0, NULL, NULL, 0, 0, NULL};
@@ -1678,16 +1682,24 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 			else if (grTex->mipmap.flags & TF_TRANSPARENT)
 				HWR_AddTransparentWall(wallVerts, &Surf, gr_bottomtexture, PF_Environment, false, lightnum, colormap);
 			else
-				HWR_ProjectWall(wallVerts, &Surf, PF_Masked, lightnum, colormap);
+				HWR_ProjectWall(wallVerts, &Surf, PF_Masked, lightnum, colormap);// this is the line ran for weird portal
 		}
 		gr_midtexture = R_GetTextureNum(gr_sidedef->midtexture);
-		if (gr_midtexture)
+		if (gr_midtexture || gr_portal == GRPORTAL_STENCIL || gr_portal == GRPORTAL_DEPTH)
 		{
 			FBITFIELD blendmode;
 			sector_t *front, *back;
 			fixed_t  popentop, popenbottom, polytop, polybottom, lowcut, highcut;
 			fixed_t     texturevpeg = 0;
 			INT32 repeats;
+
+			if (printportals)
+			{
+				if (gr_portal == GRPORTAL_STENCIL)
+					CONS_Printf("midtexture portal in stencil\n");
+				if (gr_portal == GRPORTAL_DEPTH)
+					CONS_Printf("midtexture portal in depth\n");
+			}
 
 			if (gr_linedef->frontsector->heightsec != -1)
 				front = &sectors[gr_linedef->frontsector->heightsec];
@@ -1701,7 +1713,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 
 			if (gr_sidedef->repeatcnt)
 				repeats = 1 + gr_sidedef->repeatcnt;
-			else if (gr_linedef->flags & ML_EFFECT5)
+			else if (gr_linedef->flags & ML_EFFECT5 || gr_portal == GRPORTAL_STENCIL || gr_portal == GRPORTAL_DEPTH)
 			{
 				fixed_t high, low;
 
@@ -5711,17 +5723,23 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 		// note: if necessary, could sort the portals here?
 		for (portal = portallist.base; portal; portal = portal->next)
 		{
+			if (cv_portalline.value && cv_portalline.value != portal->startline)
+				continue;
 			if (printportals)
 				CONS_Printf("Portal for loop iteration on level %d\n", stencil_level);
-			// draw portal seg to stencil buffer with increment
-			HWR_SetTransform(fpov, player);
-			HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
-			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_STENCIL_SEGS);
-			gr_portal = GRPORTAL_STENCIL;// currently grportal_stencil and grportal_depth are not used, but it needs to be something else than "inside" or "search"
-			gr_frontsector = portal->seg->frontsector;
-			//gr_backsector = addportal_p->backsector;    gr_backsector is set in hwr_addline
-			validcount++;
-			HWR_AddLine(portal->seg);
+			if (!cv_nostencil.value)
+			{
+				// draw portal seg to stencil buffer with increment
+				HWR_SetTransform(fpov, player);
+				HWR_ClearClipper();
+				HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
+				HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_STENCIL_SEGS);
+				gr_portal = GRPORTAL_STENCIL;// currently grportal_stencil and grportal_depth are not used, but it needs to be something else than "inside" or "search"
+				gr_frontsector = portal->seg->frontsector;
+				//gr_backsector = addportal_p->backsector;    gr_backsector is set in hwr_addline
+				validcount++;
+				HWR_AddLine(portal->seg);
+			}
 			// go to portal frame
 			HWR_PortalFrame(portal);
 			// call RecursivePortalRendering
@@ -5731,18 +5749,23 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 				HWR_PortalFrame(rootportal);
 			else// current frame is not a portal frame but the main view!
 				R_SetupFrame(player, false);
-			// remove portal seg from stencil buffer
-			HWR_SetTransform(fpov, player);
-			HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
-			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_STENCIL_REVERSE_SEGS);
-			gr_portal = GRPORTAL_STENCIL;
-			gr_frontsector = portal->seg->frontsector;
-			validcount++;
-			HWR_AddLine(portal->seg);
-
-			HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
-			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_DEPTH_SEGS);// this also removes last portal seg from stencil buffer not
+			if (!cv_nostencil.value)
+			{
+				// remove portal seg from stencil buffer
+				HWR_SetTransform(fpov, player);
+				HWR_ClearClipper();
+				HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
+				HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_STENCIL_REVERSE_SEGS);
+				gr_portal = GRPORTAL_STENCIL;
+				gr_frontsector = portal->seg->frontsector;
+				validcount++;
+				HWR_AddLine(portal->seg);
+			}
 			// draw portal seg to depth buffer
+			HWR_ClearClipper();
+			if (!cv_nostencil.value)
+				HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
+			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_DEPTH_SEGS);
 			gr_portal = GRPORTAL_DEPTH;
 			gr_frontsector = portal->seg->frontsector;
 			validcount++;
@@ -5753,21 +5776,25 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 	else
 		gr_portal = GRPORTAL_OFF;// there may be portals and they need to be drawn as regural walls
 	// draw normal things in current frame in current incremented stencil buffer area
-	HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
+	if (!cv_nostencil.value)
+		HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
 	HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_NORMAL);
-	HWR_ClearClipper();
-	HWR_ClearSprites();
-	// the frame should be correct, set by either the for loop or the above layer in recursion
-	HWR_SetTransform(fpov, player);
-	if (!rootportal)
-		portalclipline = NULL;
-	drawcount = 0;
-	validcount++;
-	HWR_RenderBSPNode((INT32)numnodes-1);
-	HWR_SortVisSprites();
-	HWR_DrawSprites();
-	if (numplanes || numpolyplanes || numwalls) // Render translucent surfaces after everything, should be correct since portals are done depth first
-		HWR_RenderDrawNodes();
+	if (!cv_portalonly.value || rootportal)
+	{
+		HWR_ClearClipper();
+		HWR_ClearSprites();
+		// the frame should be correct, set by either the for loop or the above layer in recursion
+		HWR_SetTransform(fpov, player);
+		if (!rootportal)
+			portalclipline = NULL;
+		drawcount = 0;
+		validcount++;
+		HWR_RenderBSPNode((INT32)numnodes-1);
+		HWR_SortVisSprites();
+		HWR_DrawSprites();
+		if (numplanes || numpolyplanes || numwalls) // Render translucent surfaces after everything, should be correct since portals are done depth first
+			HWR_RenderDrawNodes();
+	}
 	// free memory from portal list allocated by calls to Add2Lines
 	portal_temp = portallist.base;
 	while (portal_temp)
@@ -5861,6 +5888,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	validcount++;
 
 	portalclipline = NULL;
+	if (printportals)
+		CONS_Printf("First call to RecursivePortalRendering\n");
 	RecursivePortalRendering(NULL, fpov, player, 0, !skybox);
 
 /*
@@ -6009,7 +6038,8 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	gr_portal = GRPORTAL_OFF;
 */
 
-	printportals = false;
+	if (!skybox)
+		printportals = false;
 
 	rs_posttime = I_GetTimeMicros();
 
@@ -6150,6 +6180,9 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_kodahack);
 	CV_RegisterVar(&cv_grskydome);
 	CV_RegisterVar(&cv_grportals);
+	CV_RegisterVar(&cv_nostencil);
+	CV_RegisterVar(&cv_portalline);
+	CV_RegisterVar(&cv_portalonly);
 
 	COM_AddCommand("printportals", Command_Printportals);
 }
@@ -6208,6 +6241,14 @@ void HWR_Shutdown(void)
 void HWR_AddTransparentWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, INT32 texnum, FBITFIELD blend, boolean fogwall, INT32 lightlevel, extracolormap_t *wallcolormap)
 {
 	static size_t allocedwalls = 0;
+
+	if (printportals)
+	{
+		if (gr_portal == GRPORTAL_STENCIL)
+			CONS_Printf("ADDTRANSPARENTWALL called on stencil mode lol\n");
+		if (gr_portal == GRPORTAL_DEPTH)
+			CONS_Printf("ADDTRANSPARENTWALL called on depth mode lol\n");
+	}
 
 	// Force realloc if buffer has been freed
 	if (!wallinfo)
