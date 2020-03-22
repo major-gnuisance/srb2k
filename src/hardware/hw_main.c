@@ -124,6 +124,7 @@ consvar_t cv_enable_batching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL,
 consvar_t cv_grfullskywalls = {"gr_fullskywalls", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kodahack = {"kodahack", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grskydome = {"gr_skydome", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_grskydebug = {"gr_skydebug", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 static void CV_screentextures_ONChange(void);
 consvar_t cv_enable_screen_textures = {"gr_screen_textures", "On", CV_CALL, CV_OnOff, CV_screentextures_ONChange, 0, NULL, NULL, 0, 0, NULL};
@@ -983,6 +984,21 @@ void HWR_SplitWall(sector_t *sector, FOutVector *wallVerts, INT32 texnum, FSurfa
 // Draw walls into the depth buffer so that anything behind is culled properly
 void HWR_DrawSkyWall(FOutVector *wallVerts, FSurfaceInfo *Surf, fixed_t bottom, fixed_t top)
 {
+	if (cv_grskydebug.value)
+	{
+		/*if (bottom != 0 || top != 0)
+		{
+			// set top/bottom coords
+			wallVerts[2].y = wallVerts[3].y = FIXED_TO_FLOAT(top); // No real way to find the correct height of this
+			wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(bottom); // worldlow/bottom because it needs to cover up the lower thok barrier wall
+		}*/
+		wallVerts[3].t = wallVerts[2].t = 1;
+		wallVerts[0].t = wallVerts[1].t = 0;
+		wallVerts[0].s = wallVerts[3].s = 1;
+		wallVerts[2].s = wallVerts[1].s = 0;
+		HWR_ProjectWall(wallVerts, Surf, 0, 255, NULL);
+		return;
+	}
 	HWD.pfnSetTexture(NULL);
 	// no texture
 	wallVerts[3].t = wallVerts[2].t = 0;
@@ -5442,6 +5458,7 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_grfullskywalls);
 	CV_RegisterVar(&cv_kodahack);
 	CV_RegisterVar(&cv_grskydome);
+	CV_RegisterVar(&cv_grskydebug);
 }
 
 // --------------------------------------------------------------------------
