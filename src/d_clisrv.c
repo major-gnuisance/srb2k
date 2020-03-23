@@ -54,6 +54,10 @@
 #include "f_finale.h"
 #endif
 
+#ifdef HAVE_MINIUPNPC
+#include "upnp.h"
+#endif
+
 #ifdef _XBOX
 #include "sdl12/SRB2XBOX/xboxhelp.h"
 #endif
@@ -82,6 +86,10 @@ boolean nodownload = false;
 static boolean serverrunning = false;
 INT32 serverplayer = 0;
 char motd[254], server_context[8]; // Message of the Day, Unique Context (even without Mumble support)
+
+#ifdef HAVE_MINIUPNPC
+boolean added_port_mapping = false;
+#endif
 
 // Server specific vars
 UINT8 playernode[MAXPLAYERS];
@@ -3634,12 +3642,34 @@ boolean SV_SpawnServer(void)
 		serverrunning = true;
 		SV_ResetServer();
 		SV_GenContext();
+
 		if (netgame && I_NetOpenSocket)
 		{
 			MSCloseUDPSocket();		// Tidy up before wiping the slate.
 			I_NetOpenSocket();
+
 			if (ms_RoomId > 0)
+			{
+#ifdef HAVE_MINIUPNPC
+				// Enable UPnP support, if possible
+				if (M_CheckParm("-noUPnP"))
+					UPNP_support = false;
+				else
+					InitUPnP();
+
+				if (UPNP_support)
+				{
+					//In case anything else has a mapping. If so it would cause a failure when trying to map, so we delete first.
+					//Will error normally, but will ensure the most recent launch of kart on a network will have an updated local ip.
+					char portstr[6];
+					sprintf(portstr, "%hu", current_port);
+					DeletePortMapping(portstr); 
+					if (AddPortMapping(NULL, portstr))
+						added_port_mapping = true; // Set this to prevent multiple attempts.
+				}
+#endif
 				RegisterServer();
+			}
 		}
 
 		// non dedicated server just connect to itself
@@ -3673,6 +3703,21 @@ void SV_StopServer(void)
 	cl_mode = CL_SEARCHING;
 	maketic = gametic+1;
 	neededtic = maketic;
+
+#ifdef HAVE_MINIUPNPC
+	if (UPNP_support)
+	{
+		char portstr[6];
+		sprintf(portstr, "%hu", current_port);
+		if (DeletePortMapping(portstr))
+		{
+			added_port_mapping = false;
+		}
+		ShutdownUPnP();
+		UPNP_support = false;
+	}
+#endif
+
 	serverrunning = false;
 }
 
