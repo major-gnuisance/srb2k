@@ -172,10 +172,6 @@ typedef union
 #include "i_tcp.h"
 #include "m_argv.h"
 
-#ifdef HAVE_MINIUPNPC
-#include "upnp.h"
-#endif
-
 #include "doomstat.h"
 
 // win32 or djgpp
@@ -238,7 +234,6 @@ static UINT8 bannedmask[MAXBANS];
 static size_t numbans = 0;
 static boolean SOCK_bannednode[MAXNETNODES+1]; /// \note do we really need the +1?
 static boolean init_tcp_driver = false;
-static boolean added_port_mapping = false;
 
 static char port_name[8] = DEFAULTPORT;
 static char portnum[6];
@@ -1028,19 +1023,6 @@ static boolean UDP_Socket(void)
 #endif
 
 	broadcastaddresses = s;
-
-
-#ifdef HAVE_MINIUPNPC
-	if (UPNP_support)
-	{
-		//In case anything else has a mapping. If so it would cause a failure when trying to map, so we delete first.
-		//Will error normally, but will ensure the most recent launch of kart on a network will have an updated local ip.
-		DeletePortMapping(portnum); 
-		if (AddPortMapping(NULL, portnum))
-			added_port_mapping = true; // Set this to prevent multiple attempts.
-	}
-#endif
-
 	doomcom->extratics = 1; // internet is very high ping
 
 	return true;
@@ -1197,16 +1179,6 @@ static void SOCK_CloseSocket(void)
 
 void I_ShutdownTcpDriver(void)
 {
-#ifdef HAVE_MINIUPNPC
-	if (UPNP_support)
-	{
-		if (DeletePortMapping(portnum))
-		{
-			added_port_mapping = false;
-		}
-		ShutdownUPnP();
-	}
-#endif
 #ifndef NONET
 	SOCK_CloseSocket();
 
@@ -1416,11 +1388,6 @@ boolean I_InitTcpNetwork(void)
 		if (M_IsNextParm())
 			strcpy(port_name, M_GetNextParm());
 	}
-
-#ifdef HAVE_MINIUPNPC
-	// Enable UPnP support, if possible
-	InitUPnP();
-#endif
 
 	// parse network game options,
 	if (M_CheckParm("-server") || dedicated)

@@ -19,7 +19,7 @@
 #include "miniupnpc/upnpcommands.h"
 #include "miniupnpc/upnperrors.h"
 
-boolean UPNP_support = true;
+boolean UPNP_support = false;
 
 struct UPNPDev *upnp_dev;
 int upnp_error;
@@ -65,6 +65,7 @@ void InitUPnP(void)
 			}
 			CONS_Printf(M_GetText("Local IP address: %s\n"), lan_address);
 			CONS_Printf(M_GetText("External IP address: %s\n"), wan_address);
+			UPNP_support = true;
 		}
 		else
 		{
@@ -115,7 +116,7 @@ boolean DeletePortMapping(const char *port)
 	CONS_Printf(M_GetText("Deleting port mapping for port: %s, protocol: UDP\n"), port);
 	status = UPNP_DeletePortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port, "UDP", NULL);
 
-	if (status != UPNPCOMMAND_SUCCESS)
+	if (status != UPNPCOMMAND_SUCCESS && status != 714) //714 is when the entry doesnt exist, which is completely harmless
 	{
 		CONS_Alert(CONS_ERROR, M_GetText("UPNP_DeletePortMapping() failed with code %d (%s)\n"), status, strupnperror(status));
 		return false;
