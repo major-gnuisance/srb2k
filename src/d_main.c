@@ -733,12 +733,13 @@ void D_SRB2Loop(void)
 
 				if (D_Display())
 				{
-					lerp_sameframe = true;
-
 					if (moviemode)
-						M_SaveFrame();
+						if (!lerp_sameframe || cv_gifrecordinterpolatedframes.value && lerp_sameframe)
+							M_SaveFrame();
 					if (takescreenshot) // Only take screenshots after drawing.
 						M_DoScreenShot();
+
+					lerp_sameframe = true;
 				}
 			}
 
@@ -773,12 +774,13 @@ void D_SRB2Loop(void)
 				lerp_fractic = I_GetFracTime() - cv_extrapolation.value;
 			if (D_Display())
 			{
-				lerp_sameframe = true;
-
 				if (moviemode)
-					M_SaveFrame();
+					if (!lerp_sameframe || cv_gifrecordinterpolatedframes.value && lerp_sameframe)
+						M_SaveFrame();
 				if (takescreenshot) // Only take screenshots after drawing.
 					M_DoScreenShot();
+
+				lerp_sameframe = true;
 			}
 		}
 		else if (rendertimeout < entertic) // in case the server hang or netsplit
@@ -787,12 +789,15 @@ void D_SRB2Loop(void)
 
 			if (D_Display())
 			{
-				lerp_sameframe = true;
+				//CONS_Printf("Hang part got run!\n");
 
 				if (moviemode)
-					M_SaveFrame();
+					if (!lerp_sameframe || cv_gifrecordinterpolatedframes.value && lerp_sameframe)
+						M_SaveFrame();
 				if (takescreenshot) // Only take screenshots after drawing.
 					M_DoScreenShot();
+
+				lerp_sameframe = true;
 			}
 		}
 

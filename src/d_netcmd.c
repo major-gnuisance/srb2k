@@ -960,6 +960,7 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_shittyscreen);
 	CV_RegisterVar(&cv_framerate);
 	CV_RegisterVar(&cv_extrapolation);
+	CV_RegisterVar(&cv_gifrecordinterpolatedframes);
 	CV_RegisterVar(&cv_scr_depth);
 	CV_RegisterVar(&cv_scr_width);
 	CV_RegisterVar(&cv_scr_height);

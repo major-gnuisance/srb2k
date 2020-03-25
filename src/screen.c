@@ -84,6 +84,7 @@ consvar_t cv_framerate = {"framerate", "Unlimited", CV_SAVE, framerate_cons_t, N
 
 static CV_PossibleValue_t lerp_cons_t[] = {{FRACUNIT, "None"}, {FRACUNIT*3/4, "Little"}, {FRACUNIT/2, "Some"}, {FRACUNIT/4, "Most"}, {0, "Full"}, {0, NULL}};
 consvar_t cv_extrapolation = {"extrapolation", "None", CV_SAVE, lerp_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_gifrecordinterpolatedframes = {"gif_recordinterpolated", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // =========================================================================
 //                           SCREEN VARIABLES
