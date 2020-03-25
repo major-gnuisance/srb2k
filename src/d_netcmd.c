@@ -1010,6 +1010,7 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_interpolationmode);
 	CV_RegisterVar(&cv_frameratecap);
 	CV_RegisterVar(&cv_extrapolation);
+	CV_RegisterVar(&cv_gifrecordinterpolatedframes);
 	CV_RegisterVar(&cv_scr_depth);
 	CV_RegisterVar(&cv_scr_width);
 	CV_RegisterVar(&cv_scr_height);

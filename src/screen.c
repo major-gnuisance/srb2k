@@ -89,6 +89,7 @@ consvar_t cv_frameratecap = {"frameratecap", "250", CV_SAVE, frameratecap_cons_t
 
 static CV_PossibleValue_t lerp_cons_t[] = {{FRACUNIT, "None"}, {FRACUNIT*3/4, "Little"}, {FRACUNIT/2, "Some"}, {FRACUNIT/4, "Most"}, {0, "Full"}, {0, NULL}};
 consvar_t cv_extrapolation = {"extrapolation", "None", CV_SAVE, lerp_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_gifrecordinterpolatedframes = {"gif_recordinterpolated", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // Dynamic resolution
 static CV_PossibleValue_t dynamicres_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Debug"}, {0, NULL}};
