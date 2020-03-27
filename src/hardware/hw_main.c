@@ -2522,7 +2522,7 @@ static boolean CheckClip(sector_t * afrontsector, sector_t * abacksector)
 	if (backc1 <= frontf1 && backc2 <= frontf2)
 	{
 		checkforemptylines = false;
-		return true;
+		return false;//true;
 	}
 
 	// here we're talking about floors higher than ceilings, don't even bother either.
@@ -2598,6 +2598,32 @@ void HWR_AddLine(seg_t *line)
 	angle1 = R_PointToAngleEx(viewx, viewy, v1x, v1y);
 	angle2 = R_PointToAngleEx(viewx, viewy, v2x, v2y);
 
+	// do an extra culling check when rendering portals
+	// check if any line vertex is on the viewable side of the portal target line
+	// if not, the line can be culled.
+	// TODO this didnt help so maybe this should be removed
+	// disabled for now, probably coming back to this if bsp bounding box stuff isnt enough
+/*
+	if (gr_portal != GRPORTAL_OFF && portalclipline)
+	{
+		vertex_t closest_point;
+		boolean pass = false;
+		if (P_PointOnLineSide(line->v1->x, line->v1->y, portalclipline) != portalviewside)
+		{
+			P_ClosestPointOnLine(line->v1->x, line->v1->y, portalclipline, &closest_point);
+			if (closest_point.x != line->v1->x || closest_point.y != line->v1->y)
+				pass = true;
+		}
+		if (!pass && P_PointOnLineSide(line->v2->x, line->v2->y, portalclipline) != portalviewside)
+		{
+			P_ClosestPointOnLine(line->v2->x, line->v2->y, portalclipline, &closest_point);
+			if (closest_point.x != line->v2->x || closest_point.y != line->v2->y)
+				pass = true;
+		}
+		if (!pass)
+			return;
+	}
+*/
 	if (gr_portal == GRPORTAL_STENCIL || gr_portal == GRPORTAL_DEPTH)
 	{
 		gr_backsector = line->backsector;
@@ -3448,18 +3474,56 @@ skip_stuff_for_portals:
 
 // idea for portal culling: if none of the bounding box points are on the correct side, stop dividing.
 
+
+// idea for fixing fakery map: one portal pillar works, 2 pillars have left/right bug wall, 1 pillar has both sides bugged.
+// bounding box is probably right on the edge, maybe could check for this with P_ClosestPointOnLine
+// so: for each side check, if it passes then also check distance to line,
+// if its zero (or very close?) then dont return true, instead continue to next side check
+// it helped with center pillars! but other parts still have issues, probably because some of bounding box is on correct side.
+
+
+// idea for further clipping improvement:
+// have a separate xyz coordinate for portal view side checking: one that is derived by moving the viewxyz forward
+// the new coords would be at the intersection of line_a and line_b, where
+// line_a = line of view, pointing forward from the center of the camera
+// line_b = a line orthogonal to line_a, defined so that the nearest vertex of portalclipline lies within it
+// maybe if the seg to be drawn has these new coords on one side and the normal viewxyz on the other side then it can be culled?
+
+// looks like P_Thrust in p_user.c has code for moving point forward towards a direction
+// maybe P_InterceptVector could be used for intersect point
+// use returned value as multiplier for the added values from p_thrust thing
+// P_InterceptVector needs divlines which need dx and dy, dx=x2-x1 dy=y2-y1
+
+
 boolean HWR_PortalCheckBBox(fixed_t *bspcoord)
 {
+	vertex_t closest_point;
 	if (!portalclipline)
 		return true;
 	if (P_PointOnLineSide(bspcoord[BOXLEFT], bspcoord[BOXTOP], portalclipline) != portalviewside)
-		return true;
+	{
+		P_ClosestPointOnLine(bspcoord[BOXLEFT], bspcoord[BOXTOP], portalclipline, &closest_point);
+		if (closest_point.x != bspcoord[BOXLEFT] || closest_point.y != bspcoord[BOXTOP])
+			return true;
+	}
 	if (P_PointOnLineSide(bspcoord[BOXLEFT], bspcoord[BOXBOTTOM], portalclipline) != portalviewside)
-		return true;
+	{
+		P_ClosestPointOnLine(bspcoord[BOXLEFT], bspcoord[BOXBOTTOM], portalclipline, &closest_point);
+		if (closest_point.x != bspcoord[BOXLEFT] || closest_point.y != bspcoord[BOXBOTTOM])
+			return true;
+	}
 	if (P_PointOnLineSide(bspcoord[BOXRIGHT], bspcoord[BOXTOP], portalclipline) != portalviewside)
-		return true;
+	{
+		P_ClosestPointOnLine(bspcoord[BOXRIGHT], bspcoord[BOXTOP], portalclipline, &closest_point);
+		if (closest_point.x != bspcoord[BOXRIGHT] || closest_point.y != bspcoord[BOXTOP])
+			return true;
+	}
 	if (P_PointOnLineSide(bspcoord[BOXRIGHT], bspcoord[BOXBOTTOM], portalclipline) != portalviewside)
-		return true;
+	{
+		P_ClosestPointOnLine(bspcoord[BOXRIGHT], bspcoord[BOXBOTTOM], portalclipline, &closest_point);
+		if (closest_point.x != bspcoord[BOXRIGHT] || closest_point.y != bspcoord[BOXBOTTOM])
+			return true;
+	}
 	return false;
 }
 
@@ -5778,7 +5842,7 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 				HWR_ClearClipper();
 				HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, stencil_level);
 				HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_STENCIL_SEGS);
-				gr_portal = GRPORTAL_STENCIL;// currently grportal_stencil and grportal_depth are not used, but it needs to be something else than "inside" or "search"
+				gr_portal = GRPORTAL_STENCIL;
 				gr_frontsector = portal->seg->frontsector;
 				//gr_backsector = addportal_p->backsector;    gr_backsector is set in hwr_addline
 				validcount++;
@@ -5792,7 +5856,10 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 			if (rootportal)
 				HWR_PortalFrame(rootportal);
 			else// current frame is not a portal frame but the main view!
+			{
 				R_SetupFrame(player, false);
+				portalclipline = NULL;
+			}
 			if (!cv_nostencil.value)
 			{
 				// remove portal seg from stencil buffer
