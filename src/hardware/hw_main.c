@@ -2601,13 +2601,11 @@ void HWR_AddLine(seg_t *line)
 	// do an extra culling check when rendering portals
 	// check if any line vertex is on the viewable side of the portal target line
 	// if not, the line can be culled.
-	// TODO this didnt help so maybe this should be removed
-	// disabled for now, probably coming back to this if bsp bounding box stuff isnt enough
-/*
-	if (gr_portal != GRPORTAL_OFF && portalclipline)
+	if (portalclipline)// portalclipline should be NULL when we are not rendering portal contents
 	{
 		vertex_t closest_point;
 		boolean pass = false;
+/*
 		if (P_PointOnLineSide(line->v1->x, line->v1->y, portalclipline) != portalviewside)
 		{
 			P_ClosestPointOnLine(line->v1->x, line->v1->y, portalclipline, &closest_point);
@@ -2620,10 +2618,37 @@ void HWR_AddLine(seg_t *line)
 			if (closest_point.x != line->v2->x || closest_point.y != line->v2->y)
 				pass = true;
 		}
+*/
+		// similar idea than in PortalCheckBBox, but checking the line vertices instead
+		// TODO could make the check more efficient and not check anything if pass==true from earlier or something
+		P_ClosestPointOnLine(line->v1->x, line->v1->y, portalclipline, &closest_point);
+		if (closest_point.x != line->v1->x || closest_point.y != line->v1->y)
+		{
+			if (P_PointOnLineSide(line->v1->x, line->v1->y, portalclipline) != portalviewside)
+				pass = true;
+		}
+		P_ClosestPointOnLine(line->v2->x, line->v2->y, portalclipline, &closest_point);
+		if (closest_point.x != line->v2->x || closest_point.y != line->v2->y)
+		{
+			if (P_PointOnLineSide(line->v2->x, line->v2->y, portalclipline) != portalviewside)
+				pass = true;
+		}/*
+		P_ClosestPointOnLine(v1x, v1y, portalclipline, &closest_point);
+		if (closest_point.x != v1x || closest_point.y != v1y)
+		{
+			if (P_PointOnLineSide(v1x, v1y, portalclipline) != portalviewside)
+				pass = true;
+		}
+		P_ClosestPointOnLine(v2x, v2y, portalclipline, &closest_point);
+		if (closest_point.x != v2x || closest_point.y != v2y)
+		{
+			if (P_PointOnLineSide(v2x, v2y, portalclipline) != portalviewside)
+				pass = true;
+		}*/
 		if (!pass)
 			return;
 	}
-*/
+
 	if (gr_portal == GRPORTAL_STENCIL || gr_portal == GRPORTAL_DEPTH)
 	{
 		gr_backsector = line->backsector;
@@ -3500,6 +3525,7 @@ boolean HWR_PortalCheckBBox(fixed_t *bspcoord)
 	vertex_t closest_point;
 	if (!portalclipline)
 		return true;
+/*
 	if (P_PointOnLineSide(bspcoord[BOXLEFT], bspcoord[BOXTOP], portalclipline) != portalviewside)
 	{
 		P_ClosestPointOnLine(bspcoord[BOXLEFT], bspcoord[BOXTOP], portalclipline, &closest_point);
@@ -3524,6 +3550,38 @@ boolean HWR_PortalCheckBBox(fixed_t *bspcoord)
 		if (closest_point.x != bspcoord[BOXRIGHT] || closest_point.y != bspcoord[BOXBOTTOM])
 			return true;
 	}
+*/
+	// we are looking for a bounding box corner that is on the viewable side of the portal exit.
+	// being exactly on the portal exit line is not enough to pass the test.
+	// P_PointOnLineSide could behave differently from this expectation on this case,
+	// so first check if the point is precisely on the line, and then if not, check the side.
+
+	P_ClosestPointOnLine(bspcoord[BOXLEFT], bspcoord[BOXTOP], portalclipline, &closest_point);
+	if (closest_point.x != bspcoord[BOXLEFT] || closest_point.y != bspcoord[BOXTOP])
+	{
+		if (P_PointOnLineSide(bspcoord[BOXLEFT], bspcoord[BOXTOP], portalclipline) != portalviewside)
+			return true;
+	}
+	P_ClosestPointOnLine(bspcoord[BOXLEFT], bspcoord[BOXBOTTOM], portalclipline, &closest_point);
+	if (closest_point.x != bspcoord[BOXLEFT] || closest_point.y != bspcoord[BOXBOTTOM])
+	{
+		if (P_PointOnLineSide(bspcoord[BOXLEFT], bspcoord[BOXBOTTOM], portalclipline) != portalviewside)
+			return true;
+	}
+	P_ClosestPointOnLine(bspcoord[BOXRIGHT], bspcoord[BOXTOP], portalclipline, &closest_point);
+	if (closest_point.x != bspcoord[BOXRIGHT] || closest_point.y != bspcoord[BOXTOP])
+	{
+		if (P_PointOnLineSide(bspcoord[BOXRIGHT], bspcoord[BOXTOP], portalclipline) != portalviewside)
+			return true;
+	}
+	P_ClosestPointOnLine(bspcoord[BOXRIGHT], bspcoord[BOXBOTTOM], portalclipline, &closest_point);
+	if (closest_point.x != bspcoord[BOXRIGHT] || closest_point.y != bspcoord[BOXBOTTOM])
+	{
+		if (P_PointOnLineSide(bspcoord[BOXRIGHT], bspcoord[BOXBOTTOM], portalclipline) != portalviewside)
+			return true;
+	}
+
+	// we did not find any reason to pass the check, so return failure
 	return false;
 }
 
