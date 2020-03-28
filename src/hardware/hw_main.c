@@ -2514,7 +2514,52 @@ static boolean CheckClip(sector_t * afrontsector, sector_t * abacksector)
 		backf1 = backf2 = abacksector->floorheight;
 		backc1 = backc2 = abacksector->ceilingheight;
 	}
+/*
+	if (printportals)
+	{
+		if (afrontsector == viewsector)
+			CONS_Printf("CheckClip frontsector is viewsector\n");
+		if (abacksector == viewsector)
+			CONS_Printf("CheckClip backsector is viewsector\n");
+	}
+*/
 
+	// using this check with portals causes weird culling issues on ante-station
+	if (!portalclipline && (afrontsector == viewsector || abacksector == viewsector))
+	{
+		fixed_t viewf1, viewf2, viewc1, viewc2;
+		if (afrontsector == viewsector)
+		{
+			//if (printportals)
+			//	CONS_Printf("CheckClip frontsector is viewsector\n");
+			viewf1 = frontf1;
+			viewf2 = frontf2;
+			viewc1 = frontc1;
+			viewc2 = frontc2;
+		}
+		else
+		{
+			//if (printportals)
+			//	CONS_Printf("CheckClip backsector is viewsector\n");
+			viewf1 = backf1;
+			viewf2 = backf2;
+			viewc1 = backc1;
+			viewc2 = backc2;
+		}
+/*
+		// dont clip viewsector when rendering portal contents
+		if (portalclipline)
+		{
+			if (printportals)
+				CONS_Printf("Clipping skipped on portal viewsector\n");
+			return false;
+		}
+*/
+		// check if camera is outside the bounds of the floor and the ceiling (noclipping)
+		// either above the ceiling or below the floor
+		if ((viewz > viewc1 && viewz > viewc2) || (viewz < viewf1 && viewz < viewf2))
+			return false;
+	}
 
 	// now check for closed sectors!
 
@@ -2522,7 +2567,10 @@ static boolean CheckClip(sector_t * afrontsector, sector_t * abacksector)
 	if (backc1 <= frontf1 && backc2 <= frontf2)
 	{
 		checkforemptylines = false;
-		return false;//true;
+		if (portalclipline)// during portal rendering view position may cause undesired culling and the above code has some wrong side effects
+			return false;
+		else
+			return true;
 	}
 
 	// here we're talking about floors higher than ceilings, don't even bother either.
@@ -5872,6 +5920,7 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 	portal_t *portal;
 	portal_t *portal_temp;
 	portallist.base = portallist.cap = NULL;
+	int dummy = 0;
 
 	if (allow_portals && cv_grportals.value && stencil_level < cv_maxportals.value)// if recursion limit is not reached
 	{
@@ -5960,7 +6009,11 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 			HWR_PortalClipping(rootportal);
 		drawcount = 0;
 		validcount++;
+		if (cv_enable_batching.value)
+			HWD.pfnStartBatching();
 		HWR_RenderBSPNode((INT32)numnodes-1);
+		if (cv_enable_batching.value)// TODO save stats when rendering the main view (rootportal == NULL)
+			HWD.pfnRenderBatches(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
 		HWR_SortVisSprites();
 		HWR_DrawSprites();
 		if (numplanes || numpolyplanes || numwalls) // Render translucent surfaces after everything, should be correct since portals are done depth first
