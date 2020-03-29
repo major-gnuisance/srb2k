@@ -126,6 +126,7 @@ void HWR_ProjectPrecipitationSprite(precipmobj_t *thing);
 void HWR_DrawSprites(void);
 
 // hw_bsp.c
+extern boolean gr_maphasportals;
 void HWR_CreatePlanePolygons(INT32 bspnum);
 
 // hw_cache.c

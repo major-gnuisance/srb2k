@@ -5919,10 +5919,10 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 	portallist_t portallist;
 	portal_t *portal;
 	portal_t *portal_temp;
+	int temp;
 	portallist.base = portallist.cap = NULL;
-	int dummy = 0;
 
-	if (allow_portals && cv_grportals.value && stencil_level < cv_maxportals.value)// if recursion limit is not reached
+	if (gr_maphasportals && allow_portals && cv_grportals.value && stencil_level < cv_maxportals.value)// if recursion limit is not reached
 	{
 		// search for portals in current frame
 		currentportallist = &portallist;
@@ -5932,7 +5932,9 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 		if (!rootportal)
 			portalclipline = NULL;
 		validcount++;
+		temp = rs_numbspcalls;
 		HWR_RenderBSPNode((INT32)numnodes-1);// no actual rendering happens
+		rs_numbspcalls = temp;
 
 		// for each found portal:
 		// note: if necessary, could sort the portals here?
@@ -6011,13 +6013,24 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 		validcount++;
 		if (cv_enable_batching.value)
 			HWD.pfnStartBatching();
+		// The render stats are done for every recursion level, but since the level is drawn last the stats will be from that
+		rs_numpolyobjects = 0;
+		rs_bsptime = I_GetTimeMicros();
 		HWR_RenderBSPNode((INT32)numnodes-1);
-		if (cv_enable_batching.value)// TODO save stats when rendering the main view (rootportal == NULL)
-			HWD.pfnRenderBatches(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
+		rs_bsptime = I_GetTimeMicros() - rs_bsptime;
+		if (cv_enable_batching.value)
+			HWD.pfnRenderBatches(&rs_numpolys, &rs_numverts, &rs_numcalls, &rs_numshaders, &rs_numtextures, &rs_numpolyflags, &rs_numcolors, &rs_batchsorttime, &rs_batchdrawtime);
+		rs_numsprites = gr_visspritecount;
+		rs_spritesorttime = I_GetTimeMicros();
 		HWR_SortVisSprites();
+		rs_spritesorttime = I_GetTimeMicros() - rs_spritesorttime;
+		rs_spritedrawtime = I_GetTimeMicros();
 		HWR_DrawSprites();
+		rs_spritedrawtime = I_GetTimeMicros() - rs_spritedrawtime;
+		rs_nodetime = I_GetTimeMicros();
 		if (numplanes || numpolyplanes || numwalls) // Render translucent surfaces after everything, should be correct since portals are done depth first
 			HWR_RenderDrawNodes();
+		rs_nodetime = I_GetTimeMicros() - rs_nodetime;
 	}
 	// free memory from portal list allocated by calls to Add2Lines
 	portal_temp = portallist.base;
@@ -6028,7 +6041,6 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 		portal_temp = nextportal;
 	}
 
-	// TODO: batching at some point
 	// TODO: is it okay if stencil test is on all the time even when its not needed?
 }
 
@@ -6111,6 +6123,7 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	drawcount = 0;
 	validcount++;
 
+	rs_numbspcalls = 0;
 	portalclipline = NULL;
 	if (printportals)
 		CONS_Printf("First call to RecursivePortalRendering\n");
