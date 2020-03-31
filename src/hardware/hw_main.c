@@ -368,13 +368,27 @@ void HWR_PortalFrame(portal_t* portal)
 
 	if (portal->clipline != -1)
 	{
+//		divline_t div_a, div_b;
+//		vertex_t *nearest_vertex;
+
 		portalclipline = &lines[portal->clipline];
 		portalcullsector = portalclipline->frontsector;
 		viewsector = portalclipline->frontsector;
 		portalviewside = P_PointOnLineSide(viewx, viewy, portalclipline);
+
+		// line_a = line of view, pointing forward from the center of the camera
+		// line_b = a line orthogonal to line_a, defined so that the nearest vertex of portalclipline lies within it
+		// create divlines
+//		div_a.x = viewx; div_a.y = viewy;
+//		div_a.dx = viewcos; div_a.dy = viewsin;
+
+//		if (R_PointToDist(portalclipline->v1->x, portalclipline->v1->y) >
+//			R_PointToDist(portalclipline->v2->x, portalclipline->v2->y))
+//			nearest_vertex = portalclipline->
 	}
 	else
 	{
+		I_Error("Portal didn't get a clipline. I don't think this is supposed to happen.");
 		portalclipline = NULL;
 		portalcullsector = NULL;
 		viewsector = R_PointInSubsector(viewx, viewy)->sector;
@@ -3654,8 +3668,9 @@ void HWR_RenderBSPNode(INT32 bspnum)
 	if (bspnum & NF_SUBSECTOR)
 	{
 		// PORTAL CULLING
-		/*
-		if (gr_portal != GRPORTAL_OUTSIDE)
+		
+//		if (gr_portal != GRPORTAL_OUTSIDE)
+		if (portalclipline)
 		{
 			sector_t *sect = subsectors[bspnum & ~NF_SUBSECTOR].sector;
 			if (portalcullsector)
@@ -3665,7 +3680,7 @@ void HWR_RenderBSPNode(INT32 bspnum)
 				portalcullsector = NULL;
 			}
 		}
-		*/
+		
 		if (bspnum != -1)
 			HWR_Subsector(bspnum&(~NF_SUBSECTOR));
 		return;
@@ -6012,7 +6027,10 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 		if (!rootportal)
 			portalclipline = NULL;
 		else
+		{
+			HWR_PortalFrame(rootportal);// for portalclipsector, it could have gone null from search
 			HWR_PortalClipping(rootportal);
+		}
 		drawcount = 0;
 		validcount++;
 		if (cv_enable_batching.value)
