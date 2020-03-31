@@ -136,6 +136,7 @@ consvar_t cv_enable_screen_textures = {"gr_screen_textures", "On", CV_CALL, CV_O
 
 static void CV_grshaders_ONChange(void);
 consvar_t cv_grshaders = {"gr_shaders", "On", CV_SAVE|CV_CALL, CV_OnOff, CV_grshaders_ONChange, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_grwatershader = {"gr_watershader", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 // used to make it so that skybox drawing is not taken into account
 // thought the stats could overwrite on that but not sure ...
@@ -841,7 +842,7 @@ void HWR_RenderPlane(extrasubsector_t *xsub, boolean isceiling, fixed_t fixedhei
 
 	if (PolyFlags & PF_Fog)
 		HWD.pfnSetShader(6);	// fog shader
-	else if (PolyFlags & PF_Ripple)
+	else if (PolyFlags & PF_Ripple && cv_grwatershader.value)
 		HWD.pfnSetShader(5);	// water shader
 	else
 		HWD.pfnSetShader(1);	// floor shader
@@ -6411,6 +6412,7 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_grcorrecttricks);
 	CV_RegisterVar(&cv_grsolvetjoin);
 	CV_RegisterVar(&cv_grshaders);
+	CV_RegisterVar(&cv_grwatershader);
 
 	CV_RegisterVar(&cv_enable_screen_textures);
 	CV_RegisterVar(&cv_grwireframe);
