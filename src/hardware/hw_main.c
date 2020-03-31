@@ -5931,6 +5931,8 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 		HWR_ClearClipper();
 		if (!rootportal)
 			portalclipline = NULL;
+		else
+			HWR_PortalClipping(rootportal);
 		validcount++;
 		temp = rs_numbspcalls;
 		HWR_RenderBSPNode((INT32)numnodes-1);// no actual rendering happens
