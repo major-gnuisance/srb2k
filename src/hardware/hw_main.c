@@ -5763,6 +5763,7 @@ void HWR_DrawSkyBackground(float fpov)
 		}
 
 		HWD.pfnSetShader(7);	// sky shader
+		HWD.pfnSetTransform(NULL);
 		HWD.pfnDrawPolygon(NULL, v, 4, 0);
 		HWD.pfnSetShader(0);
 	}
