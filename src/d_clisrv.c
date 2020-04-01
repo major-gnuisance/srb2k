@@ -4744,17 +4744,6 @@ static boolean CheckForSpeedHacks(UINT8 p)
 	return false;
 }
 
-static boolean CheckForSameCmd(UINT8 p)
-{
-	if (netcmds[maketic%TICQUEUE][p].forwardmove == netcmds[(maketic-1)%TICQUEUE][p].forwardmove
-		&& netcmds[maketic%TICQUEUE][p].sidemove == netcmds[(maketic-1)%TICQUEUE][p].sidemove
-		&& netcmds[maketic%TICQUEUE][p].driftturn == netcmds[(maketic-1)%TICQUEUE][p].driftturn)
-	{
-		return true;
-	}
-	return false;
-}
-
 /** Handles a packet received from a node that is in game
   *
   * \param node The packet sender
@@ -4852,11 +4841,6 @@ FILESTAMP
 			if (CheckForSpeedHacks((UINT8)netconsole))
 				break;
 
-			if (CheckForSameCmd((UINT8)netconsole))
-				afktimer[(UINT8)netconsole]++;
-			else
-				afktimer[(UINT8)netconsole] = 0;
-
 			// Splitscreen cmd
 			if (((netbuffer->packettype == PT_CLIENT2CMD || netbuffer->packettype == PT_CLIENT2MIS)
 				|| (netbuffer->packettype == PT_CLIENT3CMD || netbuffer->packettype == PT_CLIENT3MIS)
@@ -4868,11 +4852,6 @@ FILESTAMP
 
 				if (CheckForSpeedHacks((UINT8)nodetoplayer2[node]))
 					break;
-
-				if (CheckForSameCmd((UINT8)nodetoplayer2[node]))
-					afktimer[(UINT8)nodetoplayer2[node]]++;
-				else
-					afktimer[(UINT8)nodetoplayer2[node]] = 0;
 			}
 
 			if (((netbuffer->packettype == PT_CLIENT3CMD || netbuffer->packettype == PT_CLIENT3MIS)
@@ -4884,11 +4863,6 @@ FILESTAMP
 
 				if (CheckForSpeedHacks((UINT8)nodetoplayer3[node]))
 					break;
-
-				if (CheckForSameCmd((UINT8)nodetoplayer3[node]))
-					afktimer[(UINT8)nodetoplayer3[node]]++;
-				else
-					afktimer[(UINT8)nodetoplayer3[node]] = 0;
 			}
 
 			if ((netbuffer->packettype == PT_CLIENT4CMD || netbuffer->packettype == PT_CLIENT4MIS)
@@ -4899,11 +4873,6 @@ FILESTAMP
 
 				if (CheckForSpeedHacks((UINT8)nodetoplayer4[node]))
 					break;
-
-				if (CheckForSameCmd((UINT8)nodetoplayer4[node]))
-					afktimer[(UINT8)nodetoplayer4[node]]++;
-				else
-					afktimer[(UINT8)nodetoplayer4[node]] = 0;
 			}
 
 			// A delay before we check resynching
@@ -5985,6 +5954,15 @@ static void HandleNodeTimeouts(void)
 				Net_ConnectionTimeout(i);
 }
 
+static boolean CheckForSameCmd(UINT8 p)
+{
+	if (netcmds[maketic%TICQUEUE][p].buttons == netcmds[(maketic-1)%TICQUEUE][p].buttons)
+	{
+		return true;
+	}
+	return false;
+}
+
 static void  HandleIdlePlayers()
 {
 	if (server)
@@ -5993,6 +5971,11 @@ static void  HandleIdlePlayers()
 		{
 			if (playeringame[i])
 			{
+				if (CheckForSameCmd(i))
+					afktimer[i]++;
+				else
+					afktimer[i] = 0;
+
 				if (afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator)
 				{
 					CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
@@ -6000,7 +5983,7 @@ static void  HandleIdlePlayers()
 				}
 				if (afktimer[i] >= cv_afkkicktimer.value * TICRATE)
 				{
-					afktimer[i] = 0;
+					afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking
 					CONS_Printf(M_GetText("Kicking %s for being idle\n"), player_names[i]);
 					COM_BufInsertText(va("kick %d %s", i, "Kicked for being idle"));
 				}
