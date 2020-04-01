@@ -253,6 +253,8 @@ enum hwdsetspecialstate
 
 	HWD_SET_MSAA,
 
+	HWD_SET_LEVELTIME,
+
 	HWD_NUMSTATE
 };
 typedef enum hwdsetspecialstate hwdspecialstate_t;

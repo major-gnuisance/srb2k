@@ -492,7 +492,7 @@ boolean SetupGLfunc(void)
 static INT32 glstate_fog_mode = 0;
 static float glstate_fog_density = 0;
 
-INT32 gl_leveltime = 0;
+float gl_leveltime = 0;
 
 // for wireframe mode, not sure where and how and what and why to put this
 typedef void    (APIENTRY *PFNglPolygonMode)        (GLenum, GLenum);
@@ -715,6 +715,45 @@ static gl_shaderprogram_t gl_shaderprograms[MAXSHADERPROGRAMS];
 
 
 //
+// Water surface shader (Taken from srb2 shader branch)
+//
+// Mostly guesstimated, rather than the rest being built off Software science.
+// Still needs to distort things underneath/around the water...
+//
+
+// changed value of amp, used to be 0.025
+
+#define GLSL_WATER_FRAGMENT_SHADER \
+	"uniform sampler2D tex;\n" \
+	"uniform vec4 poly_color;\n" \
+	"uniform vec4 tint_color;\n" \
+	"uniform vec4 fade_color;\n" \
+	"uniform float lighting;\n" \
+	"uniform float leveltime;\n" \
+	"const float freq = 0.025;\n" \
+	"const float amp = 0.25;\n" \
+	"const float speed = 2.0;\n" \
+	"const float pi = 3.14159;\n" \
+	GLSL_DOOM_COLORMAP \
+	GLSL_DOOM_LIGHT_EQUATION \
+	"void main(void) {\n" \
+		"float z = (gl_FragCoord.z / gl_FragCoord.w) / 2.0;\n" \
+		"float a = -pi * (z * freq) + (leveltime * speed);\n" \
+		"float sdistort = sin(a) * amp;\n" \
+		"float cdistort = cos(a) * amp;\n" \
+		"vec4 texel = texture2D(tex, vec2(gl_TexCoord[0].s - sdistort, gl_TexCoord[0].t - cdistort));\n" \
+		"vec4 base_color = texel * poly_color;\n" \
+		"vec4 final_color = base_color;\n" \
+		GLSL_SOFTWARE_TINT_EQUATION \
+		GLSL_SOFTWARE_FADE_EQUATION \
+		"final_color.a = texel.a * poly_color.a;\n" \
+		"gl_FragColor = final_color;\n" \
+	"}\0"
+
+
+
+
+//
 // Fog block shader (Taken from srb2 shader branch)
 //
 // Alpha of the planes themselves are still slightly off -- see HWR_FogBlockAlpha
@@ -765,7 +804,7 @@ static const char *fragment_shaders[] = {
 	GLSL_SOFTWARE_FRAGMENT_SHADER,
 
 	// Water fragment shader
-	GLSL_SOFTWARE_FRAGMENT_SHADER,
+	GLSL_WATER_FRAGMENT_SHADER,
 
 	// Fog fragment shader
 	GLSL_FOG_FRAGMENT_SHADER,
@@ -1842,11 +1881,12 @@ static void load_shaders(FSurfaceInfo *Surface, GLRGBAFloat *poly, GLRGBAFloat *
 					UNIFORM_4(shader->uniforms[gluniform_fade_color], fade->red, fade->green, fade->blue, fade->alpha, pglUniform4f);
 					UNIFORM_1(shader->uniforms[gluniform_lighting], Surface->LightInfo.light_level, pglUniform1f);
 
+					UNIFORM_1(shader->uniforms[gluniform_leveltime], gl_leveltime, pglUniform1f);
+
 					// Custom shader uniforms
 					if (custom)
 					{
 						UNIFORM_1(shader->uniforms[gluniform_fog_mode], glstate_fog_mode, pglUniform1i);
-						UNIFORM_1(shader->uniforms[gluniform_leveltime], (float)gl_leveltime, pglUniform1f);
 					}
 				}
 
@@ -2798,6 +2838,10 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 				if (Value == 2)
 					pglEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 			}
+			break;
+
+		case HWD_SET_LEVELTIME:// i dont wanna add another HWD function for this... so leveltime goes here
+			gl_leveltime = (float)Value / 1000.0;
 			break;
 
 		default:
