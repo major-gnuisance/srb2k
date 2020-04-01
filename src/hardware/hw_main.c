@@ -122,6 +122,7 @@ boolean gr_shadersavailable = true;
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grfullskywalls = {"gr_fullskywalls", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+// TODO i think portals need fullskywalls so maybe also do full skywalls when drawing to stencil and depth buffer!
 consvar_t cv_kodahack = {"kodahack", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grskydome = {"gr_skydome", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grskydebug = {"gr_skydebug", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -2810,19 +2811,24 @@ void HWR_AddLine(seg_t *line)
 		return;
 #endif
 */
-	if (line->linedef->special == 40 && line->side == 0)
+	if (line->linedef->special == 40)
 	{
-		// Find the other side!
-		INT32 line2 = P_FindSpecialLineFromTag(40, line->linedef->tag, -1);
-		if (line->linedef == &lines[line2])
-			line2 = P_FindSpecialLineFromTag(40, line->linedef->tag, line2);
-		if (line2 >= 0) // found it!
+		if (line->side == 0)
 		{
-			if (gr_portal == GRPORTAL_SEARCH)
-				HWR_Portal_Add2Lines(line->linedef-lines, line2, line);
-			else if (gr_portal == GRPORTAL_INSIDE)
-				dont_draw = true;
+			// Find the other side!
+			INT32 line2 = P_FindSpecialLineFromTag(40, line->linedef->tag, -1);
+			if (line->linedef == &lines[line2])
+				line2 = P_FindSpecialLineFromTag(40, line->linedef->tag, line2);
+			if (line2 >= 0) // found it!
+			{
+				if (gr_portal == GRPORTAL_SEARCH)
+					HWR_Portal_Add2Lines(line->linedef-lines, line2, line);
+				else if (gr_portal == GRPORTAL_INSIDE)
+					dont_draw = true;
+			}
 		}
+		else
+			return;// dont do anything with the other side i guess?
 	}
 
 doaddline:
@@ -5926,6 +5932,17 @@ void HWR_PortalClipping(portal_t *portal)
 	// clip things that are not inside the portal window from our viewpoint
 	gld_clipper_SafeAddClipRange(angle2, angle1);
 }
+
+
+
+// plans for alternative reversed order portal rendering
+// draw world
+// draw portal entry into stencil buffer (stuff in front of portal blocks stencil drawing)
+// clear z buffer in the area of drawn stencil buffer (draw a far away rectangle like with the sky background)
+// render inside of portal
+
+// this approach would have problems with transparencies !!
+
 
 
 //
