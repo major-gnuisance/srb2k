@@ -124,6 +124,8 @@ extern consvar_t cv_kartvoices;
 extern consvar_t cv_karteliminatelast;
 
 extern consvar_t cv_votetime;
+extern consvar_t cv_afkspectimer;
+extern consvar_t cv_afkkicktimer;
 
 extern consvar_t cv_kartdebugitem, cv_kartdebugamount, cv_kartdebugshrink, cv_kartdebugdistribution, cv_kartdebughuddrop;
 extern consvar_t cv_kartdebugcheckpoint, cv_kartdebugnodes, cv_kartdebugcolorize;
