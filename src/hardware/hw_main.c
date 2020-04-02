@@ -987,16 +987,17 @@ void HWR_DrawSkyWall(FOutVector *wallVerts, FSurfaceInfo *Surf, fixed_t bottom, 
 {
 	if (cv_grskydebug.value)
 	{
-		/*if (bottom != 0 || top != 0)
+		if (bottom != 0 || top != 0)
 		{
 			// set top/bottom coords
 			wallVerts[2].y = wallVerts[3].y = FIXED_TO_FLOAT(top); // No real way to find the correct height of this
 			wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(bottom); // worldlow/bottom because it needs to cover up the lower thok barrier wall
-		}*/
+		}
 		wallVerts[3].t = wallVerts[2].t = 1;
 		wallVerts[0].t = wallVerts[1].t = 0;
 		wallVerts[0].s = wallVerts[3].s = 1;
 		wallVerts[2].s = wallVerts[1].s = 0;
+		HWR_GetTexture(52);
 		HWR_ProjectWall(wallVerts, Surf, 0, 255, NULL);
 		return;
 	}
