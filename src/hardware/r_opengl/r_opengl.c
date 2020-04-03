@@ -1365,10 +1365,11 @@ EXPORT void HWRAPI(GClipRect) (INT32 minx, INT32 miny, INT32 maxx, INT32 maxy, f
 
 
 // -----------------+
-// ClearBuffer      : Clear the color/alpha/depth buffer(s)
+// ClearBuffer      : Clear the color/alpha/depth/stencil buffer(s)
 // -----------------+
 EXPORT void HWRAPI(ClearBuffer) (FBOOLEAN ColorMask,
                                     FBOOLEAN DepthMask,
+                                    FBOOLEAN StencilMask,
                                     FRGBAFloat * ClearColor)
 {
 	//GL_DBG_Printf("ClearBuffer(%d)\n", alpha);
@@ -1393,7 +1394,9 @@ EXPORT void HWRAPI(ClearBuffer) (FBOOLEAN ColorMask,
 
 	SetBlend(DepthMask ? PF_Occlude | CurrentPolyFlags : CurrentPolyFlags&~PF_Occlude);
 
-	ClearMask |= GL_STENCIL_BUFFER_BIT;// looks like sometimes stencil buffer needs clearing? had a problem with random black screens
+	if (StencilMask)
+		ClearMask |= GL_STENCIL_BUFFER_BIT;// looks like sometimes stencil buffer needs clearing? had a problem with random black screens
+
 	pglClear(ClearMask);
 	pglEnableClientState(GL_VERTEX_ARRAY); // We always use this one
 	pglEnableClientState(GL_TEXTURE_COORD_ARRAY); // And mostly this one, too
@@ -2461,7 +2464,7 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 			load_shaders(pSurf, &poly, &tint, &fade);
 		}
 		else
-			pglUseProgram(0);
+			UnSetShader();
 
 		pglVertexPointer(3, GL_FLOAT, sizeof(FOutVector), &pOutVerts[0].x);
 		pglTexCoordPointer(2, GL_FLOAT, sizeof(FOutVector), &pOutVerts[0].s);
@@ -2913,7 +2916,7 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 			gl_leveltime = (float)Value / 1000.0;
 			break;
 
-		case HWD_SET_DEPTH_ONLY_MODE:// for portals
+		case HWD_SET_DEPTH_ONLY_MODE:// for portals TODO remove this old one and other old stuff
 			if (Value)
 			{
 				pglClear(GL_DEPTH_BUFFER_BIT);
@@ -2951,7 +2954,7 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 					pglDepthMask(GL_FALSE);
 					break;
 				case HWD_PORTAL_STENCIL_REVERSE_SEGS:
-					// draw only to stencil, only to current level of stencil, incrementing when drawing
+					// draw only to stencil, only to current level of stencil, decrementing when drawing
 					pglDisable(GL_TEXTURE_2D);
 					pglDisable(GL_DEPTH_TEST);
 					pglDisable(GL_BLEND);
@@ -2971,6 +2974,18 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 					pglStencilFuncSeparate(GL_FRONT_AND_BACK, GL_EQUAL, gl_portal_stencil_level, 0xFF);
 					pglStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
 					pglDepthMask(GL_TRUE);
+					break;
+				case HWD_PORTAL_SKY_STENCIL_SEGS:
+					// draw only to stencil, only to current level of stencil, incrementing when drawing
+					// same as HWD_PORTAL_STENCIL_SEGS except depth testing is enabled
+					// this is used to mark all visible skywall pixels to the stencil buffer
+					pglDisable(GL_TEXTURE_2D);
+					pglEnable(GL_DEPTH_TEST);
+					pglDisable(GL_BLEND);
+					pglColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+					pglStencilFuncSeparate(GL_FRONT_AND_BACK, GL_EQUAL, gl_portal_stencil_level, 0xFF);
+					pglStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_INCR);
+					pglDepthMask(GL_TRUE);// not sure about this and does it matter
 					break;
 				default:
 					I_Error("Bad value in HWD_SET_PORTAL_MODE");
@@ -4058,7 +4073,7 @@ EXPORT void HWRAPI(DrawScreenFinalTexture)(int width, int height)
 
 	clearColour.red = clearColour.green = clearColour.blue = 0;
 	clearColour.alpha = 1;
-	ClearBuffer(true, false, &clearColour);
+	ClearBuffer(true, false, false, &clearColour);
 	pglBindTexture(GL_TEXTURE_2D, finalScreenTexture);
 
 	pglColor4ubv(white);

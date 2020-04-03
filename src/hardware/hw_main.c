@@ -1228,6 +1228,58 @@ void HWR_SplitWall(sector_t *sector, FOutVector *wallVerts, INT32 texnum, FSurfa
 		HWR_ProjectWall(wallVerts, Surf, PF_Masked, lightnum, colormap);
 }
 
+// skywall list system for fixing portal issues by postponing skywall rendering (and using stencil buffer for them)
+// ideally this will be a temporary implementation.
+// a better and more efficient way to do this would be to sort skywalls to the end of the draw call list inside RenderBatches.
+// Additionally, to remove the need to draw the sky twice, drawing a plane at the far clip boundary to the stencil buffer after other
+// rendering will also allow stencil sky rendering to fill in any untouched pixels too.
+
+FOutVector* skyWallVertexArray = NULL;
+int skyWallVertexArraySize = 0;
+int skyWallVertexArrayAllocSize = 65536;// what a mouthful
+
+boolean gr_collect_skywalls = false;
+
+void HWR_SkyWallList_Clear()
+{
+	skyWallVertexArraySize = 0;
+}
+
+void HWR_SkyWallList_Add(FOutVector *wallVerts)
+{
+	if (!skyWallVertexArray)
+	{
+		// array has not been allocated yet. allocate it now
+		skyWallVertexArray = Z_Malloc(sizeof(FOutVector) * 4 * skyWallVertexArrayAllocSize, PU_STATIC, NULL);
+	}
+
+	if (skyWallVertexArraySize == skyWallVertexArrayAllocSize)
+	{
+		// allocated array got full, allocate more space
+		skyWallVertexArrayAllocSize *= 2;
+		skyWallVertexArray = Z_Realloc(skyWallVertexArray, sizeof(FOutVector) * 4 * skyWallVertexArrayAllocSize, PU_STATIC, NULL);
+	}
+
+	memcpy(skyWallVertexArray + skyWallVertexArraySize * 4, wallVerts, sizeof(FOutVector) * 4);
+	skyWallVertexArraySize++;
+}
+
+void HWR_DrawSkyWallList()
+{
+	int i;
+	FSurfaceInfo surf;
+
+	surf.PolyColor.rgba = 0xFFFFFFFF;
+
+	HWD.pfnSetTexture(NULL);
+	HWD.pfnUnSetShader();
+	for (i = 0; i < skyWallVertexArraySize; i++)
+	{
+		HWD.pfnDrawPolygon(&surf, skyWallVertexArray + i * 4, 4, PF_Occlude|PF_Invisible|PF_NoTexture);
+	}
+}
+
+
 // HWR_DrawSkyWalls
 // Draw walls into the depth buffer so that anything behind is culled properly
 void HWR_DrawSkyWall(FOutVector *wallVerts, FSurfaceInfo *Surf, fixed_t bottom, fixed_t top)
@@ -1248,7 +1300,6 @@ void HWR_DrawSkyWall(FOutVector *wallVerts, FSurfaceInfo *Surf, fixed_t bottom, 
 		HWR_ProjectWall(wallVerts, Surf, 0, 255, NULL);
 		return;
 	}
-	HWD.pfnSetTexture(NULL);
 	// no texture
 	wallVerts[3].t = wallVerts[2].t = 0;
 	wallVerts[0].t = wallVerts[1].t = 0;
@@ -1261,7 +1312,15 @@ void HWR_DrawSkyWall(FOutVector *wallVerts, FSurfaceInfo *Surf, fixed_t bottom, 
 		wallVerts[2].y = wallVerts[3].y = FIXED_TO_FLOAT(top); // No real way to find the correct height of this
 		wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(bottom); // worldlow/bottom because it needs to cover up the lower thok barrier wall
 	}
-	HWR_ProjectWall(wallVerts, Surf, PF_Invisible|PF_NoTexture, 255, NULL);
+	if (gr_collect_skywalls)
+	{
+		HWR_SkyWallList_Add(wallVerts);
+	}
+	else
+	{
+		HWD.pfnSetTexture(NULL);
+		HWR_ProjectWall(wallVerts, Surf, PF_Invisible|PF_NoTexture, 255, NULL);
+	}
 	// PF_Invisible so it's not drawn into the colour buffer
 	// PF_NoTexture for no texture
 	// PF_Occlude is set in HWR_ProjectWall to draw into the depth buffer
@@ -5687,10 +5746,20 @@ void HWR_DrawSkyBackground(float fpov)
 		dometransform.fovyangle = fpov; // Tails
 		dometransform.splitscreen = splitscreen;
 
-		HWR_GetTexture(texturetranslation[skytexture]);
-		HWD.pfnSetShader(7);	// sky shader
-		HWD.pfnRenderSkyDome(skytexture, textures[skytexture]->width, textures[skytexture]->height, dometransform);
-		HWD.pfnSetShader(0);
+		/*if (gr_collect_skywalls)
+		{
+			HWR_GetTexture(texturetranslation[skytexture+1]);
+			HWD.pfnSetShader(7);	// sky shader
+			HWD.pfnRenderSkyDome(skytexture, textures[skytexture+1]->width, textures[skytexture+1]->height, dometransform);
+			HWD.pfnSetShader(0);
+		}
+		else*/
+		{
+			HWR_GetTexture(texturetranslation[skytexture]);
+			HWD.pfnSetShader(7);	// sky shader
+			HWD.pfnRenderSkyDome(skytexture, textures[skytexture]->width, textures[skytexture]->height, dometransform);
+			HWD.pfnSetShader(0);
+		}
 	}
 	else
 	{
@@ -5700,7 +5769,10 @@ void HWR_DrawSkyBackground(float fpov)
 		float aspectratio;
 		float angleturn;
 
-		HWR_GetTexture(texturetranslation[skytexture]);
+		//if (gr_collect_skywalls)
+		//	HWR_GetTexture(texturetranslation[skytexture+1]);
+		//else
+			HWR_GetTexture(texturetranslation[skytexture]);
 		aspectratio = (float)vid.width/(float)vid.height;
 
 		//Hurdler: the sky is the only texture who need 4.0f instead of 1.0
@@ -5787,14 +5859,14 @@ void HWR_DrawSkyBackground(float fpov)
 
 		HWD.pfnSetShader(7);	// sky shader
 		HWD.pfnSetTransform(NULL);
-		HWD.pfnDrawPolygon(NULL, v, 4, 0);
+		HWD.pfnDrawPolygon(NULL, v, 4, PF_Translucent|PF_NoDepthTest|PF_Modulated);
 		HWD.pfnSetShader(0);
 	}
 }
 
 
 // -----------------+
-// HWR_ClearView : clear the viewwindow, with maximum z value
+// HWR_ClearView : clear the viewwindow, with maximum z value. also clears stencil buffer.
 // -----------------+
 static inline void HWR_ClearView(void)
 {
@@ -5803,7 +5875,7 @@ static inline void HWR_ClearView(void)
 	                 (INT32)(gr_viewwindowx + gr_viewwidth),
 	                 (INT32)(gr_viewwindowy + gr_viewheight),
 	                 ZCLIP_PLANE);
-	HWD.pfnClearBuffer(false, true, 0);
+	HWD.pfnClearBuffer(false, true, true, 0);
 }
 
 
@@ -5956,6 +6028,7 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 	portal_t *portal_temp;
 	int temp;
 	portallist.base = portallist.cap = NULL;
+	const boolean skybox = (skyboxmo[0] && cv_skybox.value);
 
 	if (gr_maphasportals && allow_portals && cv_grportals.value && stencil_level < cv_maxportals.value)// if recursion limit is not reached
 	{
@@ -6056,10 +6129,31 @@ void RecursivePortalRendering(portal_t *rootportal, const float fpov, player_t *
 		// The render stats are done for every recursion level, but since the level is drawn last the stats will be from that
 		rs_numpolyobjects = 0;
 		rs_bsptime = I_GetTimeMicros();
+		if (!rootportal && portallist.base && !skybox && !cv_grskydebug.value)// if portals have been drawn in the main view, then render skywalls differently
+			gr_collect_skywalls = true;
 		HWR_RenderBSPNode((INT32)numnodes-1);
 		rs_bsptime = I_GetTimeMicros() - rs_bsptime;
 		if (cv_enable_batching.value)
 			HWD.pfnRenderBatches(&rs_numpolys, &rs_numverts, &rs_numcalls, &rs_numshaders, &rs_numtextures, &rs_numpolyflags, &rs_numcolors, &rs_batchsorttime, &rs_batchdrawtime);
+		if (skyWallVertexArraySize)// if there are skywalls to draw using the alternate method
+		{
+			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_SKY_STENCIL_SEGS);
+			if (cv_enable_batching.value)
+				HWD.pfnStartBatching();
+			HWR_DrawSkyWallList();
+			if (cv_enable_batching.value)
+				HWD.pfnRenderBatches(&temp, &temp, &temp, &temp, &temp, &temp, &temp, &temp, &temp);
+			HWR_SkyWallList_Clear();
+			HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, 1);
+			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_NORMAL);
+			drewsky = false;
+			HWR_DrawSkyBackground(fpov);
+			HWD.pfnSetSpecialState(HWD_SET_STENCIL_LEVEL, 0);
+			HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_NORMAL);
+			HWD.pfnClearBuffer(false, false, true, 0);// clear skywall markings from the stencil buffer
+			HWR_SetTransform(fpov, player);// restore transform
+		}
+		gr_collect_skywalls = false;
 		rs_numsprites = gr_visspritecount;
 		rs_spritesorttime = I_GetTimeMicros();
 		HWR_SortVisSprites();
@@ -6340,6 +6434,9 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	//HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_DEPTH_SEGS);
 	//HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_NORMAL);
 
+	//HWR_DrawSkyBackground(fpov);// TEST seeing where this lies
+	//HWD.pfnSetTransform(NULL);
+
 	// Run post processor effects
 	if (!skybox && cv_enable_screen_textures.value)
 		HWR_DoPostProcessor(player);
@@ -6388,7 +6485,7 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 		ClearColor.green = 0.0f;
 		ClearColor.blue = 0.0f;
 		ClearColor.alpha = 1.0f;
-		HWD.pfnClearBuffer(true, false, &ClearColor);
+		HWD.pfnClearBuffer(true, false, false, &ClearColor);
 	}
 
 	if (viewnumber > 3)
