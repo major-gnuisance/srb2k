@@ -5337,7 +5337,7 @@ static boolean CheckForSameCmd(UINT8 p)
 
 static void  HandleIdlePlayers()
 {
-	if (server)
+	if (server && !demo.playback)
 	{
 		for (INT32 i = 1; i < MAXPLAYERS; i++)
 		{
