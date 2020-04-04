@@ -2600,6 +2600,7 @@ void CL_ClearPlayer(INT32 playernum)
 			P_RemoveMobj(players[playernum].mo->tracer);
 		P_RemoveMobj(players[playernum].mo);
 	}
+	afktimer[playernum] = 0;
 	memset(&players[playernum], 0, sizeof (player_t));
 }
 
