@@ -172,6 +172,11 @@ static void CV_grshaders_ONChange(void)
 		cv_grshaders.value = 0;
 }
 
+void Command_Viewsector()
+{
+	CONS_Printf("Floor: %d Ceiling: %d\n", viewsector->floorheight>>FRACBITS, viewsector->ceilingheight>>FRACBITS);
+}
+
 // ==========================================================================
 // Globals
 // ==========================================================================
@@ -1550,11 +1555,18 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 				{
 					// Both front and back sectors are sky, needs skywall from the frontsector's ceiling, but only if the
 					// backsector is lower
-					if ((worldhigh <= worldtop)
-#ifdef ESLOPE
-					&& (worldhighslope <= worldtopslope)
-#endif
-					)
+//					if ((worldhigh <= worldtop)
+//#ifdef ESLOPE
+//					&& (worldhighslope <= worldtopslope)
+//#endif
+//					)
+/*					if ((worldhigh <= worldlow
+					&& worldhighslope <= worldlowslope) ||
+					(worldtop <= worldbottom
+					&& worldtopslope <= worldbottomslope)
+					)*/
+					if (worldtop != worldhigh
+					|| worldtopslope != worldhighslope)
 					{
 #ifdef ESLOPE
 						wallVerts[0].y = FIXED_TO_FLOAT(worldhigh);
@@ -6615,6 +6627,7 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_portalonly);
 
 	COM_AddCommand("printportals", Command_Printportals);
+	COM_AddCommand("viewsector", Command_Viewsector);
 }
 
 // --------------------------------------------------------------------------
