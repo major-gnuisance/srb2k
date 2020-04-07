@@ -123,14 +123,16 @@ int gr_wallcounter = 0;
 
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_grfullskywalls = {"gr_fullskywalls", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+CV_PossibleValue_t grskywallmode_cons_t[] = {{0, "Full"}, {1, "New Reduced"}, {2, "Old Reduced"}, {0, NULL}};
+consvar_t cv_grskywallmode = {"gr_skywallmode", "Full", CV_SAVE, grskywallmode_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 // TODO i think portals need fullskywalls so maybe also do full skywalls when drawing to stencil and depth buffer!
 consvar_t cv_kodahack = {"kodahack", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grskydome = {"gr_skydome", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grskydebug = {"gr_skydebug", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grwallcount = {"gr_wallcount", "0", 0, CV_Unsigned, NULL, 0, NULL, NULL, 0, 0, NULL};
 
-consvar_t cv_grskytest = {"gr_skytest", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+//consvar_t cv_grskytest = {"gr_skytest", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};// currently does nothing
 
 consvar_t cv_grportals = {"gr_portals", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_nostencil = {"nostencil", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -1509,43 +1511,9 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 		worldlow  = gr_backsector->floorheight;
 #endif
 
-		// previously removed skywall code
 		// Sky culling
-		if (cv_grfullskywalls.value && !gr_curline->polyseg) // Don't do it for polyobjects
+		if (cv_grskywallmode.value != 2 && !gr_curline->polyseg) // Don't do it for polyobjects
 		{
-// These two are the new SRB2 sky code
-/*
-			if (gr_frontsector->ceilingpic == skyflatnum)
-			{
-				if (gr_backsector->ceilingpic != skyflatnum) // don't cull if back sector is also sky
-				{
-					wallVerts[2].y = wallVerts[3].y = FIXED_TO_FLOAT(INT32_MAX); // draw to top of map space
-#ifdef ESLOPE
-					wallVerts[0].y = FIXED_TO_FLOAT(worldtop);
-					wallVerts[1].y = FIXED_TO_FLOAT(worldtopslope);
-#else
-					wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(worldtop);
-#endif
-					HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
-				}
-			}
-
-			if (gr_frontsector->floorpic == skyflatnum)
-			{
-				if (gr_backsector->floorpic != skyflatnum) // don't cull if back sector is also sky
-				{
-#ifdef ESLOPE
-					wallVerts[3].y = FIXED_TO_FLOAT(worldbottom);
-					wallVerts[2].y = FIXED_TO_FLOAT(worldbottomslope);
-#else
-					wallVerts[2].y = wallVerts[3].y = FIXED_TO_FLOAT(worldbottom);
-#endif
-					wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(INT32_MIN); // draw to bottom of map space
-					HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
-				}
-			}
-*/
-
 			// Sky Ceilings
 			wallVerts[3].y = wallVerts[2].y = FIXED_TO_FLOAT(INT32_MAX);
 
@@ -1555,19 +1523,9 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 				{
 					// Both front and back sectors are sky, needs skywall from the frontsector's ceiling, but only if the
 					// backsector is lower
-//					if ((worldhigh <= worldtop)
-//#ifdef ESLOPE
-//					&& (worldhighslope <= worldtopslope)
-//#endif
-//					)
-/*					if ((worldhigh <= worldlow
-					&& worldhighslope <= worldlowslope) ||
-					(worldtop <= worldbottom
-					&& worldtopslope <= worldbottomslope)
-					)*/
-					if (worldtop != worldhigh
-					|| worldtopslope != worldhighslope)// maybe use old condition when fullskywalls is true and use this when its not
-					{									// that way the mostly pointless skywalls can be disabled
+					if ((worldhigh <= worldtop && worldhighslope <= worldtopslope)// Assuming ESLOPE is always on with my changes
+					&& (cv_grskywallmode.value == 0 || (worldhigh != worldtop || worldhighslope != worldtopslope)))
+					{
 #ifdef ESLOPE
 						wallVerts[0].y = FIXED_TO_FLOAT(worldhigh);
 						wallVerts[1].y = FIXED_TO_FLOAT(worldhighslope);
@@ -1612,11 +1570,9 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 					// Both front and back sectors are sky, needs skywall from the backsector's floor, but only if the
 					// it's higher, also needs to check for bottomtexture as the floors don't usually move down
 					// when both sides are sky floors
-					if ((worldlow >= worldbottom)
-#ifdef ESLOPE
-					&& (worldlowslope >= worldbottomslope)
-#endif
-					&& !(gr_sidedef->bottomtexture))// TODO check if this draws a bunch of mostly pointless skywalls like the above sky ceiling code?
+					if ((worldlow >= worldbottom && worldlowslope >= worldbottomslope)
+					&& (cv_grskywallmode.value == 0 || (worldlow != worldbottom || worldlowslope != worldbottomslope))
+					&& !(gr_sidedef->bottomtexture))
 					{
 #ifdef ESLOPE
 						wallVerts[3].y = FIXED_TO_FLOAT(worldlow);
@@ -1655,7 +1611,6 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 			}
 
 		}
-		// \ previously removed skywall code
 
 		// hack to allow height changes in outdoor areas
 		// This is what gets rid of the upper textures if there should be sky
@@ -2110,7 +2065,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 			else
 				HWR_ProjectWall(wallVerts, &Surf, blendmode, lightnum, colormap);
 		}
-		if (cv_grskytest.value)// this sky code block is probably not needed but could test performance for this "old reduced" vs "new reduced" skywalls
+		if (cv_grskywallmode.value == 2)// keeping this old sky method as an option for now
 		{
 			// Isn't this just the most lovely mess
 			if (!gr_curline->polyseg) // Don't do it for polyobjects
@@ -2260,9 +2215,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 					HWR_ProjectWall(wallVerts, &Surf, PF_Masked, lightnum, colormap);
 			}
 		}
-// This one is needed probably too for some cases TODO maybe test how many skywalls appear with this
-		// previously removed skywall code
-		else //if (cv_grfullskywalls.value)
+		else if (cv_grskywallmode.value != 2)
 		{
 #ifdef ESLOPE
 			//Set textures properly on single sided walls that are sloped
@@ -2283,7 +2236,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 
 		// Single sided lines are simple for skywalls, just need to draw from the top or bottom of the sector if there's
 		// a sky flat
-		if (cv_grfullskywalls.value && !gr_curline->polyseg)
+		if (cv_grskywallmode.value != 2 && !gr_curline->polyseg)
 		{
 			if (gr_frontsector->ceilingpic == skyflatnum) // It's a single-sided line with sky for its sector
 			{
@@ -2309,7 +2262,6 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 				HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
 			}
 		}
-		// \ previously removed skywall code
 	}
 
 
@@ -6614,12 +6566,12 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_grwireframe);
 	CV_RegisterVar(&cv_test_disable_something);
 	CV_RegisterVar(&cv_enable_batching);
-	CV_RegisterVar(&cv_grfullskywalls);
+	CV_RegisterVar(&cv_grskywallmode);
 	CV_RegisterVar(&cv_kodahack);
 	CV_RegisterVar(&cv_grskydome);
 	CV_RegisterVar(&cv_grskydebug);
 	CV_RegisterVar(&cv_grwallcount);
-	CV_RegisterVar(&cv_grskytest);
+	//CV_RegisterVar(&cv_grskytest);// currently does nothing
 
 	CV_RegisterVar(&cv_grportals);
 	CV_RegisterVar(&cv_nostencil);
