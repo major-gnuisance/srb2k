@@ -2260,9 +2260,9 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 					HWR_ProjectWall(wallVerts, &Surf, PF_Masked, lightnum, colormap);
 			}
 		}
-/*// This one is needed probably too for some cases TODO maybe test how many skywalls appear with this
+// This one is needed probably too for some cases TODO maybe test how many skywalls appear with this
 		// previously removed skywall code
-		else if (cv_grfullskywalls.value)
+		else //if (cv_grfullskywalls.value)
 		{
 #ifdef ESLOPE
 			//Set textures properly on single sided walls that are sloped
@@ -2279,7 +2279,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 			// When there's no midtexture, draw a skywall to prevent rendering behind it
 			HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
 		}
-*/
+
 
 		// Single sided lines are simple for skywalls, just need to draw from the top or bottom of the sector if there's
 		// a sky flat
