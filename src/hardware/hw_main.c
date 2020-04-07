@@ -1566,8 +1566,8 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 					&& worldtopslope <= worldbottomslope)
 					)*/
 					if (worldtop != worldhigh
-					|| worldtopslope != worldhighslope)
-					{
+					|| worldtopslope != worldhighslope)// maybe use old condition when fullskywalls is true and use this when its not
+					{									// that way the mostly pointless skywalls can be disabled
 #ifdef ESLOPE
 						wallVerts[0].y = FIXED_TO_FLOAT(worldhigh);
 						wallVerts[1].y = FIXED_TO_FLOAT(worldhighslope);
@@ -1616,7 +1616,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 #ifdef ESLOPE
 					&& (worldlowslope >= worldbottomslope)
 #endif
-					&& !(gr_sidedef->bottomtexture))
+					&& !(gr_sidedef->bottomtexture))// TODO check if this draws a bunch of mostly pointless skywalls like the above sky ceiling code?
 					{
 #ifdef ESLOPE
 						wallVerts[3].y = FIXED_TO_FLOAT(worldlow);
@@ -1827,7 +1827,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 #endif
 
 			if (gr_frontsector->numlights)
-				HWR_SplitWall(gr_frontsector, wallVerts, gr_bottomtexture, &Surf, FF_CUTLEVEL, NULL);
+				HWR_SplitWall(gr_frontsector, wallVerts, gr_bottomtexture, &Surf, FF_CUTLEVEL, NULL);// TODO BUG on sub zero peak zone with wall in beginning, no bug if not using splitwall
 			else if (grTex->mipmap.flags & TF_TRANSPARENT)
 				HWR_AddTransparentWall(wallVerts, &Surf, gr_bottomtexture, PF_Environment, false, lightnum, colormap);
 			else
@@ -2110,7 +2110,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 			else
 				HWR_ProjectWall(wallVerts, &Surf, blendmode, lightnum, colormap);
 		}
-		if (cv_grskytest.value)
+		if (cv_grskytest.value)// this sky code block is probably not needed but could test performance for this "old reduced" vs "new reduced" skywalls
 		{
 			// Isn't this just the most lovely mess
 			if (!gr_curline->polyseg) // Don't do it for polyobjects
@@ -2260,7 +2260,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 					HWR_ProjectWall(wallVerts, &Surf, PF_Masked, lightnum, colormap);
 			}
 		}
-/*
+/*// This one is needed probably too for some cases TODO maybe test how many skywalls appear with this
 		// previously removed skywall code
 		else if (cv_grfullskywalls.value)
 		{
