@@ -5356,6 +5356,11 @@ static void  HandleIdlePlayers()
 				}
 				if (afktimer[i] >= cv_afkkicktimer.value * TICRATE)
 				{
+					if ((boolean)cv_afkignoreadminsforkicking.value && IsPlayerAdmin(i))
+					{
+						continue;
+					}
+
 					afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking
 					CONS_Printf(M_GetText("Kicking %s for being idle\n"), player_names[i]);
 					COM_BufInsertText(va("kick %d %s", i, "Kicked for being idle"));
