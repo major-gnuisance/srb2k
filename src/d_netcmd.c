@@ -485,6 +485,10 @@ consvar_t cv_nodownloads = {"downloadnotice", "", CV_SAVE, NULL, NULL, 0, NULL, 
 consvar_t cv_lessbattlevotes = {"lessbattlevotes", "No", CV_SAVE, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_lessencorevotes = {"lessencorevotes", "No", CV_SAVE, CV_YesNo, NULL, 0, NULL, NULL, 0, 0, NULL};
 
+static CV_PossibleValue_t serverchancepercentage_const_t[] = {{0, "MIN"}, {100, "MAX"}, {0, NULL}};
+consvar_t cv_serverencorechance = {"serverencorechance", "0", CV_SAVE, serverchancepercentage_const_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_serverhellchance = {"serverhellchance", "0", CV_SAVE, serverchancepercentage_const_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+
 INT16 gametype = GT_RACE; // SRB2kart
 boolean forceresetplayers = false;
 boolean deferencoremode = false;
@@ -750,6 +754,9 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_lessencorevotes);
 
 	CV_RegisterVar(&cv_maxmidgamejoin);
+
+	CV_RegisterVar(&cv_serverencorechance);
+	CV_RegisterVar(&cv_serverhellchance);
 }
 
 // =========================================================================

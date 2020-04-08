@@ -3612,7 +3612,19 @@ INT16 G_RandMap(INT16 tolflags, INT16 pprevmap, boolean ignorebuffer, UINT8 maph
 
 tryagain:
 
-	usehellmaps = (maphell == 0 ? false : (maphell == 2 || M_RandomChance(FRACUNIT/100))); // 1% chance of Hell
+	//usehellmaps = (maphell == 0 ? false : (maphell == 2 || M_RandomChance(FRACUNIT/100))); // 1% chance of Hell
+
+	if (M_RandomChance((FRACUNIT*cv_serverencorechance.value)/100))
+		{
+			COM_BufInsertText("kartencore on");
+			usehellmaps = false;
+		}
+		else
+		{
+			COM_BufInsertText("kartencore off");
+			usehellmaps = M_RandomChance((FRACUNIT*cv_serverhellchance.value)/100);
+		}
+
 
 	// Find all the maps that are ok and and put them in an array.
 	for (ix = 0; ix < NUMMAPS; ix++)
@@ -8669,4 +8681,3 @@ INT32 G_TicsToMilliseconds(tic_t tics)
 {
 	return (INT32)((tics%TICRATE) * (1000.00f/TICRATE));
 }
-

@@ -162,6 +162,8 @@ extern consvar_t cv_nodownloads;
 extern consvar_t cv_lessbattlevotes;
 extern consvar_t cv_lessencorevotes;
 
+extern consvar_t cv_serverencorechance, cv_serverhellchance;
+
 typedef enum
 {
 	XD_NAMEANDCOLOR = 1,
