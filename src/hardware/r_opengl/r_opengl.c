@@ -2739,54 +2739,6 @@ EXPORT void HWRAPI(RenderSkyDome) (INT32 tex, INT32 texture_width, INT32 texture
 	SetBlend(0);
 }
 
-void RevertStencilBuffer()// TODO need to add OpenGL stencil functions to function importing
-{
-	/*const float screenVerts[12] =
-	{
-		-1.0f, -1.0f, 1.0f,
-		-1.0f, 1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
-		1.0f, -1.0f, 1.0f
-	};*/
-
-	const float screenVerts[12] =
-	{
-		-1.0f, -1.0f, 1.0f,
-		1.0f, -1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
-		-1.0f, 1.0f, 1.0f
-	};
-
-	pglDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	pglDisable(GL_TEXTURE_2D);
-	pglDisable(GL_DEPTH_TEST);
-	pglDisable(GL_BLEND);
-	//pglColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-	pglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);// TEST
-
-	//pglStencilFuncSeparate(GL_FRONT_AND_BACK, GL_EQUAL, gl_portal_stencil_level + 1, 0xFF);
-	//pglStencilFuncSeparate(GL_FRONT_AND_BACK, GL_ALWAYS, gl_portal_stencil_level + 1, 0xFF);// TEST
-	//pglStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_DECR, GL_DECR);
-	//pglStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_KEEP);// TEST
-
-	pglPushMatrix();
-	pglLoadIdentity();
-	pglScalef(1.0f, 1.0f, -1.0f);
-//	glMatrixMode(GL_PROJECTION
-
-	pglColor4ubv(white);
-	pglVertexPointer(3, GL_FLOAT, 0, screenVerts);
-	pglDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-	pglPopMatrix();
-
-	pglEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	pglEnable(GL_TEXTURE_2D);
-	pglEnable(GL_DEPTH_TEST);
-	pglEnable(GL_BLEND);
-	pglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-}
-
 // ==========================================================================
 //
 // ==========================================================================
@@ -2916,18 +2868,6 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 			gl_leveltime = (float)Value / 1000.0;
 			break;
 
-		case HWD_SET_DEPTH_ONLY_MODE:// for portals TODO remove this old one and other old stuff
-			if (Value)
-			{
-				pglClear(GL_DEPTH_BUFFER_BIT);
-				pglColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-			}
-			else
-			{
-				pglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-			}
-			break;
-
 		case HWD_SET_PORTAL_MODE:
 			gl_portal_mode = Value;
 			switch (Value)
@@ -2939,7 +2879,6 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 					pglEnable(GL_BLEND);
 					pglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 					pglStencilFuncSeparate(GL_FRONT_AND_BACK, GL_EQUAL, gl_portal_stencil_level, 0xFF);
-					//pglStencilFuncSeparate(GL_FRONT_AND_BACK, GL_GEQUAL, 0, 0xFF);
 					pglStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
 					pglDepthMask(GL_TRUE);
 					break;
@@ -2963,10 +2902,8 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 					pglStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_DECR, GL_DECR);// dont think z-buffer is used at this point
 					pglDepthMask(GL_FALSE);
 					break;
-				case HWD_PORTAL_DEPTH_SEGS:// possible fix !! depth test is disabled before entering this, so enable it !!!!
+				case HWD_PORTAL_DEPTH_SEGS:
 					// draw only to depth, only to current level of stencil
-					// also revert last stencil buffer write at this point
-					//RevertStencilBuffer();
 					pglDisable(GL_TEXTURE_2D);
 					pglEnable(GL_DEPTH_TEST);
 					pglDisable(GL_BLEND);

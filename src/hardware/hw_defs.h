@@ -255,9 +255,8 @@ enum hwdsetspecialstate
 
 	HWD_SET_LEVELTIME,
 
-	HWD_SET_DEPTH_ONLY_MODE,// for portals
-
-	HWD_SET_PORTAL_MODE,// new portal thing
+	// for portal rendering
+	HWD_SET_PORTAL_MODE,
 	HWD_SET_STENCIL_LEVEL,
 
 	HWD_NUMSTATE
