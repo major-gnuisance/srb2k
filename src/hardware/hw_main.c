@@ -119,13 +119,20 @@ boolean gr_kodahack = false;
 
 boolean gr_shadersavailable = true;
 
+int gr_wallcounter = 0;
+
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_grfullskywalls = {"gr_fullskywalls", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+CV_PossibleValue_t grskywallmode_cons_t[] = {{0, "Full"}, {1, "New Reduced"}, {2, "Old Reduced"}, {0, NULL}};
+consvar_t cv_grskywallmode = {"gr_skywallmode", "Full", CV_SAVE, grskywallmode_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 // TODO i think portals need fullskywalls so maybe also do full skywalls when drawing to stencil and depth buffer!
 consvar_t cv_kodahack = {"kodahack", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grskydome = {"gr_skydome", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_grskydebug = {"gr_skydebug", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_grwallcount = {"gr_wallcount", "0", 0, CV_Unsigned, NULL, 0, NULL, NULL, 0, 0, NULL};
+
+//consvar_t cv_grskytest = {"gr_skytest", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};// currently does nothing
 
 consvar_t cv_grportals = {"gr_portals", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_nostencil = {"nostencil", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -165,6 +172,11 @@ static void CV_grshaders_ONChange(void)
 {
 	if (!gr_shadersavailable)
 		cv_grshaders.value = 0;
+}
+
+void Command_Viewsector()
+{
+	CONS_Printf("Floor: %d Ceiling: %d\n", viewsector->floorheight>>FRACBITS, viewsector->ceilingheight>>FRACBITS);
 }
 
 // ==========================================================================
@@ -965,6 +977,12 @@ void HWR_ProjectWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend
 			CONS_Printf("projectwall called on depth mode\n");
 	}
 
+	if (cv_grwallcount.value && server)
+	{
+		if (cv_grwallcount.value <= gr_wallcounter++) // note post increment
+			return;
+	}
+
 	if (wallcolormap)
 		HWR_Lighting(pSurf, lightlevel, wallcolormap->rgba, wallcolormap->fadergba);
 	else
@@ -1493,9 +1511,8 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 		worldlow  = gr_backsector->floorheight;
 #endif
 
-		// previously removed skywall code
 		// Sky culling
-		if (cv_grfullskywalls.value && !gr_curline->polyseg) // Don't do it for polyobjects
+		if (cv_grskywallmode.value != 2 && !gr_curline->polyseg) // Don't do it for polyobjects
 		{
 			// Sky Ceilings
 			wallVerts[3].y = wallVerts[2].y = FIXED_TO_FLOAT(INT32_MAX);
@@ -1506,11 +1523,8 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 				{
 					// Both front and back sectors are sky, needs skywall from the frontsector's ceiling, but only if the
 					// backsector is lower
-					if ((worldhigh <= worldtop)
-#ifdef ESLOPE
-					&& (worldhighslope <= worldtopslope)
-#endif
-					)
+					if ((worldhigh <= worldtop && worldhighslope <= worldtopslope)// Assuming ESLOPE is always on with my changes
+					&& (cv_grskywallmode.value == 0 || (worldhigh != worldtop || worldhighslope != worldtopslope)))
 					{
 #ifdef ESLOPE
 						wallVerts[0].y = FIXED_TO_FLOAT(worldhigh);
@@ -1556,10 +1570,8 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 					// Both front and back sectors are sky, needs skywall from the backsector's floor, but only if the
 					// it's higher, also needs to check for bottomtexture as the floors don't usually move down
 					// when both sides are sky floors
-					if ((worldlow >= worldbottom)
-#ifdef ESLOPE
-					&& (worldlowslope >= worldbottomslope)
-#endif
+					if ((worldlow >= worldbottom && worldlowslope >= worldbottomslope)
+					&& (cv_grskywallmode.value == 0 || (worldlow != worldbottom || worldlowslope != worldbottomslope))
 					&& !(gr_sidedef->bottomtexture))
 					{
 #ifdef ESLOPE
@@ -1597,8 +1609,8 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 
 				HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
 			}
+
 		}
-		// \ previously removed skywall code
 
 		// hack to allow height changes in outdoor areas
 		// This is what gets rid of the upper textures if there should be sky
@@ -1770,7 +1782,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 #endif
 
 			if (gr_frontsector->numlights)
-				HWR_SplitWall(gr_frontsector, wallVerts, gr_bottomtexture, &Surf, FF_CUTLEVEL, NULL);
+				HWR_SplitWall(gr_frontsector, wallVerts, gr_bottomtexture, &Surf, FF_CUTLEVEL, NULL);// TODO BUG on sub zero peak zone with wall in beginning, no bug if not using splitwall
 			else if (grTex->mipmap.flags & TF_TRANSPARENT)
 				HWR_AddTransparentWall(wallVerts, &Surf, gr_bottomtexture, PF_Environment, false, lightnum, colormap);
 			else
@@ -2053,83 +2065,86 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 			else
 				HWR_ProjectWall(wallVerts, &Surf, blendmode, lightnum, colormap);
 		}
-
-		// Isn't this just the most lovely mess
-		if (!gr_curline->polyseg) // Don't do it for polyobjects
+		if (cv_grskywallmode.value == 2)// keeping this old sky method as an option for now
 		{
-			if (gr_frontsector->ceilingpic == skyflatnum || gr_backsector->ceilingpic == skyflatnum)
+			// Isn't this just the most lovely mess
+			if (!gr_curline->polyseg) // Don't do it for polyobjects
 			{
-				fixed_t depthwallheight;
-
-				if (!gr_sidedef->toptexture || (gr_frontsector->ceilingpic == skyflatnum && gr_backsector->ceilingpic == skyflatnum)) // when both sectors are sky, the top texture isn't drawn
-					depthwallheight = gr_frontsector->ceilingheight < gr_backsector->ceilingheight ? gr_frontsector->ceilingheight : gr_backsector->ceilingheight;
-				else
-					depthwallheight = gr_frontsector->ceilingheight > gr_backsector->ceilingheight ? gr_frontsector->ceilingheight : gr_backsector->ceilingheight;
-
-				if (gr_frontsector->ceilingheight-gr_frontsector->floorheight <= 0) // current sector is a thok barrier
+				if (gr_frontsector->ceilingpic == skyflatnum || gr_backsector->ceilingpic == skyflatnum)
 				{
-					if (gr_backsector->ceilingheight-gr_backsector->floorheight <= 0) // behind sector is also a thok barrier
+					fixed_t depthwallheight;
+
+					if (!gr_sidedef->toptexture || (gr_frontsector->ceilingpic == skyflatnum && gr_backsector->ceilingpic == skyflatnum)) // when both sectors are sky, the top texture isn't drawn
+						depthwallheight = gr_frontsector->ceilingheight < gr_backsector->ceilingheight ? gr_frontsector->ceilingheight : gr_backsector->ceilingheight;
+					else
+						depthwallheight = gr_frontsector->ceilingheight > gr_backsector->ceilingheight ? gr_frontsector->ceilingheight : gr_backsector->ceilingheight;
+
+					if (gr_frontsector->ceilingheight-gr_frontsector->floorheight <= 0) // current sector is a thok barrier
 					{
-						if (!gr_sidedef->bottomtexture) // Only extend further down if there's no texture
-							HWR_DrawSkyWall(wallVerts, &Surf, worldbottom < worldlow ? worldbottom : worldlow, INT32_MAX);
-						else
-							HWR_DrawSkyWall(wallVerts, &Surf, worldbottom > worldlow ? worldbottom : worldlow, INT32_MAX);
+						if (gr_backsector->ceilingheight-gr_backsector->floorheight <= 0) // behind sector is also a thok barrier
+						{
+							if (!gr_sidedef->bottomtexture) // Only extend further down if there's no texture
+								HWR_DrawSkyWall(wallVerts, &Surf, worldbottom < worldlow ? worldbottom : worldlow, INT32_MAX);
+							else
+								HWR_DrawSkyWall(wallVerts, &Surf, worldbottom > worldlow ? worldbottom : worldlow, INT32_MAX);
+						}
+						// behind sector is not a thok barrier
+						else if (gr_backsector->ceilingheight <= gr_frontsector->ceilingheight) // behind sector ceiling is lower or equal to current sector
+							HWR_DrawSkyWall(wallVerts, &Surf, depthwallheight, INT32_MAX);
+							// gr_front/backsector heights need to be used here because of the worldtop being set to worldhigh earlier on
 					}
-					// behind sector is not a thok barrier
-					else if (gr_backsector->ceilingheight <= gr_frontsector->ceilingheight) // behind sector ceiling is lower or equal to current sector
-						HWR_DrawSkyWall(wallVerts, &Surf, depthwallheight, INT32_MAX);
-						// gr_front/backsector heights need to be used here because of the worldtop being set to worldhigh earlier on
-				}
-				else if (gr_backsector->ceilingheight-gr_backsector->floorheight <= 0) // behind sector is a thok barrier, current sector is not
-				{
-					if (gr_backsector->ceilingheight >= gr_frontsector->ceilingheight // thok barrier ceiling height is equal to or greater than current sector ceiling height
-						|| gr_backsector->floorheight <= gr_frontsector->floorheight // thok barrier ceiling height is equal to or less than current sector floor height
-						|| gr_backsector->ceilingpic != skyflatnum) // thok barrier is not a sky
-						HWR_DrawSkyWall(wallVerts, &Surf, depthwallheight, INT32_MAX);
-				}
-				else // neither sectors are thok barriers
-				{
-					if ((gr_backsector->ceilingheight < gr_frontsector->ceilingheight && !gr_sidedef->toptexture) // no top texture and sector behind is lower
-						|| gr_backsector->ceilingpic != skyflatnum) // behind sector is not a sky
-						HWR_DrawSkyWall(wallVerts, &Surf, depthwallheight, INT32_MAX);
-				}
-			}
-			// And now for sky floors!
-			if (gr_frontsector->floorpic == skyflatnum || gr_backsector->floorpic == skyflatnum)
-			{
-				fixed_t depthwallheight;
-
-				if (!gr_sidedef->bottomtexture)
-					depthwallheight = worldbottom > worldlow ? worldbottom : worldlow;
-				else
-					depthwallheight = worldbottom < worldlow ? worldbottom : worldlow;
-
-				if (gr_frontsector->ceilingheight-gr_frontsector->floorheight <= 0) // current sector is a thok barrier
-				{
-					if (gr_backsector->ceilingheight-gr_backsector->floorheight <= 0) // behind sector is also a thok barrier
+					else if (gr_backsector->ceilingheight-gr_backsector->floorheight <= 0) // behind sector is a thok barrier, current sector is not
 					{
-						if (!gr_sidedef->toptexture) // Only extend up if there's no texture
-							HWR_DrawSkyWall(wallVerts, &Surf, INT32_MIN, worldtop > worldhigh ? worldtop : worldhigh);
-						else
-							HWR_DrawSkyWall(wallVerts, &Surf, INT32_MIN, worldtop < worldhigh ? worldtop : worldhigh);
+						if (gr_backsector->ceilingheight >= gr_frontsector->ceilingheight // thok barrier ceiling height is equal to or greater than current sector ceiling height
+							|| gr_backsector->floorheight <= gr_frontsector->floorheight // thok barrier ceiling height is equal to or less than current sector floor height
+							|| gr_backsector->ceilingpic != skyflatnum) // thok barrier is not a sky
+							//if (!cv_grskytest.value)
+								HWR_DrawSkyWall(wallVerts, &Surf, depthwallheight, INT32_MAX);
 					}
-					// behind sector is not a thok barrier
-					else if (gr_backsector->floorheight >= gr_frontsector->floorheight) // behind sector floor is greater or equal to current sector
-						HWR_DrawSkyWall(wallVerts, &Surf, INT32_MIN, depthwallheight);
+					else // neither sectors are thok barriers
+					{
+						if ((gr_backsector->ceilingheight < gr_frontsector->ceilingheight && !gr_sidedef->toptexture) // no top texture and sector behind is lower
+							|| gr_backsector->ceilingpic != skyflatnum) // behind sector is not a sky
+							HWR_DrawSkyWall(wallVerts, &Surf, depthwallheight, INT32_MAX);
+					}
 				}
-				else if (gr_backsector->ceilingheight-gr_backsector->floorheight <= 0) // behind sector is a thok barrier, current sector is not
+				// And now for sky floors!
+				if (gr_frontsector->floorpic == skyflatnum || gr_backsector->floorpic == skyflatnum)
 				{
-					if (gr_backsector->floorheight <= gr_frontsector->floorheight // thok barrier floor height is equal to or less than current sector floor height
-						|| gr_backsector->ceilingheight >= gr_frontsector->ceilingheight // thok barrier floor height is equal to or greater than current sector ceiling height
-						|| gr_backsector->floorpic != skyflatnum) // thok barrier is not a sky
-						HWR_DrawSkyWall(wallVerts, &Surf, INT32_MIN, depthwallheight);
-				}
-				else // neither sectors are thok barriers
-				{
-					if (((gr_backsector->floorheight > gr_frontsector->floorheight && !gr_sidedef->bottomtexture) // no bottom texture and sector behind is higher
-						|| gr_backsector->floorpic != skyflatnum) // behind sector is not a sky
-						&& ABS(gr_backsector->floorheight - gr_frontsector->floorheight) > FRACUNIT*3/2)	// don't draw sky walls for VERY thin differences, this makes for horrible looking slopes sometimes!
-						HWR_DrawSkyWall(wallVerts, &Surf, INT32_MIN, depthwallheight);
+					fixed_t depthwallheight;
+
+					if (!gr_sidedef->bottomtexture)
+						depthwallheight = worldbottom > worldlow ? worldbottom : worldlow;
+					else
+						depthwallheight = worldbottom < worldlow ? worldbottom : worldlow;
+
+					if (gr_frontsector->ceilingheight-gr_frontsector->floorheight <= 0) // current sector is a thok barrier
+					{
+						if (gr_backsector->ceilingheight-gr_backsector->floorheight <= 0) // behind sector is also a thok barrier
+						{
+							if (!gr_sidedef->toptexture) // Only extend up if there's no texture
+								HWR_DrawSkyWall(wallVerts, &Surf, INT32_MIN, worldtop > worldhigh ? worldtop : worldhigh);
+							else
+								HWR_DrawSkyWall(wallVerts, &Surf, INT32_MIN, worldtop < worldhigh ? worldtop : worldhigh);
+						}
+						// behind sector is not a thok barrier
+						else if (gr_backsector->floorheight >= gr_frontsector->floorheight) // behind sector floor is greater or equal to current sector
+							HWR_DrawSkyWall(wallVerts, &Surf, INT32_MIN, depthwallheight);
+					}
+					else if (gr_backsector->ceilingheight-gr_backsector->floorheight <= 0) // behind sector is a thok barrier, current sector is not
+					{
+						if (gr_backsector->floorheight <= gr_frontsector->floorheight // thok barrier floor height is equal to or less than current sector floor height
+							|| gr_backsector->ceilingheight >= gr_frontsector->ceilingheight // thok barrier floor height is equal to or greater than current sector ceiling height
+							|| gr_backsector->floorpic != skyflatnum) // thok barrier is not a sky
+							HWR_DrawSkyWall(wallVerts, &Surf, INT32_MIN, depthwallheight);
+					}
+					else // neither sectors are thok barriers
+					{
+						if (((gr_backsector->floorheight > gr_frontsector->floorheight && !gr_sidedef->bottomtexture) // no bottom texture and sector behind is higher
+							|| gr_backsector->floorpic != skyflatnum) // behind sector is not a sky
+							&& ABS(gr_backsector->floorheight - gr_frontsector->floorheight) > FRACUNIT*3/2)	// don't draw sky walls for VERY thin differences, this makes for horrible looking slopes sometimes!
+							HWR_DrawSkyWall(wallVerts, &Surf, INT32_MIN, depthwallheight);
+					}
 				}
 			}
 		}
@@ -2200,8 +2215,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 					HWR_ProjectWall(wallVerts, &Surf, PF_Masked, lightnum, colormap);
 			}
 		}
-		// previously removed skywall code
-		else if (cv_grfullskywalls.value)
+		else if (cv_grskywallmode.value != 2)
 		{
 #ifdef ESLOPE
 			//Set textures properly on single sided walls that are sloped
@@ -2222,7 +2236,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 
 		// Single sided lines are simple for skywalls, just need to draw from the top or bottom of the sector if there's
 		// a sky flat
-		if (cv_grfullskywalls.value && !gr_curline->polyseg)
+		if (cv_grskywallmode.value != 2 && !gr_curline->polyseg)
 		{
 			if (gr_frontsector->ceilingpic == skyflatnum) // It's a single-sided line with sky for its sector
 			{
@@ -2248,7 +2262,6 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 				HWR_DrawSkyWall(wallVerts, &Surf, 0, 0);
 			}
 		}
-		// \ previously removed skywall code
 	}
 
 
@@ -2922,6 +2935,8 @@ doaddline:
 		if (gr_portal == GRPORTAL_DEPTH)
 			CONS_Printf("processseg about to be called on depth mode\n");
 	}
+
+	gr_wallcounter = 0;
 
 	if (gr_portal != GRPORTAL_SEARCH && !dont_draw)// no need to do this during the portal check
 		HWR_ProcessSeg(); // Doesn't need arguments because they're defined globally :D
@@ -6551,10 +6566,12 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_grwireframe);
 	CV_RegisterVar(&cv_test_disable_something);
 	CV_RegisterVar(&cv_enable_batching);
-	CV_RegisterVar(&cv_grfullskywalls);
+	CV_RegisterVar(&cv_grskywallmode);
 	CV_RegisterVar(&cv_kodahack);
 	CV_RegisterVar(&cv_grskydome);
 	CV_RegisterVar(&cv_grskydebug);
+	CV_RegisterVar(&cv_grwallcount);
+	//CV_RegisterVar(&cv_grskytest);// currently does nothing
 
 	CV_RegisterVar(&cv_grportals);
 	CV_RegisterVar(&cv_nostencil);
@@ -6562,6 +6579,7 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_portalonly);
 
 	COM_AddCommand("printportals", Command_Printportals);
+	COM_AddCommand("viewsector", Command_Viewsector);
 }
 
 // --------------------------------------------------------------------------
