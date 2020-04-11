@@ -125,6 +125,7 @@ extern consvar_t cv_karteliminatelast;
 
 extern consvar_t cv_votetime;
 extern consvar_t cv_afkspectimer;
+extern consvar_t cv_afkspecignoreadmins;
 extern consvar_t cv_afkkicktimer;
 extern consvar_t cv_afkkickignoreadmins;
 

@@ -5353,15 +5353,18 @@ static void  HandleIdlePlayers()
 
 					if (afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator)
 					{
-						CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
-						COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
+						if (!(cv_afkspecignoreadmins.value && (IsPlayerAdmin(i) || i == serverplayer))) //ensure the cvar covers the server player, since they dont count as an "admin"
+						{
+							CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
+							COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
+						}
 					}
 					
 					if (afktimer[i] >= cv_afkkicktimer.value * TICRATE)
 					{
 						afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking
 
-						if (!(cv_afkkickignoreadmins.value && IsPlayerAdmin(i)) && i != 0) //ensure a non-dedicated host isn't kicked
+						if (!(cv_afkkickignoreadmins.value && IsPlayerAdmin(i)) && i != serverplayer) //ensure a non-dedicated host isn't kicked
 						{
 							CONS_Printf(M_GetText("Kicking %s for being idle\n"), player_names[i]);
 							COM_BufInsertText(va("kick %d %s", i, "Kicked for being idle"));
