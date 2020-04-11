@@ -5351,20 +5351,19 @@ static void  HandleIdlePlayers()
 					else
 						afktimer[i] = 0;
 
-					if (cv_afkspectimer.value != 0 && afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator)
+					if (cv_afkspectimer.value != 0 && afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator //speccing is enabled, and someone broke the limit and isnt a spectator already
+						&& !(cv_afkspecignoreadmins.value && (IsPlayerAdmin(i) || i == serverplayer))) //ensure the cvar covers the server player, since they dont count as an "admin"
 					{
-						if (!(cv_afkspecignoreadmins.value && (IsPlayerAdmin(i) || i == serverplayer))) //ensure the cvar covers the server player, since they dont count as an "admin"
-						{
-							CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
-							COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
-						}
+						CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
+						COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
 					}
 					
-					if (cv_afkkicktimer.value != 0 && afktimer[i] >= cv_afkkicktimer.value * TICRATE)
+					if (afktimer[i] >= cv_afkkicktimer.value * TICRATE)
 					{
-						afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking
+						afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking, also prevents INT32 overflow
 
-						if (!(cv_afkkickignoreadmins.value && IsPlayerAdmin(i)) && i != serverplayer) //ensure a non-dedicated host isn't kicked
+						if (!(cv_afkkickignoreadmins.value && IsPlayerAdmin(i)) && i != serverplayer //ensure a non-dedicated host isn't kicked
+							&& cv_afkkicktimer.value != 0) //only actually kick if it is enabled
 						{
 							CONS_Printf(M_GetText("Kicking %s for being idle\n"), player_names[i]);
 							COM_BufInsertText(va("kick %d %s", i, "Kicked for being idle"));
