@@ -5340,30 +5340,33 @@ static void  HandleIdlePlayers()
 {
 	if (server && !demo.playback)
 	{
-		for (INT32 i = 1; i < MAXPLAYERS; i++)
+		for (INT32 i = 0; i < MAXPLAYERS; i++) /// this starts at 1, because 0 is the server and we don't want the server trying to kick itself
 		{
-			if (playeringame[i])
+			if (!(dedicated && i == 0)) //dont do anything to the dedicated playerid
 			{
-				if (CheckForSameCmd(i))
-					afktimer[i]++;
-				else
-					afktimer[i] = 0;
+				if (playeringame[i])
+				{
+					if (CheckForSameCmd(i))
+						afktimer[i]++;
+					else
+						afktimer[i] = 0;
 
-				if (afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator)
-				{
-					CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
-					COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
-				}
-				if (afktimer[i] >= cv_afkkicktimer.value * TICRATE)
-				{
-					if ((boolean)cv_afkignoreadminsforkicking.value && IsPlayerAdmin(i))
+					if (afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator)
 					{
-						continue;
+						CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
+						COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
 					}
+					
+					if (afktimer[i] >= cv_afkkicktimer.value * TICRATE)
+					{
+						afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking
 
-					afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking
-					CONS_Printf(M_GetText("Kicking %s for being idle\n"), player_names[i]);
-					COM_BufInsertText(va("kick %d %s", i, "Kicked for being idle"));
+						if (!(cv_afkkickignoreadmins.value && IsPlayerAdmin(i)) && i != 0) //ensure a non-dedicated host isn't kicked
+						{
+							CONS_Printf(M_GetText("Kicking %s for being idle\n"), player_names[i]);
+							COM_BufInsertText(va("kick %d %s", i, "Kicked for being idle"));
+						}
+					}
 				}
 			}
 		}
