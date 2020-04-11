@@ -5351,7 +5351,7 @@ static void  HandleIdlePlayers()
 					else
 						afktimer[i] = 0;
 
-					if (afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator)
+					if (cv_afkspectimer.value != 0 && afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator)
 					{
 						if (!(cv_afkspecignoreadmins.value && (IsPlayerAdmin(i) || i == serverplayer))) //ensure the cvar covers the server player, since they dont count as an "admin"
 						{
@@ -5360,7 +5360,7 @@ static void  HandleIdlePlayers()
 						}
 					}
 					
-					if (afktimer[i] >= cv_afkkicktimer.value * TICRATE)
+					if (cv_afkkicktimer.value != 0 && afktimer[i] >= cv_afkkicktimer.value * TICRATE)
 					{
 						afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking
 
