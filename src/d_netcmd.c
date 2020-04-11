@@ -759,7 +759,6 @@ void D_RegisterServerCommands(void)
 
 	CV_RegisterVar(&cv_maxmidgamejoin);
 
-	CV_RegisterVar(&cv_serverencorechance);
 	CV_RegisterVar(&cv_serverhellchance);
 }
 
