@@ -5338,11 +5338,11 @@ static boolean CheckForSameCmd(UINT8 p)
 
 static void  HandleIdlePlayers()
 {
-	if (server && !demo.playback)
+	if (server && !demo.playback && netgame)
 	{
-		for (INT32 i = 0; i < MAXPLAYERS; i++) /// this starts at 1, because 0 is the server and we don't want the server trying to kick itself
+		for (INT32 i = 0; i < MAXPLAYERS; i++)
 		{
-			if (!(dedicated && i == 0)) //dont do anything to the dedicated playerid
+			if (!(dedicated && i == serverplayer)) //dont do anything to the dedicated playerid
 			{
 				if (playeringame[i])
 				{
