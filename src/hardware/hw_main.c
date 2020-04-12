@@ -228,11 +228,6 @@ static INT32 drawcount = 0;
 // PORTALS
 //
 
-#define MAX_GRPORTALS 13
-// Note: portal sorting has not been ported to this
-//#define PORTALSORTING // Breaks recursive portals :[
-
-
 // for porting gonna add stuff from r_portal here with adjustments
 
 UINT8 portalrender;			/**< When rendering a portal, it establishes the depth of the current BSP traversal. */
@@ -408,18 +403,6 @@ void HWR_PortalFrame(portal_t* portal)
 	}
 }
 
-/*
-enum
-{
-	GRPORTAL_OFF = 0,
-	GRPORTAL_PROCESS,
-	GRPORTAL_FOUND,
-	GRPORTAL_MASKING,
-	// https://www.youtube.com/watch?v=6MXofKuMAmM
-	GRPORTAL_INSIDE, GRPORTAL_INSIDEMASK,
-	GRPORTAL_OUTSIDE,
-};
-*/
 enum
 {
 	GRPORTAL_OFF,
@@ -429,31 +412,8 @@ enum
 	GRPORTAL_INSIDE,
 };
 
-void HWR_RenderSinglePortal(portal_t *portal, size_t portalnum, float fpov, player_t *player);
-
-#ifdef PORTALSORTING
-static portal_t gr_portals[MAX_GRPORTALS];
-static size_t gr_numportals = 0;
-
-static void HWR_AddPortal(portal_t *portal);
-static void HWR_SortPortals(player_t *player, float fpov, INT32 viewnumber, postimg_t *ptype);
-#endif
-
 static int gr_portal = GRPORTAL_OFF;
 
-// Culling
-typedef struct
-{
-	seg_t *seg;
-	sector_t *frontsector;
-	sector_t *backsector;
-} gr_portalcullinfo_t;
-
-static gr_portalcullinfo_t gr_portalsegs[MAX_GRPORTALS];
-static size_t gr_numportalsegs = 0;
-
-static sector_t *gr_portalcullsectors[MAX_GRPORTALS];
-static size_t gr_numportalcullsectors = 0;
 
 
 // ==========================================================================
@@ -1342,68 +1302,6 @@ void HWR_DrawSkyWall(FOutVector *wallVerts, FSurfaceInfo *Surf, fixed_t bottom, 
 	// PF_Invisible so it's not drawn into the colour buffer
 	// PF_NoTexture for no texture
 	// PF_Occlude is set in HWR_ProjectWall to draw into the depth buffer
-}
-
-// HWR_DrawPortalClipWall
-// Draws an invisible wall that extends to nowhere,
-// so that portals can be clipped correctly.
-static void HWR_DrawPortalClipWall(line_t *line)
-{
-	FOutVector wallVerts[4];
-	FSurfaceInfo Surf;
-	v2d_t vs, ve;
-	fixed_t length = 1000*FRACUNIT;
-	fixed_t temp = 0;
-
-	angle_t angle = R_PointToAngle2(line->v1->x, line->v1->y, line->v2->x, line->v2->y);
-	angle_t lineangle = 0;
-
-	// no texture
-	HWD.pfnSetTexture(NULL);
-	wallVerts[3].t = wallVerts[2].t = 0;
-	wallVerts[0].t = wallVerts[1].t = 0;
-	wallVerts[0].s = wallVerts[3].s = 0;
-	wallVerts[2].s = wallVerts[1].s = 0;
-
-	//wallVerts[0].w = wallVerts[1].w = wallVerts[2].w = wallVerts[3].w = 1.0f; whatever this is i guess it cant be here
-	wallVerts[0].y = wallVerts[1].y = FIXED_TO_FLOAT(INT32_MIN);
-	wallVerts[2].y = wallVerts[3].y = FIXED_TO_FLOAT(INT32_MAX);
-
-	// first
-	vs.x = FIXED_TO_FLOAT(line->v1->x);
-	vs.y = FIXED_TO_FLOAT(line->v1->y);
-
-	angle -= ANGLE_180;
-	lineangle = (angle >> ANGLETOFINESHIFT);
-	temp = FixedMul(length, FINECOSINE(lineangle));
-	ve.x = vs.x + FIXED_TO_FLOAT(temp);
-	temp = FixedMul(length, FINESINE(lineangle));
-	ve.y = vs.y + FIXED_TO_FLOAT(temp);
-
-	wallVerts[0].x = wallVerts[3].x = ve.x;
-	wallVerts[0].z = wallVerts[3].z = ve.y;
-	wallVerts[2].x = wallVerts[1].x = vs.x;
-	wallVerts[2].z = wallVerts[1].z = vs.y;
-
-	HWR_ProjectWall(wallVerts, &Surf, PF_NoTexture, 255, NULL);
-
-	// second
-	vs.x = FIXED_TO_FLOAT(line->v2->x);
-	vs.y = FIXED_TO_FLOAT(line->v2->y);
-
-	angle += ANGLE_180;
-	lineangle = (angle >> ANGLETOFINESHIFT);
-	temp = FixedMul(length, FINECOSINE(lineangle));
-	ve.x = vs.x + FIXED_TO_FLOAT(temp);
-	temp = FixedMul(length, FINESINE(lineangle));
-	ve.y = vs.y + FIXED_TO_FLOAT(temp);
-
-	wallVerts[0].x = wallVerts[3].x = ve.x;
-	wallVerts[0].z = wallVerts[3].z = ve.y;
-	wallVerts[2].x = wallVerts[1].x = vs.x;
-	wallVerts[2].z = wallVerts[1].z = vs.y;
-
-	HWR_ProjectWall(wallVerts, &Surf, PF_NoTexture, 255, NULL);
 }
 
 //
@@ -2796,9 +2694,6 @@ void HWR_AddLine(seg_t *line)
 	if (angle2 - angle1 < ANGLE_180)
 		return;
 
-	//if (gr_portal == GRPORTAL_INSIDEMASK)
-	//	goto doaddline;
-
 	// PrBoom: use REAL clipping math YAYYYYYYY!!!
 	if (!gld_clipper_SafeCheckRange(angle2, angle1))
 		return;
@@ -2808,82 +2703,6 @@ void HWR_AddLine(seg_t *line)
 	gr_backsector = line->backsector;
 
 	// Portal line
-/*
-	if (cv_grportals.value && line->linedef->special == 40 && line->side == 0)
-	{
-		if (portalrender < cv_maxportals.value)
-		{
-			// Find the other side!
-			INT32 line2 = P_FindSpecialLineFromTag(40, line->linedef->tag, -1);
-			if (line->linedef == &lines[line2])
-				line2 = P_FindSpecialLineFromTag(40, line->linedef->tag, line2);
-			if (line2 >= 0) // found it!
-			{
-				// oh no :DD
-				if (gr_portal == GRPORTAL_PROCESS)
-				{
-					gr_portal = GRPORTAL_FOUND;
-					return;
-				}
-
-				// Portal processing
-				if ((gr_portal == GRPORTAL_MASKING) || (gr_portal == GRPORTAL_INSIDE))
-				{
-					// masking the view 1
-					if (gr_portal == GRPORTAL_MASKING)
-					{
-						size_t numportal = gr_numportalsegs;
-						if (numportal < MAX_GRPORTALS)
-						{
-							gr_portalsegs[numportal].seg = line;
-							gr_portalsegs[numportal].frontsector = gr_frontsector;
-							gr_portalsegs[numportal].backsector = gr_backsector;
-							gr_numportalsegs++;
-						}
-					}
-
-					// Add the portal
-					HWR_Portal_Add2Lines(line->linedef-lines, line2);
-
-					// masking the view 2
-					if (gr_portal == GRPORTAL_MASKING)
-					{
-						// portal_cap = last added portal
-						portal_t *lastportal = portal_cap;
-						lastportal->drawcount = drawcount++;
-
-						// extend clipping
-						HWR_DrawPortalClipWall(line->linedef);
-
-						// add cull sector
-						if (gr_numportalcullsectors < MAX_GRPORTALS)
-						{
-							sector_t *cullsec = NULL;
-							if (lastportal->clipline != -1)
-							{
-								line_t *grclipline = &lines[lastportal->clipline];
-								cullsec = grclipline->frontsector;
-							}
-							gr_portalcullsectors[gr_numportalcullsectors] = cullsec;
-							gr_numportalcullsectors++;
-						}
-					}
-				}
-
-				gld_clipper_SafeAddClipRange(angle2, angle1);
-
-				if (gr_portal != GRPORTAL_OUTSIDE)
-					return;
-			}
-		}
-		// Recursed TOO FAR (viewing a portal within a portal)
-		// So uhhh, render it as a normal wall instead or something ???
-	}
-#ifndef PORTALSORTING
-	else if (gr_portal == GRPORTAL_MASKING)
-		return;
-#endif
-*/
 	if (line->linedef->special == 40)
 	{
 		if (line->side == 0)
@@ -2908,16 +2727,14 @@ doaddline:
 
 	if (!line->backsector)
 	{
-		//if (gr_portal != GRPORTAL_MASKING)
-			gld_clipper_SafeAddClipRange(angle2, angle1);
+		gld_clipper_SafeAddClipRange(angle2, angle1);
 	}
 	else
 	{
 		gr_backsector = R_FakeFlat(gr_backsector, &tempsec, NULL, NULL, true);
 		if (CheckClip(gr_frontsector, gr_backsector))
 		{
-			//if (gr_portal != GRPORTAL_MASKING)
-				gld_clipper_SafeAddClipRange(angle2, angle1);
+			gld_clipper_SafeAddClipRange(angle2, angle1);
 			checkforemptylines = false;
 		}
 		// Reject empty lines used for triggers and special events.
@@ -3767,20 +3584,12 @@ void HWR_RenderBSPNode(INT32 bspnum)
 		return;
 	}
 
-	// in portal checking phase we can stop after one is found
-	//if (gr_portal == GRPORTAL_FOUND)
-	//	return;
-
 	// Decide which side the view point is on.
 	side = R_PointOnSide(viewx, viewy, bsp);
 
 	// Recursively divide front space. Possibly not when rendering portals.
 	if (HWR_PortalCheckBBox(bsp->bbox[side]))
 		HWR_RenderBSPNode(bsp->children[side]);
-
-	// in portal checking phase we can stop after one is found
-	//if (gr_portal == GRPORTAL_FOUND)
-	//	return;
 
 	// Possibly divide back space.
 	if (HWR_CheckBBox(bsp->bbox[side^1]) && HWR_PortalCheckBBox(bsp->bbox[side^1]))
@@ -5761,20 +5570,10 @@ void HWR_DrawSkyBackground(float fpov)
 		dometransform.fovyangle = fpov; // Tails
 		dometransform.splitscreen = splitscreen;
 
-		/*if (gr_collect_skywalls)
-		{
-			HWR_GetTexture(texturetranslation[skytexture+1]);
-			HWD.pfnSetShader(7);	// sky shader
-			HWD.pfnRenderSkyDome(skytexture, textures[skytexture+1]->width, textures[skytexture+1]->height, dometransform);
-			HWD.pfnSetShader(0);
-		}
-		else*/
-		{
-			HWR_GetTexture(texturetranslation[skytexture]);
-			HWD.pfnSetShader(7);	// sky shader
-			HWD.pfnRenderSkyDome(skytexture, textures[skytexture]->width, textures[skytexture]->height, dometransform);
-			HWD.pfnSetShader(0);
-		}
+		HWR_GetTexture(texturetranslation[skytexture]);
+		HWD.pfnSetShader(7);	// sky shader
+		HWD.pfnRenderSkyDome(skytexture, textures[skytexture]->width, textures[skytexture]->height, dometransform);
+		HWD.pfnSetShader(0);
 	}
 	else
 	{
@@ -5784,10 +5583,7 @@ void HWR_DrawSkyBackground(float fpov)
 		float aspectratio;
 		float angleturn;
 
-		//if (gr_collect_skywalls)
-		//	HWR_GetTexture(texturetranslation[skytexture+1]);
-		//else
-			HWR_GetTexture(texturetranslation[skytexture]);
+		HWR_GetTexture(texturetranslation[skytexture]);
 		aspectratio = (float)vid.width/(float)vid.height;
 
 		//Hurdler: the sky is the only texture who need 4.0f instead of 1.0
@@ -6278,152 +6074,6 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 		CONS_Printf("First call to RecursivePortalRendering\n");
 	RecursivePortalRendering(NULL, fpov, player, 0, !skybox);
 
-/*
-	gr_portal = GRPORTAL_OFF;
-
-	// Lactozilla: First, we have to find portal lines.
-	// The entire level needs to be drawn with the color mask off,
-	// but with the depth mask on.
-	if (!skybox && cv_grportals.value)
-	{
-		HWR_Portal_InitList();
-		portalcullsector = NULL;
-
-		gr_portal = GRPORTAL_PROCESS;// we are searching for a portal. This will also make bsp code skip many bits to just do the searching.
-		HWR_SetTransform(fpov, player);
-		HWR_RenderBSPNode((INT32)numnodes-1);
-
-		// Okay, it was found.
-		if (gr_portal == GRPORTAL_FOUND)
-		{
-			HWD.pfnSetSpecialState(HWD_SET_DEPTH_ONLY_MODE, 1);
-			gr_portal = GRPORTAL_MASKING;
-#ifdef PORTALSORTING
-			gr_numportals = 0;
-#endif
-			gr_numportalsegs = 0;
-			gr_numportalcullsectors = 0;
-		}
-		else
-			gr_portal = GRPORTAL_OFF;
-
-		// Run through the BSP again. Render everything to depth buffer only.
-		// TODO should transparent objs be skipped? if not then at least sorting could be skipped?
-		// also could do all kinds of batching optimizations since textures arent used, though what about alpha tested stuff?
-		HWR_ClearClipper();
-		validcount++;
-	}
-*/
-/*
-	HWR_SetTransform(fpov, player);// not sure if needed
-
-	//CONS_Printf("About to call StartBatching\n");
-	if (cv_enable_batching.value)
-		HWD.pfnStartBatching();
-
-	if (do_stats) rs_bsptime = I_GetTimeMicros();
-	rs_numpolyobjects = 0;
-	// Recursively "render" the BSP tree.
-	rs_numbspcalls = 0;
-	HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_NORMAL);// TEST does this cause problems?
-	HWR_RenderBSPNode((INT32)numnodes-1);
-
-	if (do_stats) rs_bsptime = I_GetTimeMicros() - rs_bsptime;
-	
-	if (cv_enable_batching.value)
-		HWD.pfnRenderBatches(&rs_numpolys, &rs_numverts, &rs_numcalls, &rs_numshaders, &rs_numtextures, &rs_numpolyflags, &rs_numcolors, &rs_batchsorttime, &rs_batchdrawtime);
-
-	// Check for new console commands.
-	// this was removed since it caused crashes on leaving record attack with models on since it was removing mobjs that were about to be rendered
-	//NetUpdate();
-
-	// Draw MD2 and sprites
-	rs_numsprites = gr_visspritecount;
-	rs_spritesorttime = I_GetTimeMicros();
-	HWR_SortVisSprites();
-	rs_spritesorttime = I_GetTimeMicros() - rs_spritesorttime;
-	rs_spritedrawtime = I_GetTimeMicros();
-	HWR_DrawSprites();
-	rs_spritedrawtime = I_GetTimeMicros() - rs_spritedrawtime;
-
-	if (do_stats)
-	{
-		rs_nodetime = I_GetTimeMicros();
-		rs_numdrawnodes = 0;
-		rs_nodesorttime = 0;
-		rs_nodedrawtime = 0;
-	}
-	if (numplanes || numpolyplanes || numwalls) // Render FOFs and translucent walls after everything
-		HWR_RenderDrawNodes();
-	if (do_stats) rs_nodetime = I_GetTimeMicros() - rs_nodetime;
-*/
-/*
-	// Now, draw every portal.
-	if (!skybox && portal_base && cv_grportals.value)
-	{
-		portal_t *portal;
-		size_t addportal = 0;
-
-		// Enables the color mask.
-		HWD.pfnSetSpecialState(HWD_SET_DEPTH_ONLY_MODE, 0);
-		gr_portal = GRPORTAL_INSIDE;
-
-		for (portal = portal_base; portal; portal = portal_base)
-		{
-#ifdef PORTALSORTING
-			HWR_AddPortal(portal);
-#else
-			HWR_RenderSinglePortal(portal, addportal, fpov, player);
-			addportal++;
-#endif
-			HWR_Portal_Remove(portal);
-		}
-
-#ifdef PORTALSORTING
-		HWR_SortPortals(player, fpov, viewnumber, postprocessor);
-#else
-		addportal = 0;
-#endif
-
-		// Draw every portal wall in the depth buffer.
-		// Disables the color mask.
-		HWD.pfnSetSpecialState(HWD_SET_DEPTH_ONLY_MODE, 1);
-		gr_portal = GRPORTAL_INSIDEMASK;
-
-		R_SetupFrame(player, false);
-		HWR_SetTransform(fpov, player);
-		HWR_ClearClipper();
-		HWR_ClearSprites();
-
-		while (addportal < gr_numportalsegs)
-		{
-			gr_portalcullinfo_t *addportal_p = &gr_portalsegs[addportal];
-			gr_frontsector = addportal_p->frontsector;
-			gr_backsector = addportal_p->backsector;
-			if (addportal < (unsigned)cv_maxportals.value)
-				HWR_AddLine(addportal_p->seg); // Depthbufferium
-			addportal++;
-		}
-
-		// Then, draw the normal scene.
-		// Enables the color mask again.
-		HWD.pfnSetSpecialState(HWD_SET_DEPTH_ONLY_MODE, 0);
-		gr_portal = GRPORTAL_OUTSIDE;
-		gr_numportalcullsectors = 0;
-		portalcullsector = NULL;
-
-		validcount++;
-		HWR_RenderBSPNode((INT32)numnodes-1);
-		HWR_SortVisSprites();
-		HWR_DrawSprites();
-		if (numplanes || numpolyplanes || numwalls) // Render FOFs and translucent walls after everything
-			HWR_RenderDrawNodes();
-	}
-
-	//HWD.pfnPortalFrame(0); dont think this is needed
-	gr_portal = GRPORTAL_OFF;
-*/
-
 	if (!skybox)
 		printportals = false;
 
@@ -6445,13 +6095,6 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	if (cv_test_disable_something.value)
 		HWD.pfnSetSpecialState(HWD_SET_TEST_DISABLE_SOMETHING, 0);
 
-	// i want white screen
-	//HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_DEPTH_SEGS);
-	//HWD.pfnSetSpecialState(HWD_SET_PORTAL_MODE, HWD_PORTAL_NORMAL);
-
-	//HWR_DrawSkyBackground(fpov);// TEST seeing where this lies
-	//HWD.pfnSetTransform(NULL);
-
 	// Run post processor effects
 	if (!skybox && cv_enable_screen_textures.value)
 		HWR_DoPostProcessor(player);
@@ -6464,26 +6107,6 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox, boolean
 	HWD.pfnGClipRect(0, 0, vid.width, vid.height, NZCLIP_PLANE);
 	
 	rs_posttime = I_GetTimeMicros() - rs_posttime;
-}
-
-void HWR_RenderSinglePortal(portal_t *portal, size_t portalnum, float fpov, player_t *player)
-{
-	portalrender = portal->pass; // Recursiveness depth.
-
-	// Apply the viewpoint stored for the portal.
-	HWR_PortalFrame(portal);
-	HWR_ClearClipper();
-	HWR_ClearSprites();
-	HWR_SetTransform(fpov, player);
-	validcount++;
-
-	// Render the BSP from the new viewpoint.
-	portalcullsector = gr_portalcullsectors[portalnum];
-	HWR_RenderBSPNode((INT32)numnodes - 1);
-	HWR_SortVisSprites();
-	HWR_DrawSprites();
-	if (numplanes || numpolyplanes || numwalls) // Render FOFs and translucent walls after everything
-		HWR_RenderDrawNodes();
 }
 
 // ==========================================================================
