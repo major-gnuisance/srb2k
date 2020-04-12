@@ -5957,16 +5957,19 @@ static void HandleNodeTimeouts(void)
 
 static boolean CheckForSameCmd(UINT8 p)
 {
-	if (netcmds[maketic%TICQUEUE][p].buttons == netcmds[(maketic-1)%TICQUEUE][p].buttons)
+	if (netcmds[gametic%TICQUEUE][p].buttons == netcmds[(gametic-1)%TICQUEUE][p].buttons
+		&& netcmds[gametic%TICQUEUE][p].forwardmove == netcmds[(gametic-1)%TICQUEUE][p].forwardmove
+		&& netcmds[gametic%TICQUEUE][p].sidemove == netcmds[(gametic-1)%TICQUEUE][p].sidemove)
 	{
 		return true;
 	}
 	return false;
 }
 
+//note: UINT32_MAX/TICRATE is the Off value
 static void  HandleIdlePlayers()
 {
-	if (server && !demo.playback && netgame)
+	if (server && !demo.playback && netgame && (gamestate == GS_LEVEL || gamestate == GS_INTERMISSION || gamestate == GS_VOTING))
 	{
 		for (INT32 i = 0; i < MAXPLAYERS; i++)
 		{
@@ -5979,19 +5982,19 @@ static void  HandleIdlePlayers()
 					else
 						afktimer[i] = 0;
 
-					if (cv_afkspectimer.value != 0 && afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator //speccing is enabled, and someone broke the limit and isnt a spectator already
+					if (cv_afkspectimer.value != UINT32_MAX/TICRATE && afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator //speccing is enabled, and someone broke the limit and isnt a spectator already
 						&& !(cv_afkspecignoreadmins.value && (IsPlayerAdmin(i) || i == serverplayer))) //ensure the cvar covers the server player, since they dont count as an "admin"
 					{
 						CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
 						COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
 					}
 					
-					if (afktimer[i] >= cv_afkkicktimer.value * TICRATE)
+					if (afktimer[i] >= (UINT32)cv_afkkicktimer.value * TICRATE)
 					{
-						afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking, also prevents INT32 overflow
+						afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking, also prevents UINT32 overflow
 
 						if (!(cv_afkkickignoreadmins.value && IsPlayerAdmin(i)) && i != serverplayer //ensure a non-dedicated host isn't kicked
-							&& cv_afkkicktimer.value != 0) //only actually kick if it is enabled
+							&& cv_afkkicktimer.value != UINT32_MAX/TICRATE) //only actually kick if it is enabled
 						{
 							CONS_Printf(M_GetText("Kicking %s for being idle\n"), player_names[i]);
 							COM_BufInsertText(va("kick %d %s", i, "Kicked for being idle"));
