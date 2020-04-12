@@ -383,12 +383,11 @@ consvar_t cv_kartdebugcheckpoint = {"kartdebugcheckpoint", "Off", CV_NOSHOWHELP,
 consvar_t cv_kartdebugnodes = {"kartdebugnodes", "Off", CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartdebugcolorize = {"kartdebugcolorize", "Off", CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
-//Does not affect the host
 static CV_PossibleValue_t afktimer_cons_t[] = {{30, "MIN"}, {INT32_MAX, "MAX"}, {0, "Off"}, {0, NULL}}; //In seconds
-consvar_t cv_afkspectimer = {"afkspectimer", "300", CV_SAVE, afktimer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL}; //Very long defaults to not upset anyone
-consvar_t cv_afkspecignoreadmins = {"afkspecignoreadmins", "Off", CV_SAVE|CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
-consvar_t cv_afkkicktimer = {"afkkicktimer", "600", CV_SAVE, afktimer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL}; //Server owners can tighten or loosen these
-consvar_t cv_afkkickignoreadmins = {"afkkickignoreadmins", "On", CV_SAVE|CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_afkspectimer = {"afkspectimer", "Off", CV_SAVE, afktimer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_afkspecignoreadmins = {"afkspecignoreadmins", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_afkkicktimer = {"afkkicktimer", "Off", CV_SAVE, afktimer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_afkkickignoreadmins = {"afkkickignoreadmins", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 static CV_PossibleValue_t votetime_cons_t[] = {{10, "MIN"}, {3600, "MAX"}, {0, NULL}};
 consvar_t cv_votetime = {"votetime", "20", CV_SAVE|CV_NETVAR, votetime_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
