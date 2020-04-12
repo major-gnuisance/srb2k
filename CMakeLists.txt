@@ -88,6 +88,7 @@ endif()
 
 if(${CMAKE_SYSTEM} MATCHES "Darwin")
 	add_definitions(-DMACOSX)
+	LINK_DIRECTORIES(/usr/local/lib)
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

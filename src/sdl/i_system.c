@@ -2985,7 +2985,8 @@ static void I_ShutdownTimer(void)
 	}
 }
 #else
-#ifndef __MACH__
+
+//#ifndef __MACH__
 struct timespec clk_basetime;
 
 static int TimeFunction(boolean microseconds)
@@ -3010,7 +3011,7 @@ static int TimeFunction(boolean microseconds)
 
 	return result;
 }
-#endif/*__MACH__*/
+//#endif/*__MACH__*/
 
 
 //
@@ -3035,7 +3036,7 @@ tic_t I_GetTime (void)
 }
 #endif
 
-#ifndef __MACH__
+//#ifndef __MACH__
 /*fixed_t I_GetFracTime(void)
 {
 	return TimeFunction(false) % (1000/NEWTICRATE) * (FRACUNIT / NEWTICRATE);
@@ -3069,7 +3070,7 @@ UINT16 I_GetFrameReference(UINT16 fps)
 {
 	return (TimeFunction(false) % 1000) * fps / 1000;
 }
-#endif/*__MACH__*/
+//#endif/*__MACH__*/
 
 //
 //I_StartupTimer
@@ -3092,7 +3093,7 @@ void I_StartupTimer(void)
 		pfntimeGetTime = (p_timeGetTime)GetProcAddress(winmm, "timeGetTime");
 	}
 	I_AddExitFunc(I_ShutdownTimer);
-#else
+#elif ! defined (__MACH__)
 	clock_gettime(CLOCK_MONOTONIC, &clk_basetime);
 #endif
 }
