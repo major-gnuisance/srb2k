@@ -383,7 +383,7 @@ consvar_t cv_kartdebugcheckpoint = {"kartdebugcheckpoint", "Off", CV_NOSHOWHELP,
 consvar_t cv_kartdebugnodes = {"kartdebugnodes", "Off", CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartdebugcolorize = {"kartdebugcolorize", "Off", CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
-static CV_PossibleValue_t afktimer_cons_t[] = {{30, "MIN"}, {INT32_MAX, "MAX"}, {0, "Off"}, {0, NULL}}; //In seconds
+static CV_PossibleValue_t afktimer_cons_t[] = {{30, "MIN"}, {UINT32_MAX/TICRATE-1, "MAX"}, {UINT32_MAX/TICRATE, "Off"}, {0, NULL}}; //In seconds
 consvar_t cv_afkspectimer = {"afkspectimer", "Off", CV_SAVE, afktimer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_afkspecignoreadmins = {"afkspecignoreadmins", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_afkkicktimer = {"afkkicktimer", "Off", CV_SAVE, afktimer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
