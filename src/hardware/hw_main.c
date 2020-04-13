@@ -120,6 +120,9 @@ boolean gr_kodahack = false;
 boolean gr_shadersavailable = true;
 
 int gr_wallcounter = 0;
+int gr_debugwallcounter = 0;
+
+boolean gr_drawing_fof_walls = false;// flag for informing wall functions to apply z-buffer offset
 
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -941,9 +944,12 @@ void HWR_ProjectWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend
 
 	if (cv_grwallcount.value && server)
 	{
-		if (cv_grwallcount.value <= gr_wallcounter++) // note post increment
+		if (cv_grwallcount.value <= gr_debugwallcounter++) // note post increment
 			return;
 	}
+	
+	if (gr_drawing_fof_walls)
+		blendmode |= PF_Decal;// Test: make fof walls deeper, pf_decal also changed to opposite offset in r_opengl.c
 
 	if (wallcolormap)
 		HWR_Lighting(pSurf, lightlevel, wallcolormap->rgba, wallcolormap->fadergba);
@@ -1132,20 +1138,20 @@ void HWR_SplitWall(sector_t *sector, FOutVector *wallVerts, INT32 texnum, FSurfa
 		//Found a break;
 		bot = bheight;
 
-		if (bot < realbot || bot > realtop)
+		if (bot < realbot)// || bot > realtop)
 			bot = realbot;
 		
-		if (top > realtop || top < realbot)
-			top = realtop;
+		//if (top > realtop || top < realbot)
+		//	top = realtop;
 
 #ifdef ESLOPE
 		endbot = endbheight;
 
-		if (endbot < endrealbot || endbot > endrealtop)
+		if (endbot < endrealbot)// || endbot > endrealtop)
 			endbot = endrealbot;
 		
-		if (endtop > endrealtop || endtop < endrealbot)
-			endtop = endrealtop;
+		//if (endtop > endrealtop || endtop < endrealbot)
+		//	endtop = endrealtop;
 #endif
 		Surf->PolyColor.s.alpha = alpha;
 
@@ -2177,6 +2183,8 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 	}
 
 
+	gr_drawing_fof_walls = true;
+
 	//Hurdler: 3d-floors test
 	if (gr_frontsector && gr_backsector && gr_frontsector->tag != gr_backsector->tag && (gr_backsector->ffloors || gr_frontsector->ffloors))
 	{
@@ -2477,6 +2485,8 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 		}
 	}
 //Hurdler: end of 3d-floors test
+
+	gr_drawing_fof_walls = false;
 }
 
 // From PrBoom:
@@ -2776,6 +2786,7 @@ doaddline:
 	}
 
 	gr_wallcounter = 0;
+	gr_debugwallcounter = 0;
 
 	if (gr_portal != GRPORTAL_SEARCH && !dont_draw)// no need to do this during the portal check
 		HWR_ProcessSeg(); // Doesn't need arguments because they're defined globally :D
@@ -6290,6 +6301,9 @@ void HWR_AddTransparentWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, INT32 te
 		if (gr_portal == GRPORTAL_DEPTH)
 			CONS_Printf("ADDTRANSPARENTWALL called on depth mode lol\n");
 	}
+	
+	if (gr_drawing_fof_walls)
+		blend |= PF_Decal;
 
 	// Force realloc if buffer has been freed
 	if (!wallinfo)

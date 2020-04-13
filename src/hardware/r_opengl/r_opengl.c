@@ -1202,7 +1202,8 @@ void SetStates(void)
 	//tex_downloaded = (GLuint)-1;
 	SetNoTexture();
 
-	pglPolygonOffset(-1.0f, -1.0f);
+	//pglPolygonOffset(-1.0f, -1.0f);
+	pglPolygonOffset(1.0f, 1.0f);// Testing polygon offset for a different thing than decals/splats
 
 	// bp : when no t&l :)
 	pglLoadIdentity();
@@ -1502,7 +1503,7 @@ EXPORT void HWRAPI(SetBlend) (FBITFIELD PolyFlags)
 				pglEnable(GL_ALPHA_TEST);      // discard 0 alpha pixels (holes in texture)
 		}
 
-		if (Xor & PF_Decal)
+		if (Xor & PF_Decal)// NOTE using this in a weird way for testing stuff
 		{
 			if (PolyFlags & PF_Decal)
 				pglEnable(GL_POLYGON_OFFSET_FILL);
