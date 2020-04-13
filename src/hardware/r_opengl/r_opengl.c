@@ -733,7 +733,7 @@ static gl_shaderprogram_t gl_shaderprograms[MAXSHADERPROGRAMS];
 	"uniform float lighting;\n" \
 	"uniform float leveltime;\n" \
 	"const float freq = 0.025;\n" \
-	"const float amp = 0.25;\n" \
+	"const float amp = 0.025;\n" \
 	"const float speed = 2.0;\n" \
 	"const float pi = 3.14159;\n" \
 	GLSL_DOOM_COLORMAP \
