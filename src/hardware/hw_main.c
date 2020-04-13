@@ -134,6 +134,8 @@ consvar_t cv_grwallcount = {"gr_wallcount", "0", 0, CV_Unsigned, NULL, 0, NULL, 
 
 //consvar_t cv_grskytest = {"gr_skytest", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};// currently does nothing
 
+consvar_t cv_grtest = {"grtest", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};// testing whatever i wanna test atm
+
 consvar_t cv_grportals = {"gr_portals", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_nostencil = {"nostencil", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_portalline = {"portalline", "0", 0, CV_Unsigned, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -996,14 +998,20 @@ void HWR_SplitWall(sector_t *sector, FOutVector *wallVerts, INT32 texnum, FSurfa
 	realbot = bot = wallVerts[0].y;
 	pegt = wallVerts[3].t;
 	pegb = wallVerts[0].t;
-	pegmul = (pegb - pegt) / (top - bot);
+	if (top == bot)
+		pegmul = 0;
+	else
+		pegmul = (pegb - pegt) / (top - bot);
 
 #ifdef ESLOPE
 	endrealtop = endtop = wallVerts[2].y;
 	endrealbot = endbot = wallVerts[1].y;
 	endpegt = wallVerts[2].t;
 	endpegb = wallVerts[1].t;
-	endpegmul = (endpegb - endpegt) / (endtop - endbot);
+	if (endtop == endbot)
+		endpegmul = 0;
+	else
+		endpegmul = (endpegb - endpegt) / (endtop - endbot);
 #endif
 
 	for (i = 0; i < sector->numlights; i++)
@@ -1024,7 +1032,7 @@ void HWR_SplitWall(sector_t *sector, FOutVector *wallVerts, INT32 texnum, FSurfa
 			else
 			{
 				lightnum = *list[i].lightlevel;
-				colormap = list[i].extra_colormap;
+				colormap = list[i].extra_colormap;// TODO this has * in newer SRB2?
 			}
 		}
 
@@ -1124,14 +1132,20 @@ void HWR_SplitWall(sector_t *sector, FOutVector *wallVerts, INT32 texnum, FSurfa
 		//Found a break;
 		bot = bheight;
 
-		if (bot < realbot)
+		if (bot < realbot || bot > realtop)
 			bot = realbot;
+		
+		if (top > realtop || top < realbot)
+			top = realtop;
 
 #ifdef ESLOPE
 		endbot = endbheight;
 
-		if (endbot < endrealbot)
+		if (endbot < endrealbot || endbot > endrealtop)
 			endbot = endrealbot;
+		
+		if (endtop > endrealtop || endtop < endrealbot)
+			endtop = endrealtop;
 #endif
 		Surf->PolyColor.s.alpha = alpha;
 
@@ -2183,7 +2197,11 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 			{
 				if (!(rover->flags & FF_EXISTS) || !(rover->flags & FF_RENDERSIDES) || (rover->flags & FF_INVERTSIDES))
 					continue;
-				if (*rover->topheight < lowcut || *rover->bottomheight > highcut)
+				if (cv_grtest.value && (*rover->topheight < lowcut || *rover->bottomheight > highcut))
+					continue;
+				
+				if ((!gr_backsector->c_slope && !(*rover->b_slope) && *rover->bottomheight > highcut)
+					|| (!gr_backsector->f_slope && !(*rover->t_slope) && *rover->topheight < lowcut))
 					continue;
 
 				texnum = R_GetTextureNum(sides[rover->master->sidenum[0]].midtexture);
@@ -2345,7 +2363,11 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 			{
 				if (!(rover->flags & FF_EXISTS) || !(rover->flags & FF_RENDERSIDES) || !(rover->flags & FF_ALLSIDES))
 					continue;
-				if (*rover->topheight < lowcut || *rover->bottomheight > highcut)
+				if (cv_grtest.value && (*rover->topheight < lowcut || *rover->bottomheight > highcut))
+					continue;
+				
+				if ((!gr_frontsector->c_slope && !(*rover->b_slope) && *rover->bottomheight > highcut)
+					|| (!gr_frontsector->f_slope && !(*rover->t_slope) && *rover->topheight < lowcut))
 					continue;
 
 				texnum = R_GetTextureNum(sides[rover->master->sidenum[0]].midtexture);
@@ -3560,7 +3582,7 @@ void HWR_RenderBSPNode(INT32 bspnum)
 
 	rs_numbspcalls++;
 	// fun test
-	//if (rs_numbspcalls > 500) return;
+	//if (rs_numbspcalls > 50) return;
 
 	// Found a subsector?
 	if (bspnum & NF_SUBSECTOR)
@@ -6194,6 +6216,7 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_grskydome);
 	CV_RegisterVar(&cv_grskydebug);
 	CV_RegisterVar(&cv_grwallcount);
+	CV_RegisterVar(&cv_grtest);
 	//CV_RegisterVar(&cv_grskytest);// currently does nothing
 
 	CV_RegisterVar(&cv_grportals);
