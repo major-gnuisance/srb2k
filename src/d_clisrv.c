@@ -5360,12 +5360,12 @@ static void  HandleIdlePlayers()
 					{
 						CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
 						COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
-						afktimer[i] -= 5; //Silly hacks. This will ensure when this code is run next frame while the player is still getting changeteamed, it will not trigger again.
+						afktimer[i] -= cv_maxping.value / (1000/TICRATE) + 2; //Silly hacks. This will ensure when this code is run next frame while the player is still getting changeteamed, it will not trigger again.
 					}
 					
 					if (afktimer[i] >= ((UINT32)cv_afkkicktimer.value) * TICRATE)
 					{
-						afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking, also prevents UINT32 overflow
+						afktimer[i] -= cv_maxping.value / (1000/TICRATE) + 2; //5 Seconds cooldown on kicking, also prevents UINT32 overflow
 
 						if (!(cv_afkkickignoreadmins.value && IsPlayerAdmin(i)) && i != serverplayer //ensure a non-dedicated host isn't kicked
 							&& cv_afkkicktimer.value != UINT32_MAX/TICRATE) //only actually kick if it is enabled
