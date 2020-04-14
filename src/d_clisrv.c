@@ -5329,9 +5329,9 @@ static void HandleNodeTimeouts(void)
 
 static boolean CheckForSameCmd(UINT8 p)
 {
-	if (netcmds[gametic%TICQUEUE][p].buttons == netcmds[(gametic-1)%TICQUEUE][p].buttons
-		&& netcmds[gametic%TICQUEUE][p].forwardmove == netcmds[(gametic-1)%TICQUEUE][p].forwardmove
-		&& netcmds[gametic%TICQUEUE][p].sidemove == netcmds[(gametic-1)%TICQUEUE][p].sidemove)
+	if (netcmds[maketic%TICQUEUE][p].buttons == netcmds[(maketic-1)%TICQUEUE][p].buttons
+		&& netcmds[maketic%TICQUEUE][p].forwardmove == netcmds[(maketic-1)%TICQUEUE][p].forwardmove
+		&& netcmds[maketic%TICQUEUE][p].sidemove == netcmds[(maketic-1)%TICQUEUE][p].sidemove)
 	{
 		return true;
 	}
@@ -5354,14 +5354,16 @@ static void  HandleIdlePlayers()
 					else
 						afktimer[i] = 0;
 
-					if (cv_afkspectimer.value != UINT32_MAX/TICRATE && afktimer[i] >= cv_afkspectimer.value * TICRATE && !players[i].spectator //speccing is enabled, and someone broke the limit and isnt a spectator already
+					if (cv_afkspectimer.value != UINT32_MAX/TICRATE && afktimer[i] >= cv_afkspectimer.value * TICRATE //speccing is enabled, and someone broke the limit and isnt a spectator already
+						&& !players[i].spectator && !(players[i].pflags & PF_WANTSTOJOIN)
 						&& !(cv_afkspecignoreadmins.value && (IsPlayerAdmin(i) || i == serverplayer))) //ensure the cvar covers the server player, since they dont count as an "admin"
 					{
 						CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
 						COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
+						afktimer[i] -= 5; //Silly hacks. This will ensure when this code is run next frame while the player is still getting changeteamed, it will not trigger again.
 					}
 					
-					if (afktimer[i] >= (UINT32)cv_afkkicktimer.value * TICRATE)
+					if (afktimer[i] >= ((UINT32)cv_afkkicktimer.value) * TICRATE)
 					{
 						afktimer[i] = afktimer[i] - 5*TICRATE; //5 Seconds cooldown on kicking, also prevents UINT32 overflow
 
@@ -5455,8 +5457,6 @@ FILESTAMP
 	// client send the command after a receive of the server
 	// the server send before because in single player is beter
 
-	HandleIdlePlayers(); //Force spectate or kick anyone who is idle
-
 	MasterClient_Ticker(); // Acking the Master Server
 
 	if (client)
@@ -5510,6 +5510,7 @@ FILESTAMP
 	}
 	Net_AckTicker();
 	HandleNodeTimeouts();
+	HandleIdlePlayers(); //Force spectate or kick anyone who is idle
 	if (nowtime > resptime)
 	{
 		resptime = nowtime;
