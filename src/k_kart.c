@@ -3847,6 +3847,7 @@ void K_DropItems(player_t *player)
 
 	K_DropHnextList(player);
 
+/*
 	if (player->mo && !P_MobjWasRemoved(player->mo) && player->kartstuff[k_itemamount])
 	{
 		mobj_t *drop = P_SpawnMobj(player->mo->x, player->mo->y, player->mo->z + player->mo->height/2, MT_FLOATINGITEM);
@@ -3866,6 +3867,7 @@ void K_DropItems(player_t *player)
 
 		drop->flags |= MF_NOCLIPTHING;
 	}
+*/
 
 	K_StripItems(player);
 }
