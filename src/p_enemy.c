@@ -4035,6 +4035,7 @@ static inline boolean PIT_MineExplode(mobj_t *thing)
 
 void A_MineExplode(mobj_t *actor)
 {
+	DEBFILE(va("A_MineExplode\n"));
 	INT32 bx, by, xl, xh, yl, yh;
 	INT32 d;
 	INT32 locvar1 = var1;

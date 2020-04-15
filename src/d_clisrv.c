@@ -5819,22 +5819,23 @@ void TryRunTics(tic_t realtics)
 			D_StartTitle();
 		else
 			// run the count * tics
-			while (neededtic > gametic)
-			{
-				DEBFILE(va("============ Running tic %d (local %d)\n", gametic, localgametic));
+            while (neededtic > gametic)
+            {
+                INT32 tic_realstarttime = I_GetTimeMicros();
+                DEBFILE(va("============ Running tic %d (local %d)\n", gametic, localgametic));
 
-				// from the earlier frame interp
-				prev_tics = I_GetTime();
+                // from the earlier frame interp
+                prev_tics = I_GetTime();
 
-				G_Ticker((gametic % NEWTICRATERATIO) == 0);
-				ExtraDataTicker();
-				gametic++;
-				consistancy[gametic%TICQUEUE] = Consistancy();
-
-				// Leave a certain amount of tics present in the net buffer as long as we've ran at least one tic this frame.
-				if (client && gamestate == GS_LEVEL && leveltime > 3 && neededtic <= gametic + cv_netticbuffer.value)
-					break;
-			}
+                G_Ticker((gametic % NEWTICRATERATIO) == 0);
+                ExtraDataTicker();
+                gametic++;
+                consistancy[gametic%TICQUEUE] = Consistancy();
+                DEBFILE(va("Time to run tic: %d\n", I_GetTimeMicros() - tic_realstarttime));
+                // Leave a certain amount of tics present in the net buffer as long as we've ran at least one tic this frame.
+                if (client && gamestate == GS_LEVEL && leveltime > 3 && neededtic <= gametic + cv_netticbuffer.value)
+                    break;
+            }
 	}
 	else
 	{
