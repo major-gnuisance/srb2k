@@ -122,7 +122,7 @@ boolean gr_shadersavailable = true;
 int gr_wallcounter = 0;
 int gr_debugwallcounter = 0;
 
-boolean gr_drawing_fof_walls = false;// flag for informing wall functions to apply z-buffer offset
+boolean gr_use_polygon_offset = false;// flag for informing wall functions to apply z-buffer offset
 
 consvar_t cv_test_disable_something = {"disable_something", "Off", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_enable_batching = {"gr_batching", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -948,7 +948,7 @@ void HWR_ProjectWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend
 			return;
 	}
 	
-	if (gr_drawing_fof_walls)
+	if (gr_use_polygon_offset)
 		blendmode |= PF_Decal;// Test: make fof walls deeper, pf_decal also changed to opposite offset in r_opengl.c
 
 	if (wallcolormap)
@@ -1969,6 +1969,8 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 			}
 #endif
 
+			gr_use_polygon_offset = true;// need offsets for these too, otherwise weird grass shows up on green hill zone
+			// adding this offsets re-breaks some bowser's castle walls though, but don't know how to have both work correctly
 			if (gr_frontsector->numlights)
 			{
 				if (!(blendmode & PF_Masked))
@@ -1982,6 +1984,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 				HWR_AddTransparentWall(wallVerts, &Surf, gr_midtexture, blendmode, false, lightnum, colormap);
 			else
 				HWR_ProjectWall(wallVerts, &Surf, blendmode, lightnum, colormap);
+			gr_use_polygon_offset = false;
 		}
 		if (cv_grskywallmode.value == 2)// keeping this old sky method as an option for now
 		{
@@ -2183,7 +2186,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 	}
 
 
-	gr_drawing_fof_walls = true;
+	gr_use_polygon_offset = true;
 
 	//Hurdler: 3d-floors test
 	if (gr_frontsector && gr_backsector && gr_frontsector->tag != gr_backsector->tag && (gr_backsector->ffloors || gr_frontsector->ffloors))
@@ -2486,7 +2489,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 	}
 //Hurdler: end of 3d-floors test
 
-	gr_drawing_fof_walls = false;
+	gr_use_polygon_offset = false;
 }
 
 // From PrBoom:
@@ -6302,7 +6305,7 @@ void HWR_AddTransparentWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, INT32 te
 			CONS_Printf("ADDTRANSPARENTWALL called on depth mode lol\n");
 	}
 	
-	if (gr_drawing_fof_walls)
+	if (gr_use_polygon_offset)
 		blend |= PF_Decal;
 
 	// Force realloc if buffer has been freed
