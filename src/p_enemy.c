@@ -4035,7 +4035,8 @@ static inline boolean PIT_MineExplode(mobj_t *thing)
 
 void A_MineExplode(mobj_t *actor)
 {
-	DEBFILE(va("A_MineExplode\n"));
+	INT32 A_MineExplode_realstarttime = I_GetTimeMicros();
+	
 	INT32 bx, by, xl, xh, yl, yh;
 	INT32 d;
 	INT32 locvar1 = var1;
@@ -4043,7 +4044,10 @@ void A_MineExplode(mobj_t *actor)
 	explodedist = FixedMul((3*actor->info->painchance)/2, mapobjectscale);
 #ifdef HAVE_BLUA
 	if (LUA_CallAction("A_MineExplode", actor))
+	{
+		DEBFILE(va("Time Lua A_MineExplode: %d\n", I_GetTimeMicros() - A_MineExplode_realstarttime));
 		return;
+	}
 #endif
 
 	type = (mobjtype_t)locvar1;
@@ -4069,6 +4073,7 @@ void A_MineExplode(mobj_t *actor)
 		K_SpawnMineExplosion(actor, SKINCOLOR_KETCHUP);
 
 	P_SpawnMobj(actor->x, actor->y, actor->z, MT_MINEEXPLOSIONSOUND);
+	DEBFILE(va("Time A_MineExplode: %d\n", I_GetTimeMicros() - A_MineExplode_realstarttime));
 }
 //}
 

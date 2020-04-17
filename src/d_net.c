@@ -872,7 +872,7 @@ static void DebugPrintpacket(const char *header)
 				(UINT32)netbuffer->u.clientpak.resendfrom);
 			break;
 		case PT_BASICKEEPALIVE:
-			fprintf(debugfile, "    keep alive\n");
+			//fprintf(debugfile, "    keep alive\n");
 			break;
 		case PT_TEXTCMD:
 		case PT_TEXTCMD2:
@@ -1023,7 +1023,7 @@ boolean HSendPacket(INT32 node, boolean reliable, UINT8 acknum, size_t packetlen
 		if (debugfile)
 		{
 			doomcom->remotenode = (INT16)node;
-			DebugPrintpacket("SENDLOCAL");
+			//DebugPrintpacket("SENDLOCAL");
 		}
 #endif
 		return true;
@@ -1124,7 +1124,7 @@ boolean HGetPacket(void)
 		rebound_tail = (rebound_tail+1) % MAXREBOUND;
 #ifdef DEBUGFILE
 		if (debugfile)
-			DebugPrintpacket("GETLOCAL");
+			//DebugPrintpacket("GETLOCAL");
 #endif
 		return true;
 	}

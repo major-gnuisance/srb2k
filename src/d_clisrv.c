@@ -450,7 +450,7 @@ static void ExtraDataTicker(void)
 						curpos++;
 						DEBFILE(va("executing x_cmd %s ply %u ", netxcmdnames[id - 1], i));
 						(listnetxcmd[id])(&curpos, i);
-						DEBFILE("done\n");
+						//DEBFILE("done\n");
 					}
 					else
 					{
@@ -486,7 +486,7 @@ static void D_Clearticcmd(tic_t tic)
 	for (i = 0; i < MAXPLAYERS; i++)
 		netcmds[tic%TICQUEUE][i].angleturn = 0;
 
-	DEBFILE(va("clear tic %5u (%2u)\n", tic, tic%TICQUEUE));
+	//DEBFILE(va("clear tic %5u (%2u)\n", tic, tic%TICQUEUE));
 }
 
 void D_ResetTiccmds(void)
@@ -5298,7 +5298,7 @@ static INT16 Consistancy(void)
 	mobj_t *mo;
 #endif
 
-	DEBFILE(va("TIC %u ", gametic));
+	//DEBFILE(va("TIC %u ", gametic));
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
@@ -5321,7 +5321,7 @@ static INT16 Consistancy(void)
 #ifdef MOBJCONSISTANCY
 	if (!thinkercap.next)
 	{
-		DEBFILE(va("Consistancy = %u\n", ret));
+		//DEBFILE(va("Consistancy = %u\n", ret));
 		return ret;
 	}
 	if (gamestate == GS_LEVEL)
@@ -5436,7 +5436,7 @@ static INT16 Consistancy(void)
 	}
 #endif
 
-	DEBFILE(va("Consistancy = %u\n", (ret & 0xFFFF)));
+	//DEBFILE(va("Consistancy = %u\n", (ret & 0xFFFF)));
 
 	return (INT16)(ret & 0xFFFF);
 }
@@ -5796,8 +5796,8 @@ void TryRunTics(tic_t realtics)
 	{
 		//SoM: 3/30/2000: Need long INT32 in the format string for args 4 & 5.
 		//Shut up stupid warning!
-		fprintf(debugfile, "------------ Tryruntic: REAL:%d NEED:%d GAME:%d LOAD: %d\n",
-			realtics, neededtic, gametic, debugload);
+		//fprintf(debugfile, "------------ Tryruntic: REAL:%d NEED:%d GAME:%d LOAD: %d\n",
+		//	realtics, neededtic, gametic, debugload);
 		debugload = 100000;
 	}
 #endif
@@ -5822,7 +5822,7 @@ void TryRunTics(tic_t realtics)
             while (neededtic > gametic)
             {
                 INT32 tic_realstarttime = I_GetTimeMicros();
-                DEBFILE(va("============ Running tic %d (local %d)\n", gametic, localgametic));
+                //DEBFILE(va("============ Running tic %d (local %d)\n", gametic, localgametic));
 
                 // from the earlier frame interp
                 prev_tics = I_GetTime();
@@ -5831,7 +5831,7 @@ void TryRunTics(tic_t realtics)
                 ExtraDataTicker();
                 gametic++;
                 consistancy[gametic%TICQUEUE] = Consistancy();
-                DEBFILE(va("Time to run tic: %d\n", I_GetTimeMicros() - tic_realstarttime));
+                //DEBFILE(va("ticMicros: %d\n", I_GetTimeMicros() - tic_realstarttime));
                 // Leave a certain amount of tics present in the net buffer as long as we've ran at least one tic this frame.
                 if (client && gamestate == GS_LEVEL && leveltime > 3 && neededtic <= gametic + cv_netticbuffer.value)
                     break;
@@ -5960,7 +5960,9 @@ static boolean CheckForSameCmd(UINT8 p)
 {
 	if (netcmds[maketic%TICQUEUE][p].buttons == netcmds[(maketic-1)%TICQUEUE][p].buttons
 		&& netcmds[maketic%TICQUEUE][p].forwardmove == netcmds[(maketic-1)%TICQUEUE][p].forwardmove
-		&& netcmds[maketic%TICQUEUE][p].sidemove == netcmds[(maketic-1)%TICQUEUE][p].sidemove)
+		&& netcmds[maketic%TICQUEUE][p].sidemove == netcmds[(maketic-1)%TICQUEUE][p].sidemove
+		&& !D_GetExistingTextcmd(maketic, p) //Ensures people chatting or selecting skin and color don't get counted
+		&& !(players[p].pflags & PF_WANTSTOJOIN))
 	{
 		return true;
 	}
@@ -5987,18 +5989,20 @@ static void  HandleIdlePlayers()
 						&& !players[i].spectator && !(players[i].pflags & PF_WANTSTOJOIN)
 						&& !(cv_afkspecignoreadmins.value && (IsPlayerAdmin(i) || i == serverplayer))) //ensure the cvar covers the server player, since they dont count as an "admin"
 					{
+						DEBFILE(va("Forcespec p %d %s with afktimer value %d\n", i, player_names[i], afktimer[i]));
 						CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
 						COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
-						afktimer[i] -= cv_maxping.value / (1000/TICRATE) + 2; //Silly hacks. This will ensure when this code is run next frame while the player is still getting changeteamed, it will not trigger again.
+						afktimer[i] -= 3*TICRATE; //Silly hacks. This will ensure when this code is run next frame while the player is still getting changeteamed, it will not trigger again.
 					}
 					
 					if (afktimer[i] >= ((UINT32)cv_afkkicktimer.value) * TICRATE)
 					{
-						afktimer[i] -= cv_maxping.value / (1000/TICRATE) + 2; //5 Seconds cooldown on kicking, also prevents UINT32 overflow
+						afktimer[i] -= 3*TICRATE; //5 Seconds cooldown on kicking, also prevents UINT32 overflow
 
 						if (!(cv_afkkickignoreadmins.value && IsPlayerAdmin(i)) && i != serverplayer //ensure a non-dedicated host isn't kicked
 							&& cv_afkkicktimer.value != UINT32_MAX/TICRATE) //only actually kick if it is enabled
 						{
+							DEBFILE(va("Kicked p %d %s with afktimer value %d\n", i, player_names[i], afktimer[i]));
 							CONS_Printf(M_GetText("Kicking %s for being idle\n"), player_names[i]);
 							COM_BufInsertText(va("kick %d %s", i, "Kicked for being idle"));
 						}
