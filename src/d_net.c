@@ -1044,8 +1044,8 @@ boolean HSendPacket(INT32 node, boolean reliable, UINT8 acknum, size_t packetlen
 	{
 		DEBFILE("HSendPacket: nothing to send\n");
 #ifdef DEBUGFILE
-		if (debugfile)
-			DebugPrintpacket("TRISEND");
+		//if (debugfile)
+		//	DebugPrintpacket("TRISEND");
 #endif
 		return false;
 	}
@@ -1080,8 +1080,8 @@ boolean HSendPacket(INT32 node, boolean reliable, UINT8 acknum, size_t packetlen
 	{
 #endif
 #ifdef DEBUGFILE
-		if (debugfile)
-			DebugPrintpacket("SENT");
+		//if (debugfile)
+		//	DebugPrintpacket("SENT");
 #endif
 		I_NetSend();
 #ifdef PACKETDROP
@@ -1091,8 +1091,8 @@ boolean HSendPacket(INT32 node, boolean reliable, UINT8 acknum, size_t packetlen
 		if (packetdropquantity[netbuffer->packettype] > 0)
 			packetdropquantity[netbuffer->packettype]--;
 #ifdef DEBUGFILE
-		if (debugfile)
-			DebugPrintpacket("NOT SENT");
+		//if (debugfile)
+		//	DebugPrintpacket("NOT SENT");
 #endif
 	}
 #endif
@@ -1161,8 +1161,8 @@ boolean HGetPacket(void)
 		}
 
 #ifdef DEBUGFILE
-		if (debugfile)
-			DebugPrintpacket("GET");
+		//if (debugfile)
+		//	DebugPrintpacket("GET");
 #endif
 
 		/*// If a new node sends an unexpected packet, just ignore it
