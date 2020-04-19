@@ -1700,7 +1700,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 #endif
 
 			if (gr_frontsector->numlights)
-				HWR_SplitWall(gr_frontsector, wallVerts, gr_bottomtexture, &Surf, FF_CUTLEVEL, NULL);// TODO BUG on sub zero peak zone with wall in beginning, no bug if not using splitwall
+				HWR_SplitWall(gr_frontsector, wallVerts, gr_bottomtexture, &Surf, FF_CUTLEVEL, NULL);// TODO BUG on sub zero peak zone with wall in beginning, no bug if not using splitwall. This is half fixed.
 			else if (grTex->mipmap.flags & TF_TRANSPARENT)
 				HWR_AddTransparentWall(wallVerts, &Surf, gr_bottomtexture, PF_Environment, false, lightnum, colormap);
 			else
@@ -1971,6 +1971,14 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 
 			gr_use_polygon_offset = true;// need offsets for these too, otherwise weird grass shows up on green hill zone
 			// adding this offsets re-breaks some bowser's castle walls though, but don't know how to have both work correctly
+			
+			// ok the ghz issue seems to be that there are actually 2 lines very close to eachother, thats why it resolves when
+			// getting closer!! one way to fix this would be to only selectively enable fof-side-deepening, so it's not enabled
+			// in cases where coplanar fof-sides and regular walls are impossible.
+			
+			// could implement that by using a wall counter, if wall counter > 0 then use offset on fofs
+			// though skywalls must not increment counter, so could decrement it in HWR_DrawSkyWall
+			
 			if (gr_frontsector->numlights)
 			{
 				if (!(blendmode & PF_Masked))
