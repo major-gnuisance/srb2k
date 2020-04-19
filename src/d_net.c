@@ -1123,8 +1123,8 @@ boolean HGetPacket(void)
 
 		rebound_tail = (rebound_tail+1) % MAXREBOUND;
 #ifdef DEBUGFILE
-		if (debugfile)
-			//DebugPrintpacket("GETLOCAL");
+		//if (debugfile)
+		//	DebugPrintpacket("GETLOCAL");
 #endif
 		return true;
 	}
