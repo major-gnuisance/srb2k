@@ -281,47 +281,47 @@ static boolean D_Display(void)
 	UINT8 i;
 	INT16 startms = 0; // dynamic res
 
-	if (dedicated)
-		return false;
-
-	if (nodrawers)
-		return false; // for comparative timing/profiling
-
-	if (cv_interpolationmode.value == 1)
+	if (!dedicated)
 	{
-		static UINT16 frame = 0;
-		UINT16 newframe = I_GetFrameReference(cv_frameratecap.value);
+		if (nodrawers)
+			return false; // for comparative timing/profiling
 
-		if (newframe == frame)
+		if (cv_interpolationmode.value == 1)
 		{
-			I_Sleep();// Sleep in main loop now only happens in 35 fps mode, so sleep here to avoid a full busy loop
-			return false;
+			static UINT16 frame = 0;
+			UINT16 newframe = I_GetFrameReference(cv_frameratecap.value);
+
+			if (newframe == frame)
+			{
+				I_Sleep();// Sleep in main loop now only happens in 35 fps mode, so sleep here to avoid a full busy loop
+				return false;
+			}
+
+			frame = newframe;
 		}
 
-		frame = newframe;
+		// dynamic res profiling
+		if (cv_dynamicres.value && rendermode == render_soft)
+			startms = I_GetFrameReference(1000);
+
+		// check for change of screen size (video mode)
+		if (setmodeneeded && !wipe)
+			SCR_SetMode(); // change video mode
+
+		if (vid.recalc)
+			SCR_Recalc(); // NOTE! setsizeneeded is set by SCR_Recalc()
+
+		// change the view size if needed
+		if (setsizeneeded)
+		{
+			R_ExecuteSetViewSize();
+			forcerefresh = true; // force background redraw
+		}
+
+		// draw buffered stuff to screen
+		// Used only by linux GGI version
+		I_UpdateNoBlit();
 	}
-
-	// dynamic res profiling
-	if (cv_dynamicres.value && rendermode == render_soft)
-		startms = I_GetFrameReference(1000);
-
-	// check for change of screen size (video mode)
-	if (setmodeneeded && !wipe)
-		SCR_SetMode(); // change video mode
-
-	if (vid.recalc)
-		SCR_Recalc(); // NOTE! setsizeneeded is set by SCR_Recalc()
-
-	// change the view size if needed
-	if (setsizeneeded)
-	{
-		R_ExecuteSetViewSize();
-		forcerefresh = true; // force background redraw
-	}
-
-	// draw buffered stuff to screen
-	// Used only by linux GGI version
-	I_UpdateNoBlit();
 
 	// save the current screen if about to wipe
 	wipe = (gamestate != wipegamestate);
@@ -339,7 +339,7 @@ static boolean D_Display(void)
 				wipedefindex = wipe_multinter_toblack;
 		}
 
-		if (rendermode != render_none)
+		if (!dedicated)
 		{
 			// Fade to black first
 			if (gamestate != GS_LEVEL // fades to black on its own timing, always
@@ -359,7 +359,15 @@ static boolean D_Display(void)
 
 			F_WipeStartScreen();
 		}
+		else //dedicated servers
+		{
+			F_RunWipe(wipedefs[wipedefindex], gamestate != GS_TIMEATTACK);
+			wipegamestate = gamestate;
+		}
 	}
+
+	if (dedicated) //bail out after wipe logic
+		return false;
 
 	// do buffered drawing
 	switch (gamestate)
