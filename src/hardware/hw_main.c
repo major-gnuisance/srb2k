@@ -1968,8 +1968,8 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 					blendmode = HWR_TranstableToAlpha(gr_curline->polyseg->translucency, &Surf);
 			}
 #endif
-
-			gr_use_polygon_offset = true;// need offsets for these too, otherwise weird grass shows up on green hill zone
+			// disabled for now, can cause random visual issues
+			//gr_use_polygon_offset = true;// need offsets for these too, otherwise weird grass shows up on green hill zone
 			// adding this offsets re-breaks some bowser's castle walls though, but don't know how to have both work correctly
 			
 			// ok the ghz issue seems to be that there are actually 2 lines very close to eachother, thats why it resolves when
@@ -1992,7 +1992,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 				HWR_AddTransparentWall(wallVerts, &Surf, gr_midtexture, blendmode, false, lightnum, colormap);
 			else
 				HWR_ProjectWall(wallVerts, &Surf, blendmode, lightnum, colormap);
-			gr_use_polygon_offset = false;
+			//gr_use_polygon_offset = false;// disabled for now, can cause random visual issues
 		}
 		if (cv_grskywallmode.value == 2)// keeping this old sky method as an option for now
 		{
@@ -2194,7 +2194,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 	}
 
 
-	gr_use_polygon_offset = true;
+	//gr_use_polygon_offset = true;// disabled for now, can cause random visual issues
 
 	//Hurdler: 3d-floors test
 	if (gr_frontsector && gr_backsector && gr_frontsector->tag != gr_backsector->tag && (gr_backsector->ffloors || gr_frontsector->ffloors))
@@ -2497,7 +2497,7 @@ void HWR_ProcessSeg(void) // Sort of like GLWall::Process in GZDoom
 	}
 //Hurdler: end of 3d-floors test
 
-	gr_use_polygon_offset = false;
+	//gr_use_polygon_offset = false;// disabled for now, can cause random visual issues
 }
 
 // From PrBoom:
