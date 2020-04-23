@@ -714,7 +714,7 @@ void D_SRB2Loop(void)
 		if (!realtics && !singletics)
 		{
 			//I_Sleep();//test
-			if (cv_interpolationmode.value != 0 && gamestate == GS_LEVEL)
+			if (cv_interpolationmode.value != 0 && gamestate == GS_LEVEL && !(paused || P_AutoPause())) //turn off interpolation when paused
 			{
 				if (rendertimeout == entertic+TICRATE/17)
 				{
@@ -764,7 +764,7 @@ void D_SRB2Loop(void)
 			rendertimeout = entertic+TICRATE/17;
 
 			// Update display, next frame, with current state.
-			if (cv_interpolationmode.value == 0)
+			if (cv_interpolationmode.value == 0 || (paused || P_AutoPause()))
 				lerp_fractic = 0;
 			else if (demo.playback && gamestate == GS_LEVEL)
 				lerp_fractic = (I_GetFracTime() * cv_playbackspeed.value) % FRACUNIT - cv_extrapolation.value;
