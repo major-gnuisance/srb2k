@@ -727,6 +727,8 @@ void I_OutputMsg(const char *fmt, ...)
 	}
 #endif
 
+	DEBFILE(txt);
+
 #if defined (_WIN32)
 #ifdef DEBUGFILE
 	if (debugfile != stderr)
