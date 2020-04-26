@@ -773,6 +773,7 @@ static void fprintfstring(char *s, size_t len)
 
 static void fprintfstringnewline(char *s, size_t len)
 {
+	fprintf(debugfile, "DEBUG: ");
 	fprintfstring(s, len);
 	fprintf(debugfile, "\n");
 }
@@ -780,63 +781,78 @@ static void fprintfstringnewline(char *s, size_t len)
 /// \warning Keep this up-to-date if you add/remove/rename packet types
 static const char *packettypename[NUMPACKETTYPE] =
 {
-	"NOTHING",
-	"SERVERCFG",
-	"CLIENTCMD",
-	"CLIENTMIS",
-	"CLIENT2CMD",
-	"CLIENT2MIS",
-	"NODEKEEPALIVE",
+	"NOTHING",       // To send a nop through the network. ^_~
+	"SERVERCFG",     // Server config used in start game
+	                  // (must stay 1 for backwards compatibility).
+	                  // This is a positive response to a CLIENTJOIN request.
+	"CLIENTCMD",     // Ticcmd of the client.
+	"CLIENTMIS",     // Same as above with but saying resend from.
+	"CLIENT2CMD",    // 2 cmds in the packet for splitscreen.
+	"CLIENT2MIS",    // Same as above with but saying resend from
+	"NODEKEEPALIVE", // Same but without ticcmd and consistancy
 	"NODEKEEPALIVEMIS",
-	"SERVERTICS",
-	"SERVERREFUSE",
+	"SERVERTICS",    // All cmds for the tic.
+	"SERVERREFUSE",  // Server refuses joiner (reason inside).
 	"SERVERSHUTDOWN",
-	"CLIENTQUIT",
+	"CLIENTQUIT",    // Client closes the connection.
 
-	"ASKINFO",
-	"SERVERINFO",
-	"PLAYERINFO",
-	"REQUESTFILE",
-	"ASKINFOVIAMS",
+	"ASKINFO",       // Anyone can ask info of the server.
+	"SERVERINFO",    // Send game & server info (gamespy).
+	"PLAYERINFO",    // Send information for players in game (gamespy).
+	"REQUESTFILE",   // Client requests a file transfer
+	"ASKINFOVIAMS",  // Packet from the MS requesting info be sent to new client.
+	                  // If this ID changes, update masterserver definition.
+	"RESYNCHEND",    // Player is now resynched and is being requested to remake the gametic
+	"RESYNCHGET",    // Player got resynch packet
 
-	"RESYNCHEND",
-	"RESYNCHGET",
+	// Add non-PT_CANFAIL packet types here to avoid breaking MS compatibility.
 
-	"CLIENT3CMD",
+	// Kart-specific packets
+	"CLIENT3CMD",    // 3P
 	"CLIENT3MIS",
-	"CLIENT4CMD",
+	"CLIENT4CMD",    // 4P
 	"CLIENT4MIS",
-	"BASICKEEPALIVE",
+	"BASICKEEPALIVE", // Keep the network alive during wipes", as tics aren't advanced and NetUpdate isn't called
 
-	"JOINCHALLENGE",
-	"DOWNLOADFILESOKAY",
+	"JOINCHALLENGE", // You must give a password to joinnnnn
+	"DOWNLOADFILESOKAY", // You can download files from the server....
 
-	"FILEFRAGMENT",
-	"TEXTCMD",
-	"TEXTCMD2",
-	"TEXTCMD3",
-	"TEXTCMD4",
-	"CLIENTJOIN",
-	"NODETIMEOUT",
-	"RESYNCHING",
-	"PING"
+	"CANFAIL",       // This is kind of a priority. Anything bigger than CANFAIL
+	                  // allows HSendPacket(*, true, *, *) to return false.
+	                  // In addition, this packet can't occupy all the available slots.
+
+	"TEXTCMD",       // Extra text commands from the client.
+	"TEXTCMD2",      // Splitscreen text commands.
+	"TEXTCMD3",      // 3P
+	"TEXTCMD4",      // 4P
+	"CLIENTJOIN",    // Client wants to join; used in start game.
+	"NODETIMEOUT",   // Packet sent to self if the connection times out.
+	"RESYNCHING",    // Packet sent to resync players.
+	                  // Blocks game advance until synched.
+
+	"TELLFILESNEEDED", // Client, to server: "what other files do I need starting from this number?"
+	"MOREFILESNEEDED", // Server, to client: "you need these (+ more on top of those)"
+
+	"PING",          // Packet sent to tell clients the other client's latency to server.
+
+	"BIRBINFO"/* like serverinfo but with flicky */
 };
 
 static void DebugPrintpacket(const char *header)
 {
-	fprintf(debugfile, "%-12s (node %d,ack %d,ackret %d,size %d) type(%d) : %s\n",
+	DEBFILE(va("%-12s (node %d,ack %d,ackret %d,size %d) type(%d) : %s\n",
 		header, doomcom->remotenode, netbuffer->ack, netbuffer->ackreturn, doomcom->datalength,
-		netbuffer->packettype, packettypename[netbuffer->packettype]);
+		netbuffer->packettype, packettypename[netbuffer->packettype]));
 
 	switch (netbuffer->packettype)
 	{
 		case PT_ASKINFO:
 		case PT_ASKINFOVIAMS:
-			fprintf(debugfile, "    time %u\n", (tic_t)LONG(netbuffer->u.askinfo.time));
+			DEBFILE(va("    time %u\n", (tic_t)LONG(netbuffer->u.askinfo.time)));
 			break;
 		case PT_CLIENTJOIN:
-			fprintf(debugfile, "    number %d mode %d\n", netbuffer->u.clientcfg.localplayers,
-				netbuffer->u.clientcfg.needsdownload);
+			DEBFILE(va("    number %d mode %d\n", netbuffer->u.clientcfg.localplayers,
+				netbuffer->u.clientcfg.needsdownload));
 			break;
 		case PT_SERVERTICS:
 		{
@@ -844,8 +860,8 @@ static void DebugPrintpacket(const char *header)
 			UINT8 *cmd = (UINT8 *)(&serverpak->cmds[serverpak->numslots * serverpak->numtics]);
 			size_t ntxtcmd = &((UINT8 *)netbuffer)[doomcom->datalength] - cmd;
 
-			fprintf(debugfile, "    firsttic %u ply %d tics %d ntxtcmd %s\n    ",
-				(UINT32)serverpak->starttic, serverpak->numslots, serverpak->numtics, sizeu1(ntxtcmd));
+			DEBFILE(va("    firsttic %u ply %d tics %d ntxtcmd %s\n    ",
+				(UINT32)serverpak->starttic, serverpak->numslots, serverpak->numtics, sizeu1(ntxtcmd)));
 			/// \todo Display more readable information about net commands
 			fprintfstringnewline((char *)cmd, ntxtcmd);
 			/*fprintfstring((char *)cmd, 3);
@@ -867,46 +883,46 @@ static void DebugPrintpacket(const char *header)
 		case PT_CLIENT4MIS:
 		case PT_NODEKEEPALIVE:
 		case PT_NODEKEEPALIVEMIS:
-			fprintf(debugfile, "    tic %4u resendfrom %u\n",
+			DEBFILE(va("    tic %4u resendfrom %u\n",
 				(UINT32)netbuffer->u.clientpak.client_tic,
-				(UINT32)netbuffer->u.clientpak.resendfrom);
+				(UINT32)netbuffer->u.clientpak.resendfrom));
 			break;
 		case PT_BASICKEEPALIVE:
-			fprintf(debugfile, "    keep alive\n");
+			DEBFILE(va("    keep alive\n"));
 			break;
 		case PT_TEXTCMD:
 		case PT_TEXTCMD2:
 		case PT_TEXTCMD3:
 		case PT_TEXTCMD4:
-			fprintf(debugfile, "    length %d\n    ", netbuffer->u.textcmd[0]);
-			fprintf(debugfile, "[%s]", netxcmdnames[netbuffer->u.textcmd[1] - 1]);
+			DEBFILE(va("    length %d\n    ", netbuffer->u.textcmd[0]));
+			DEBFILE(va("[%s]", netxcmdnames[netbuffer->u.textcmd[1] - 1]));
 			fprintfstringnewline((char *)netbuffer->u.textcmd + 2, netbuffer->u.textcmd[0] - 1);
 			break;
 		case PT_SERVERCFG:
-			fprintf(debugfile, "    playerslots %d clientnode %d serverplayer %d "
+			DEBFILE(va("    playerslots %d clientnode %d serverplayer %d "
 				"gametic %u gamestate %d gametype %d modifiedgame %d\n",
 				netbuffer->u.servercfg.totalslotnum, netbuffer->u.servercfg.clientnode,
 				netbuffer->u.servercfg.serverplayer, (UINT32)LONG(netbuffer->u.servercfg.gametic),
 				netbuffer->u.servercfg.gamestate, netbuffer->u.servercfg.gametype,
-				netbuffer->u.servercfg.modifiedgame);
+				netbuffer->u.servercfg.modifiedgame));
 			break;
 		case PT_SERVERINFO:
-			fprintf(debugfile, "    '%s' player %d/%d, map %s, filenum %d, time %u \n",
+			DEBFILE(va("    '%s' player %d/%d, map %s, filenum %d, time %u \n",
 				netbuffer->u.serverinfo.servername, netbuffer->u.serverinfo.numberofplayer,
 				netbuffer->u.serverinfo.maxplayer, netbuffer->u.serverinfo.mapname,
 				netbuffer->u.serverinfo.fileneedednum,
-				(UINT32)LONG(netbuffer->u.serverinfo.time));
+				(UINT32)LONG(netbuffer->u.serverinfo.time)));
 			fprintfstringnewline((char *)netbuffer->u.serverinfo.fileneeded,
 				(UINT8)((UINT8 *)netbuffer + doomcom->datalength
 				- (UINT8 *)netbuffer->u.serverinfo.fileneeded));
 			break;
 		case PT_SERVERREFUSE:
-			fprintf(debugfile, "    reason %s\n", netbuffer->u.serverrefuse.reason);
+			DEBFILE(va("    reason %s\n", netbuffer->u.serverrefuse.reason));
 			break;
 		case PT_FILEFRAGMENT:
-			fprintf(debugfile, "    fileid %d datasize %d position %u\n",
+			DEBFILE(va("    fileid %d datasize %d position %u\n",
 				netbuffer->u.filetxpak.fileid, (UINT16)SHORT(netbuffer->u.filetxpak.size),
-				(UINT32)LONG(netbuffer->u.filetxpak.position));
+				(UINT32)LONG(netbuffer->u.filetxpak.position)));
 			break;
 		case PT_REQUESTFILE:
 		default: // write as a raw packet
@@ -1023,7 +1039,8 @@ boolean HSendPacket(INT32 node, boolean reliable, UINT8 acknum, size_t packetlen
 		if (debugfile)
 		{
 			doomcom->remotenode = (INT16)node;
-			DebugPrintpacket("SENDLOCAL");
+			if (!dedicated)
+				DebugPrintpacket("SENDLOCAL");
 		}
 #endif
 		return true;
@@ -1123,7 +1140,7 @@ boolean HGetPacket(void)
 
 		rebound_tail = (rebound_tail+1) % MAXREBOUND;
 #ifdef DEBUGFILE
-		if (debugfile)
+		if (debugfile && !dedicated)
 			DebugPrintpacket("GETLOCAL");
 #endif
 		return true;

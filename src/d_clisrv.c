@@ -5808,8 +5808,8 @@ void TryRunTics(tic_t realtics)
 	{
 		//SoM: 3/30/2000: Need long INT32 in the format string for args 4 & 5.
 		//Shut up stupid warning!
-		fprintf(debugfile, "------------ Tryruntic: REAL:%d NEED:%d GAME:%d LOAD: %d\n",
-			realtics, neededtic, gametic, debugload);
+		DEBFILE(va("------------ Tryruntic: REAL:%d NEED:%d GAME:%d LOAD: %d\n",
+			realtics, neededtic, gametic, debugload));
 		debugload = 100000;
 	}
 #endif
