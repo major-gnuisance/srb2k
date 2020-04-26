@@ -817,9 +817,7 @@ static const char *packettypename[NUMPACKETTYPE] =
 	"JOINCHALLENGE", // You must give a password to joinnnnn
 	"DOWNLOADFILESOKAY", // You can download files from the server....
 
-	"CANFAIL",       // This is kind of a priority. Anything bigger than CANFAIL
-	                  // allows HSendPacket(*, true, *, *) to return false.
-	                  // In addition, this packet can't occupy all the available slots.
+	"FILEFRAGMENT",  // A part of a file.
 
 	"TEXTCMD",       // Extra text commands from the client.
 	"TEXTCMD2",      // Splitscreen text commands.
