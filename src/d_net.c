@@ -1037,7 +1037,7 @@ boolean HSendPacket(INT32 node, boolean reliable, UINT8 acknum, size_t packetlen
 		if (debugfile)
 		{
 			doomcom->remotenode = (INT16)node;
-			if (!dedicated)
+			if (!dedicated || netbuffer->packettype == PT_NODETIMEOUT)
 				DebugPrintpacket("SENDLOCAL");
 		}
 #endif
@@ -1138,7 +1138,7 @@ boolean HGetPacket(void)
 
 		rebound_tail = (rebound_tail+1) % MAXREBOUND;
 #ifdef DEBUGFILE
-		if (debugfile && !dedicated)
+		if (debugfile && (!dedicated || netbuffer->packettype == PT_NODETIMEOUT))
 			DebugPrintpacket("GETLOCAL");
 #endif
 		return true;
