@@ -727,7 +727,8 @@ void I_OutputMsg(const char *fmt, ...)
 	}
 #endif
 
-	DEBFILE(txt);
+	if (debugfile)
+		fprintf(debugfile, txt);
 
 #if defined (_WIN32)
 #ifdef DEBUGFILE
