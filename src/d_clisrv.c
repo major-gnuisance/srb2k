@@ -450,7 +450,7 @@ static void ExtraDataTicker(void)
 						curpos++;
 						DEBFILE(va("executing x_cmd %s ply %u ", netxcmdnames[id - 1], i));
 						(listnetxcmd[id])(&curpos, i);
-						//DEBFILE("done\n");
+						DEBFILE("done\n");
 					}
 					else
 					{
@@ -486,7 +486,7 @@ static void D_Clearticcmd(tic_t tic)
 	for (i = 0; i < MAXPLAYERS; i++)
 		netcmds[tic%TICQUEUE][i].angleturn = 0;
 
-	//DEBFILE(va("clear tic %5u (%2u)\n", tic, tic%TICQUEUE));
+	DEBFILE(va("clear tic %5u (%2u)\n", tic, tic%TICQUEUE));
 }
 
 void D_ResetTiccmds(void)
@@ -5298,7 +5298,7 @@ static INT16 Consistancy(void)
 	mobj_t *mo;
 #endif
 
-	//DEBFILE(va("TIC %u ", gametic));
+	DEBFILE(va("TIC %u ", gametic));
 
 	for (i = 0; i < MAXPLAYERS; i++)
 	{
@@ -5436,7 +5436,7 @@ static INT16 Consistancy(void)
 	}
 #endif
 
-	//DEBFILE(va("Consistancy = %u\n", (ret & 0xFFFF)));
+	DEBFILE(va("Consistancy = %u\n", (ret & 0xFFFF)));
 
 	return (INT16)(ret & 0xFFFF);
 }
@@ -5808,8 +5808,8 @@ void TryRunTics(tic_t realtics)
 	{
 		//SoM: 3/30/2000: Need long INT32 in the format string for args 4 & 5.
 		//Shut up stupid warning!
-		//fprintf(debugfile, "------------ Tryruntic: REAL:%d NEED:%d GAME:%d LOAD: %d\n",
-		//	realtics, neededtic, gametic, debugload);
+		fprintf(debugfile, "------------ Tryruntic: REAL:%d NEED:%d GAME:%d LOAD: %d\n",
+			realtics, neededtic, gametic, debugload);
 		debugload = 100000;
 	}
 #endif
@@ -5834,7 +5834,7 @@ void TryRunTics(tic_t realtics)
             while (neededtic > gametic)
             {
                 INT32 tic_realstarttime = I_GetTimeMicros();
-                //DEBFILE(va("============ Running tic %d (local %d)\n", gametic, localgametic));
+                DEBFILE(va("============ Running tic %d (local %d)\n", gametic, localgametic));
 
                 // from the earlier frame interp
                 prev_tics = I_GetTime();
@@ -5843,7 +5843,7 @@ void TryRunTics(tic_t realtics)
                 ExtraDataTicker();
                 gametic++;
                 consistancy[gametic%TICQUEUE] = Consistancy();
-                //DEBFILE(va("ticMicros: %d\n", I_GetTimeMicros() - tic_realstarttime));
+                DEBFILE(va("ticMicros: %d\n", I_GetTimeMicros() - tic_realstarttime));
                 // Leave a certain amount of tics present in the net buffer as long as we've ran at least one tic this frame.
                 if (client && gamestate == GS_LEVEL && leveltime > 3 && neededtic <= gametic + cv_netticbuffer.value)
                     break;

@@ -872,7 +872,7 @@ static void DebugPrintpacket(const char *header)
 				(UINT32)netbuffer->u.clientpak.resendfrom);
 			break;
 		case PT_BASICKEEPALIVE:
-			//fprintf(debugfile, "    keep alive\n");
+			fprintf(debugfile, "    keep alive\n");
 			break;
 		case PT_TEXTCMD:
 		case PT_TEXTCMD2:
@@ -1023,7 +1023,7 @@ boolean HSendPacket(INT32 node, boolean reliable, UINT8 acknum, size_t packetlen
 		if (debugfile)
 		{
 			doomcom->remotenode = (INT16)node;
-			//DebugPrintpacket("SENDLOCAL");
+			DebugPrintpacket("SENDLOCAL");
 		}
 #endif
 		return true;
@@ -1044,8 +1044,8 @@ boolean HSendPacket(INT32 node, boolean reliable, UINT8 acknum, size_t packetlen
 	{
 		DEBFILE("HSendPacket: nothing to send\n");
 #ifdef DEBUGFILE
-		//if (debugfile)
-		//	DebugPrintpacket("TRISEND");
+		if (debugfile)
+			DebugPrintpacket("TRISEND");
 #endif
 		return false;
 	}
@@ -1080,8 +1080,8 @@ boolean HSendPacket(INT32 node, boolean reliable, UINT8 acknum, size_t packetlen
 	{
 #endif
 #ifdef DEBUGFILE
-		//if (debugfile)
-		//	DebugPrintpacket("SENT");
+		if (debugfile)
+			DebugPrintpacket("SENT");
 #endif
 		I_NetSend();
 #ifdef PACKETDROP
@@ -1091,8 +1091,8 @@ boolean HSendPacket(INT32 node, boolean reliable, UINT8 acknum, size_t packetlen
 		if (packetdropquantity[netbuffer->packettype] > 0)
 			packetdropquantity[netbuffer->packettype]--;
 #ifdef DEBUGFILE
-		//if (debugfile)
-		//	DebugPrintpacket("NOT SENT");
+		if (debugfile)
+			DebugPrintpacket("NOT SENT");
 #endif
 	}
 #endif
@@ -1123,8 +1123,8 @@ boolean HGetPacket(void)
 
 		rebound_tail = (rebound_tail+1) % MAXREBOUND;
 #ifdef DEBUGFILE
-		//if (debugfile)
-		//	DebugPrintpacket("GETLOCAL");
+		if (debugfile)
+			DebugPrintpacket("GETLOCAL");
 #endif
 		return true;
 	}
@@ -1161,8 +1161,8 @@ boolean HGetPacket(void)
 		}
 
 #ifdef DEBUGFILE
-		//if (debugfile)
-		//	DebugPrintpacket("GET");
+		if (debugfile)
+			DebugPrintpacket("GET");
 #endif
 
 		/*// If a new node sends an unexpected packet, just ignore it
