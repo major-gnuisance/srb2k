@@ -1367,6 +1367,11 @@ boolean D_CheckNetGame(void)
 	}
 #endif
 #endif
+	
+	if (M_CheckParm("-debugstdout"))
+	{
+		debugfile = stdout;
+	}
 
 	D_ClientServerInit();
 
