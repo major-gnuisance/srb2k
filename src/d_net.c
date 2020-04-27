@@ -301,6 +301,7 @@ INT32 Net_GetFreeAcks(boolean urgent)
 // Get a ack to send in the queue of this node
 static UINT8 GetAcktosend(INT32 node)
 {
+	DEBFILE(va("GetAcktosend(%d)",node));
 	nodes[node].lasttimeacktosend_sent = I_GetTime();
 	return nodes[node].firstacktosend;
 }
@@ -338,6 +339,7 @@ static boolean Processackpak(void)
 	if (netbuffer->ack)
 	{
 		UINT8 ack = netbuffer->ack;
+		DEBFILE(va("Processing received ack %d %d",node,ack));
 		getackpacket++;
 		if (cmpack(ack, node->firstacktosend) <= 0)
 		{
@@ -358,6 +360,7 @@ static boolean Processackpak(void)
 				}
 			if (goodpacket)
 			{
+				DEBFILE("goodpacket");
 				// Is a good packet so increment the acknowledge number,
 				// Then search for a "hole" in the queue
 				UINT8 nextfirstack = (UINT8)(node->firstacktosend + 1);
