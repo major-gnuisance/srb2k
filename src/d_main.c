@@ -1392,7 +1392,7 @@ void D_SRB2Main(void)
 	IdentifyVersion();
 
 #if !defined (_WIN32_WCE) && !defined(NOTERMIOS)
-	setbuf(stdout, NULL); // non-buffered output
+//	setbuf(stdout, NULL); // non-buffered output
 #endif
 
 #if defined (_WIN32_WCE) //|| defined (_DEBUG) || defined (GP2X)
