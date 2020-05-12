@@ -269,7 +269,7 @@ void D_ProcessEvents(void)
 // added comment : there is a wipe eatch change of the gamestate
 gamestate_t wipegamestate = GS_LEVEL;
 
-static void D_Display(void)
+static boolean D_Display(void)
 {
 	boolean forcerefresh = false;
 	static boolean wipe = false;
@@ -280,7 +280,18 @@ static void D_Display(void)
 	{
 		if (nodrawers)
 			return; // for comparative timing/profiling
-		
+
+		if (cv_framerate.value != 35 && cv_framerate.value != 1000)
+		{
+			static UINT16 frame = 0;
+			UINT16 newframe = I_GetFrameReference(cv_framerate.value);
+
+			if (newframe == frame)
+				return false;
+
+			frame = newframe;
+		}
+
 		// check for change of screen size (video mode)
 		if (setmodeneeded && !wipe)
 			SCR_SetMode(); // change video mode
@@ -582,6 +593,7 @@ static void D_Display(void)
 	//
 	if (!wipe)
 	{
+
 		if (cv_netstat.value)
 		{
 			char s[50];
@@ -602,14 +614,35 @@ static void D_Display(void)
 		if (cv_shittyscreen.value)
 			V_DrawVhsEffect(cv_shittyscreen.value == 2);
 
+		/*{
+			// lerp time graph
+			static fixed_t graph[120];
+			static boolean sameframe[120];
+			static UINT8 index = 0;
+			UINT8 i, j;
+
+			index++; index %= 120;
+			graph[index] = lerp_fractic;
+			sameframe[index] = lerp_sameframe;
+
+			for (i = (index+1)%120, j = 0; j < 120; i = (i+1)%120, j++)
+			{
+				V_DrawFill(j, 100 - FixedMul(max(graph[i], graph[(i+119)%120]), 100), 1, FixedMul(abs(graph[i] - graph[(i+119)%120]), 100), 10);
+				V_DrawFill(j, 99 - FixedMul(graph[i], 100), 1, 3, sameframe[i] ? 128 : 161);
+			}
+		}*/
+
 		I_FinishUpdate(); // page flip or blit buffer
 	}
+
+	return true;
 }
 
 // =========================================================================
 // D_SRB2Loop
 // =========================================================================
 
+tic_t lerp_currenttic = 0; fixed_t lerp_fractic; boolean lerp_sameframe;
 tic_t rendergametic;
 
 void D_SRB2Loop(void)
@@ -671,11 +704,48 @@ void D_SRB2Loop(void)
 				debugload--;
 #endif
 
+		if (demo.playback && gamestate == GS_LEVEL)
+		{
+			static fixed_t oldlerp = 0;
+			fixed_t lerp = I_GetFracTime();
+			realtics = realtics * cv_playbackspeed.value + FixedMul(lerp, cv_playbackspeed.value) - FixedMul(oldlerp, cv_playbackspeed.value);
+			oldlerp = lerp;
+		}
+
 		if (!realtics && !singletics)
 		{
 			I_Sleep();
+
+			if (cv_framerate.value != 35 && gamestate == GS_LEVEL)
+			{
+				if (rendertimeout == entertic+TICRATE/17)
+				{
+					fixed_t old = lerp_fractic;
+
+					if (demo.playback && gamestate == GS_LEVEL)
+						lerp_fractic = (I_GetFracTime() * cv_playbackspeed.value) % FRACUNIT - cv_extrapolation.value;
+					else
+						lerp_fractic = I_GetFracTime() - cv_extrapolation.value;
+
+					while (lerp_fractic < old)
+						lerp_fractic += FRACUNIT;
+				}
+
+				if (D_Display())
+				{
+					lerp_sameframe = true;
+
+					if (moviemode)
+						M_SaveFrame();
+					if (takescreenshot) // Only take screenshots after drawing.
+						M_DoScreenShot();
+				}
+			}
+
 			continue;
 		}
+
+		lerp_sameframe = false;
 
 #ifdef HW3SOUND
 		HW3S_BeginFrameUpdate();
@@ -695,21 +765,35 @@ void D_SRB2Loop(void)
 			rendertimeout = entertic+TICRATE/17;
 
 			// Update display, next frame, with current state.
-			D_Display();
+			if (cv_framerate.value == 35)
+				lerp_fractic = 0;
+			else if (demo.playback && gamestate == GS_LEVEL)
+				lerp_fractic = (I_GetFracTime() * cv_playbackspeed.value) % FRACUNIT - cv_extrapolation.value;
+			else
+				lerp_fractic = I_GetFracTime() - cv_extrapolation.value;
+			if (D_Display())
+			{
+				lerp_sameframe = true;
 
-			if (moviemode)
-				M_SaveFrame();
-			if (takescreenshot) // Only take screenshots after drawing.
-				M_DoScreenShot();
+				if (moviemode)
+					M_SaveFrame();
+				if (takescreenshot) // Only take screenshots after drawing.
+					M_DoScreenShot();
+			}
 		}
 		else if (rendertimeout < entertic) // in case the server hang or netsplit
 		{
-			D_Display();
+			lerp_fractic = FRACUNIT - cv_extrapolation.value;
 
-			if (moviemode)
-				M_SaveFrame();
-			if (takescreenshot) // Only take screenshots after drawing.
-				M_DoScreenShot();
+			if (D_Display())
+			{
+				lerp_sameframe = true;
+
+				if (moviemode)
+					M_SaveFrame();
+				if (takescreenshot) // Only take screenshots after drawing.
+					M_DoScreenShot();
+			}
 		}
 
 		// consoleplayer -> displayplayers (hear sounds from viewpoint)
