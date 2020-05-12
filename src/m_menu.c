@@ -1242,11 +1242,13 @@ static menuitem_t OP_VideoOptionsMenu[] =
 	{IT_STRING | IT_CVAR,	NULL,	"Skyboxes",				&cv_skybox,				 65},
 	{IT_STRING | IT_CVAR,	NULL,	"Field of View",		&cv_fov,				 75},
 
-	{IT_STRING | IT_CVAR,	NULL,	"Show FPS",				&cv_ticrate,			 90},
-	{IT_STRING | IT_CVAR,	NULL,	"Vertical Sync",		&cv_vidwait,			100},
+	{IT_STRING | IT_CVAR,	NULL,	"Vertical Sync",		&cv_vidwait,			 90},
+	{IT_STRING | IT_CVAR,	NULL,	"Show FPS",				&cv_ticrate,			100},
+	{IT_STRING | IT_CVAR,	NULL,	"Max Level Framerate",	&cv_framerate,			110},
+	{IT_STRING | IT_CVAR,	NULL,	"Future Sight",			&cv_extrapolation,		120},
 
 #ifdef HWRENDER
-	{IT_SUBMENU|IT_STRING,	NULL,	"OpenGL Options...",	&OP_OpenGLOptionsDef,	120},
+	{IT_SUBMENU|IT_STRING,	NULL,	"OpenGL Options...",	&OP_OpenGLOptionsDef,	135},
 #endif
 };
 
@@ -1263,6 +1265,7 @@ enum
 	op_video_skybox,
 	op_video_fov,
 	op_video_fps,
+	op_video_frameratecap,
 	op_video_vsync,
 #ifdef HWRENDER
 	op_video_ogl,
