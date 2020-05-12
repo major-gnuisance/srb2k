@@ -279,7 +279,7 @@ static boolean D_Display(void)
 	if (!dedicated)
 	{
 		if (nodrawers)
-			return; // for comparative timing/profiling
+			return false; // for comparative timing/profiling
 
 		if (cv_framerate.value != 35 && cv_framerate.value != 1000)
 		{
@@ -355,7 +355,7 @@ static boolean D_Display(void)
 	}
 
 	if (dedicated) //bail out after wipe logic
-		return;
+		return false;
 
 	// do buffered drawing
 	switch (gamestate)
