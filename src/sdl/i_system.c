@@ -3040,7 +3040,7 @@ fixed_t I_GetFracTime(void)
 
 	frac = FixedDiv((ticks - prevticks) * FRACUNIT, (int)lroundf((1.f/TICRATE)*1000 * FRACUNIT));
 	return frac > FRACUNIT ? FRACUNIT : frac;
-
+}
 
 UINT16 I_GetFrameReference(UINT16 fps)
 {
