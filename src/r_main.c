@@ -1119,9 +1119,20 @@ void R_SetupFrame(player_t *player, boolean skybox)
 	{
 		viewmobj = NULL;
 		viewz = (thiscam->height>>1);
-		aimingangle = R_LerpAngle(thiscam, aiming);
-		viewangle = R_LerpAngle(thiscam, angle);
-		R_LerpCameraPosition(thiscam, &pos);
+		if (demo.freecam)
+		{
+			pos.x = thiscam->x;
+			pos.y = thiscam->y;
+			pos.z = thiscam->z;
+			aimingangle = thiscam->aiming;
+			viewangle = thiscam->angle;
+		}
+		else
+		{
+			aimingangle = R_LerpAngle(thiscam, aiming);
+			viewangle = R_LerpAngle(thiscam, angle);
+			R_LerpCameraPosition(thiscam, &pos);
+		}
 	}
 	else
 	// use the player's eyes view
