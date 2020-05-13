@@ -2987,7 +2987,7 @@ static DWORD TimeMillis(void)
 
 tic_t I_GetTime(void)
 {
-	return TimeMillis() / (1000/NEWTICRATE);
+	return (TimeMillis() * NEWTICRATE) / 1000;
 }
 
 static void I_ShutdownTimer(void)
