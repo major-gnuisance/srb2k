@@ -3031,8 +3031,16 @@ tic_t I_GetTime(void)
 #ifndef __MACH__
 fixed_t I_GetFracTime(void)
 {
-	return TimeMillis() % (1000/NEWTICRATE) * (FRACUNIT / NEWTICRATE);
-}
+	Uint64 ticks;
+	Uint64 prevticks;
+	fixed_t frac;
+
+	ticks = TimeMillis();
+	prevticks = prev_tics * 1000 / TICRATE;
+
+	frac = FixedDiv((ticks - prevticks) * FRACUNIT, (int)lroundf((1.f/TICRATE)*1000 * FRACUNIT));
+	return frac > FRACUNIT ? FRACUNIT : frac;
+
 
 UINT16 I_GetFrameReference(UINT16 fps)
 {
