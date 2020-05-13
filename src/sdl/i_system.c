@@ -2985,11 +2985,6 @@ static DWORD TimeMillis(void)
 	return newtics;
 }
 
-tic_t I_GetTime(void)
-{
-	return (TimeMillis() * NEWTICRATE) / 1000;
-}
-
 static void I_ShutdownTimer(void)
 {
 	pfntimeGetTime = NULL;
@@ -3022,27 +3017,16 @@ static int TimeMillis(void)
 }
 #endif/*__MACH__*/
 
+#endif
+
 //
 // I_GetTime
 // returns time in 1/TICRATE second tics
 //
-tic_t I_GetTime (void)
+tic_t I_GetTime(void)
 {
-	static Uint64 basetime = 0;
-		   Uint64 ticks = SDL_GetTicks();
-
-	if (!basetime)
-		basetime = ticks;
-
-	ticks -= basetime;
-
-	ticks = (ticks*TICRATE);
-
-	ticks = (ticks/1000);
-
-	return (tic_t)ticks;
+	return (TimeMillis() * NEWTICRATE) / 1000;
 }
-#endif
 
 #ifndef __MACH__
 fixed_t I_GetFracTime(void)
