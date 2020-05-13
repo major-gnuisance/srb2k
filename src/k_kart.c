@@ -589,6 +589,8 @@ void K_RegisterKartStuff(void)
 	CV_RegisterVar(&cv_kartdebugcheckpoint);
 	CV_RegisterVar(&cv_kartdebugnodes);
 	CV_RegisterVar(&cv_kartdebugcolorize);
+
+	CV_RegisterVar(&cv_lessflicker);
 }
 
 //}
