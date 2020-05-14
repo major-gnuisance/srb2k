@@ -732,7 +732,7 @@ void D_SRB2Loop(void)
 				if (D_Display())
 				{
 					if (moviemode)
-						if (!lerp_sameframe || cv_gifrecordinterpolatedframes.value && lerp_sameframe)
+						if (!lerp_sameframe || (cv_gifrecordinterpolatedframes.value && lerp_sameframe))
 							M_SaveFrame();
 					if (takescreenshot) // Only take screenshots after drawing.
 						M_DoScreenShot();
@@ -773,7 +773,7 @@ void D_SRB2Loop(void)
 			if (D_Display())
 			{
 				if (moviemode)
-					if (!lerp_sameframe || cv_gifrecordinterpolatedframes.value && lerp_sameframe)
+					if (!lerp_sameframe || (cv_gifrecordinterpolatedframes.value && lerp_sameframe))
 						M_SaveFrame();
 				if (takescreenshot) // Only take screenshots after drawing.
 					M_DoScreenShot();
@@ -790,7 +790,7 @@ void D_SRB2Loop(void)
 				//CONS_Printf("Hang part got run!\n");
 
 				if (moviemode)
-					if (!lerp_sameframe || cv_gifrecordinterpolatedframes.value && lerp_sameframe)
+					if (!lerp_sameframe || (cv_gifrecordinterpolatedframes.value && lerp_sameframe))
 						M_SaveFrame();
 				if (takescreenshot) // Only take screenshots after drawing.
 					M_DoScreenShot();
