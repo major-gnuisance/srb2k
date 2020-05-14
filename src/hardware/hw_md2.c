@@ -1288,12 +1288,13 @@ void HWR_DrawMD2(gr_vissprite_t *spr)
 			fixed_t anglef;
 			if (spr->mobj->player)
 			{
+				unsigned f = spr->mobj->frame & FF_FRAMEMASK;
 				anglef = AngleFixed(R_LerpAngle(spr->mobj->player, frameangle));
 
 				// Smooth drifting rotations
-				if (spr->mobj->frame == 14 || spr->mobj->frame == 15)
+				if (f == 14 || f == 15)
 					anglef += 45*FRACUNIT;
-				else if (spr->mobj->frame == 12 || spr->mobj->frame == 13)
+				else if (f == 12 || f == 13)
 					anglef -= 45*FRACUNIT;
 				anglef += spr->mobj->player->kartstuff[k_drift] * 9*FRACUNIT;
 			}

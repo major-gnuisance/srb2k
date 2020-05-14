@@ -625,4 +625,7 @@ typedef struct rewind_s {
 void CL_ClearRewinds(void);
 rewind_t *CL_SaveRewindPoint(size_t demopos);
 rewind_t *CL_RewindToTime(tic_t time);
+
+// frame interpolation
+extern tic_t prev_tics;
 #endif
