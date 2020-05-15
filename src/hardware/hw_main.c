@@ -79,6 +79,8 @@ consvar_t cv_grsolvetjoin = {"gr_solvetjoin", "On", 0, CV_OnOff, NULL, 0, NULL, 
 
 consvar_t cv_grbatching = {"gr_batching", "On", 0, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
+consvar_t cv_kodahack = {"kodahack", "0", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+
 static void CV_filtermode_ONChange(void)
 {
 	HWD.pfnSetSpecialState(HWD_SET_TEXTUREFILTERMODE, cv_grfiltermode.value);
@@ -119,6 +121,9 @@ static sector_t *gr_frontsector;
 static sector_t *gr_backsector;
 
 boolean gr_shadersavailable = true;
+
+// this is set to true if the kodahack cvar is on *and* the map is kodachrome void
+boolean gr_kodahack = false;
 
 // ==========================================================================
 // View position
@@ -573,6 +578,8 @@ void HWR_ProjectWall(FOutVector *wallVerts, FSurfaceInfo *pSurf, FBITFIELD blend
 	HWR_Lighting(pSurf, lightlevel, wallcolormap);
 
 	HWD.pfnSetShader(2);	// wall shader
+	if (gr_kodahack)
+		HWR_GetTexture(52);
 	HWD.pfnDrawPolygon(pSurf, wallVerts, 4, blendmode|PF_Modulated|PF_Occlude);
 
 #ifdef WALLSPLATS
@@ -2497,6 +2504,8 @@ void HWR_Subsector(size_t num)
 			if (sub->validcount != validcount)
 			{
 				HWR_GetFlat(levelflats[gr_frontsector->floorpic].lumpnum, R_NoEncore(gr_frontsector, false));
+				if (gr_kodahack && levelflats[gr_frontsector->floorpic].lumpnum > 300000)// for kodahack the latter check makes boostpads visible
+					HWR_GetTexture(51);
 				HWR_RenderPlane(&extrasubsectors[num], false,
 					// Hack to make things continue to work around slopes.
 					locFloorHeight == cullFloorHeight ? locFloorHeight : gr_frontsector->floorheight,
@@ -2513,6 +2522,8 @@ void HWR_Subsector(size_t num)
 			if (sub->validcount != validcount)
 			{
 				HWR_GetFlat(levelflats[gr_frontsector->ceilingpic].lumpnum, R_NoEncore(gr_frontsector, true));
+				if (gr_kodahack)
+					HWR_GetTexture(51);
 				HWR_RenderPlane(&extrasubsectors[num], true,
 					// Hack to make things continue to work around slopes.
 					locCeilingHeight == cullCeilingHeight ? locCeilingHeight : gr_frontsector->ceilingheight,
@@ -4724,6 +4735,11 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	if (viewnumber > 3)
 		return;
 
+	if (cv_kodahack.value && gamemap == 36)
+		gr_kodahack = true;
+	else
+		gr_kodahack = false;
+
 	// Render the skybox if there is one.
 	drewsky = false;
 	if (skybox)
@@ -4757,6 +4773,7 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_grsolvetjoin);
 
 	CV_RegisterVar(&cv_grbatching);
+	CV_RegisterVar(&cv_kodahack);
 }
 
 // --------------------------------------------------------------------------
