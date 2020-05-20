@@ -1147,7 +1147,7 @@ void R_SetupFrame(player_t *player, boolean skybox)
 		aimingangle = R_LerpAngle(player, aiming);
 		viewangle = R_LerpAngle(viewmobj, angle);
 
-		if (/*!demo.playback && */player->playerstate != PST_DEAD)
+		if (!demo.playback && player->playerstate != PST_DEAD)
 		{/* NEEDS LERP */
 			if (player == &players[consoleplayer])
 			{

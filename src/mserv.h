@@ -75,6 +75,9 @@ extern consvar_t cv_masterserver_debug;
 // anything else is whatever room the MS assigns to that number (online mode)
 extern INT16 ms_RoomId;
 
+const char *GetMasterServerPort(void);
+const char *GetMasterServerIP(void);
+
 #ifdef HAVE_THREADS
 extern int           ms_QueryId;
 extern I_mutex       ms_QueryId_mutex;
