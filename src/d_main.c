@@ -286,7 +286,10 @@ static boolean D_Display(void)
 			UINT16 newframe = I_GetFrameReference(cv_frameratecap.value);
 
 			if (newframe == frame)
+			{
+				I_Sleep();// Sleep in main loop now only happens in 35 fps mode, so sleep here to avoid a full busy loop
 				return false;
+			}
 
 			frame = newframe;
 		}
@@ -740,6 +743,8 @@ void D_SRB2Loop(void)
 					lerp_sameframe = true;
 				}
 			}
+			else
+				I_Sleep();// Only sleep here in 35 fps mode. Frame rate cap has a separate sleep in D_Display.
 
 			continue;
 		}
