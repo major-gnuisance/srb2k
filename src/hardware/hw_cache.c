@@ -380,7 +380,7 @@ static void HWR_GenerateTexture(INT32 texnum, GLTexture_t *grtex)
 	// Composite the columns together.
 	for (i = 0, patch = texture->patches; i < texture->patchcount; i++, patch++)
 	{
-		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_CACHE);
+		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_LEVEL);
 		HWR_DrawPatchInCache(&grtex->mipmap,
 		                     blockwidth, blockheight,
 		                     blockwidth*format2bpp[grtex->mipmap.grInfo.format],
@@ -388,7 +388,7 @@ static void HWR_GenerateTexture(INT32 texnum, GLTexture_t *grtex)
 		                     patch->originx, patch->originy,
 		                     realpatch,
 		                     format2bpp[grtex->mipmap.grInfo.format]);
-		Z_Free(realpatch);
+		//Z_Unlock(realpatch);
 	}
 	//Hurdler: not efficient at all but I don't remember exactly how HWR_DrawPatchInCache works :(
 	if (format2bpp[grtex->mipmap.grInfo.format]==4)
