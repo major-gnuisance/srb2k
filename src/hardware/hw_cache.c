@@ -388,7 +388,7 @@ static void HWR_GenerateTexture(INT32 texnum, GLTexture_t *grtex)
 		                     patch->originx, patch->originy,
 		                     realpatch,
 		                     format2bpp[grtex->mipmap.grInfo.format]);
-		Z_Unlock(realpatch);
+		Z_Free(realpatch);
 	}
 	//Hurdler: not efficient at all but I don't remember exactly how HWR_DrawPatchInCache works :(
 	if (format2bpp[grtex->mipmap.grInfo.format]==4)

@@ -214,7 +214,7 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 	{
 		boolean holey = false;
 		patch = texture->patches;
-		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_CACHE);
+		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_LEVEL);
 
 		// Check the patch for holes.
 		if (texture->width > SHORT(realpatch->width) || texture->height > SHORT(realpatch->height))
@@ -279,7 +279,7 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 	// Composite the columns together.
 	for (i = 0, patch = texture->patches; i < texture->patchcount; i++, patch++)
 	{
-		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_CACHE);
+		realpatch = W_CacheLumpNumPwad(patch->wad, patch->lump, PU_LEVEL);
 		x1 = patch->originx;
 		x2 = x1 + SHORT(realpatch->width);
 
@@ -303,7 +303,7 @@ static UINT8 *R_GenerateTexture(size_t texnum)
 
 done:
 	// Now that the texture has been built in column cache, it is purgable from zone memory.
-	Z_ChangeTag(block, PU_CACHE);
+	Z_ChangeTag(block, PU_LEVEL);
 	return blocktex;
 }
 
@@ -493,7 +493,7 @@ void R_LoadTextures(void)
 			if (strstr((const char *)patchlump, "TEXTURE"))
 			{
 				CONS_Alert(CONS_WARNING, "%s is a Texture SOC.\n", W_CheckNameForNumPwad((UINT16)w,texstart+j));
-				Z_Unlock(patchlump);
+				Z_Free(patchlump);
 				DEH_LoadDehackedLumpPwad((UINT16)w, texstart + j);
 			}
 			else
@@ -515,7 +515,7 @@ void R_LoadTextures(void)
 				patch->wad = (UINT16)w;
 				patch->lump = texstart + j;
 
-				Z_Unlock(patchlump);
+				Z_Free(patchlump);
 
 				k = 1;
 				while (k << 1 <= texture->width)
