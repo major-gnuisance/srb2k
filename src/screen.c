@@ -85,7 +85,7 @@ consvar_t cv_fullscreen = {"fullscreen", "Yes", CV_SAVE|CV_CALL, CV_YesNo, SCR_C
 static CV_PossibleValue_t interpolationmode_cons_t[] = {{0, "Off"}, {1, "On, capped"}, {2, "Uncapped"}, {0, NULL}};
 consvar_t cv_interpolationmode = {"interpolationmode", "1", CV_SAVE, interpolationmode_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 static CV_PossibleValue_t frameratecap_cons_t[] = {{24, "MIN"}, {1000, "MAX"}, {0, NULL}};
-consvar_t cv_frameratecap = {"frameratecap", "250", CV_SAVE, frameratecap_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_frameratecap = {"frameratecap", "100", CV_SAVE, frameratecap_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 static CV_PossibleValue_t lerp_cons_t[] = {{FRACUNIT, "None"}, {FRACUNIT*3/4, "Little"}, {FRACUNIT/2, "Some"}, {FRACUNIT/4, "Most"}, {0, "Full"}, {0, NULL}};
 consvar_t cv_extrapolation = {"extrapolation", "None", CV_SAVE, lerp_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
