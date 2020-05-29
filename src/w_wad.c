@@ -1524,7 +1524,7 @@ void W_UnlockCachedPatch(void *patch)
 		HWR_UnlockCachedPatch((GLPatch_t*)patch);
 	else
 #endif
-		Z_Free(patch);
+		Z_Unlock(patch);
 }
 
 void *W_CachePatchName(const char *name, INT32 tag)

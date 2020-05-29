@@ -486,14 +486,14 @@ void R_LoadTextures(void)
 		// Work through each lump between the markers in the WAD.
 		for (j = 0; j < (texend - texstart); i++, j++)
 		{
-			patchlump = W_CacheLumpNumPwad((UINT16)w, texstart + j, PU_CACHE);
+			patchlump = W_CacheLumpNumPwad((UINT16)w, texstart + j, PU_LEVEL);
 
 			// Then, check the lump directly to see if it's a texture SOC,
 			// and if it is, load it using dehacked instead.
 			if (strstr((const char *)patchlump, "TEXTURE"))
 			{
 				CONS_Alert(CONS_WARNING, "%s is a Texture SOC.\n", W_CheckNameForNumPwad((UINT16)w,texstart+j));
-				Z_Free(patchlump);
+				//Z_Free(patchlump);
 				DEH_LoadDehackedLumpPwad((UINT16)w, texstart + j);
 			}
 			else
@@ -515,7 +515,7 @@ void R_LoadTextures(void)
 				patch->wad = (UINT16)w;
 				patch->lump = texstart + j;
 
-				Z_Free(patchlump);
+				//Z_Free(patchlump);
 
 				k = 1;
 				while (k << 1 <= texture->width)
