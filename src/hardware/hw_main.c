@@ -135,6 +135,24 @@ static float gr_viewludsin, gr_viewludcos;
 
 static INT32 drawcount = 0;
 
+// Render stats
+int rs_hw_nodesorttime = 0;
+int rs_hw_nodedrawtime = 0;
+int rs_hw_spritesorttime = 0;
+int rs_hw_spritedrawtime = 0;
+
+// Render stats for batching
+int rs_hw_numpolys = 0;
+int rs_hw_numverts = 0;
+int rs_hw_numcalls = 0;
+int rs_hw_numshaders = 0;
+int rs_hw_numtextures = 0;
+int rs_hw_numpolyflags = 0;
+int rs_hw_numcolors = 0;
+int rs_hw_batchsorttime = 0;
+int rs_hw_batchdrawtime = 0;
+
+
 // ==========================================================================
 // Lighting
 // ==========================================================================
@@ -2657,6 +2675,9 @@ void HWR_Subsector(size_t num)
 			po = (polyobj_t *)(po->link.next);
 		}
 
+		// for render stats
+		rs_numpolyobjects += numpolys;
+
 		// Sort polyobjects
 		R_SortPolyObjects(sub);
 
@@ -2715,6 +2736,8 @@ void HWR_RenderBSPNode(INT32 bspnum)
 
 	// Decide which side the view point is on
 	INT32 side;
+
+	rs_numbspcalls++;
 
 	// Found a subsector?
 	if (bspnum & NF_SUBSECTOR)
@@ -3853,6 +3876,8 @@ void HWR_RenderDrawNodes(void)
 	// that is already lying around. This should all be in some sort of linked list or lists.
 	sortindex = Z_Calloc(sizeof(size_t) * (numplanes + numpolyplanes + numwalls), PU_STATIC, NULL);
 
+	rs_hw_nodesorttime = I_GetTimeMicros();
+
 	for (i = 0; i < numplanes; i++, p++)
 	{
 		sortnode[p].plane = &planeinfo[i];
@@ -3870,6 +3895,8 @@ void HWR_RenderDrawNodes(void)
 		sortnode[p].wall = &wallinfo[i];
 		sortindex[p] = p;
 	}
+
+	rs_numdrawnodes = p;
 
 	// p is the number of stuff to sort
 
@@ -3913,6 +3940,10 @@ void HWR_RenderDrawNodes(void)
 		}
 	}
 
+	rs_hw_nodesorttime = I_GetTimeMicros() - rs_hw_nodesorttime;
+
+	rs_hw_nodedrawtime = I_GetTimeMicros();
+
 	// Okay! Let's draw it all! Woo!
 	HWD.pfnSetTransform(&atransform);
 	HWD.pfnSetShader(0);
@@ -3947,6 +3978,8 @@ void HWR_RenderDrawNodes(void)
 				sortnode[sortindex[i]].wall->lightlevel, sortnode[sortindex[i]].wall->wallcolormap);
 		}
 	}
+
+	rs_hw_nodedrawtime = I_GetTimeMicros() - rs_hw_nodedrawtime;
 
 	numwalls = 0;
 	numplanes = 0;
@@ -4660,6 +4693,10 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox)
 
 	if (cv_grbatching.value)
 		HWD.pfnStartBatching();
+	
+	rs_numbspcalls = 0;
+	rs_numpolyobjects = 0;
+	rs_bsptime = I_GetTimeMicros();
 
 	drawcount = 0;
 	validcount++;
@@ -4667,20 +4704,27 @@ void HWR_RenderFrame(INT32 viewnumber, player_t *player, boolean skybox)
 	// Recursively "render" the BSP tree.
 	HWR_RenderBSPNode((INT32)numnodes-1);
 
+	rs_bsptime = I_GetTimeMicros() - rs_bsptime;
+
 	if (cv_grbatching.value)
-	{
-		int dummy = 0;// the vars in RenderBatches are meant for render stats. But we don't have that stuff in this branch
-					// so that stuff could be removed...
-		HWD.pfnRenderBatches(&dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy);
-	}
+		HWD.pfnRenderBatches(&rs_hw_numpolys, &rs_hw_numverts, &rs_hw_numcalls, &rs_hw_numshaders, &rs_hw_numtextures, &rs_hw_numpolyflags, &rs_hw_numcolors, &rs_hw_batchsorttime, &rs_hw_batchdrawtime);
 
 	// Check for new console commands.
 	// this was removed since it caused crashes on leaving record attack with models on since it was removing mobjs that were about to be rendered
 	//NetUpdate();
 
 	// Draw MD2 and sprites
+	rs_numsprites = gr_visspritecount;
+	rs_hw_spritesorttime = I_GetTimeMicros();
 	HWR_SortVisSprites();
+	rs_hw_spritesorttime = I_GetTimeMicros() - rs_hw_spritesorttime;
+	rs_hw_spritedrawtime = I_GetTimeMicros();
 	HWR_DrawSprites();
+	rs_hw_spritedrawtime = I_GetTimeMicros() - rs_hw_spritedrawtime;
+
+	rs_numdrawnodes = 0;
+	rs_hw_nodesorttime = 0;
+	rs_hw_nodedrawtime = 0;
 
 	if (numplanes || numpolyplanes || numwalls) // Render FOFs and translucent walls after everything
 		HWR_RenderDrawNodes();

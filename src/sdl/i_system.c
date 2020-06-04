@@ -2943,9 +2943,11 @@ static p_timeGetTime pfntimeGetTime = NULL;
 // but lower precision on Windows NT
 // ---------
 
-tic_t I_GetTime(void)
+DWORD TimeFunction(int requested_frequency)
 {
-	tic_t newtics = 0;
+	DWORD newtics = 0;
+	// this var acts as a multiplier if sub-millisecond precision is asked but is not available
+	int excess_frequency = requested_frequency / 1000;
 
 	if (!starttickcount) // high precision timer
 	{
@@ -2965,7 +2967,7 @@ tic_t I_GetTime(void)
 
 		if (frequency.LowPart && QueryPerformanceCounter(&currtime))
 		{
-			newtics = (INT32)((currtime.QuadPart - basetime.QuadPart) * NEWTICRATE
+			newtics = (INT32)((currtime.QuadPart - basetime.QuadPart) * requested_frequency
 				/ frequency.QuadPart);
 		}
 		else if (pfntimeGetTime)
@@ -2973,11 +2975,19 @@ tic_t I_GetTime(void)
 			currtime.LowPart = pfntimeGetTime();
 			if (!basetime.LowPart)
 				basetime.LowPart = currtime.LowPart;
-			newtics = ((currtime.LowPart - basetime.LowPart)/(1000/NEWTICRATE));
+			if (requested_frequency > 1000)
+				newtics = currtime.LowPart - basetime.LowPart * excess_frequency;
+			else
+				newtics = ((currtime.LowPart - basetime.LowPart)/(1000/requested_frequency));
 		}
 	}
 	else
-		newtics = (GetTickCount() - starttickcount)/(1000/NEWTICRATE);
+	{
+		if (requested_frequency > 1000)
+			newtics = (GetTickCount() - starttickcount) * excess_frequency;
+		else
+			newtics = (GetTickCount() - starttickcount)/(1000/requested_frequency);
+	}
 
 	return newtics;
 }
@@ -2999,7 +3009,7 @@ static void I_ShutdownTimer(void)
 // I_GetTime
 // returns time in 1/TICRATE second tics
 //
-tic_t I_GetTime (void)
+int TimeFunction(int requested_frequency)
 {
 	static Uint64 basetime = 0;
 		   Uint64 ticks = SDL_GetTicks();
@@ -3009,13 +3019,23 @@ tic_t I_GetTime (void)
 
 	ticks -= basetime;
 
-	ticks = (ticks*TICRATE);
+	ticks = (ticks*requested_frequency);
 
 	ticks = (ticks/1000);
 
 	return (tic_t)ticks;
 }
 #endif
+
+tic_t I_GetTime(void)
+{
+	return TimeFunction(NEWTICRATE);
+}
+
+int I_GetTimeMicros(void)
+{
+	return TimeFunction(1000000);
+}
 
 //
 //I_StartupTimer
