@@ -383,8 +383,16 @@ consvar_t cv_kartdebugcheckpoint = {"kartdebugcheckpoint", "Off", CV_NOSHOWHELP,
 consvar_t cv_kartdebugnodes = {"kartdebugnodes", "Off", CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_kartdebugcolorize = {"kartdebugcolorize", "Off", CV_NOSHOWHELP, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
+static CV_PossibleValue_t afktimer_cons_t[] = {{30, "MIN"}, {UINT32_MAX/TICRATE-1, "MAX"}, {UINT32_MAX/TICRATE, "Off"}, {0, NULL}}; //In seconds
+consvar_t cv_afkspectimer = {"afkspectimer", "Off", CV_SAVE, afktimer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_afkspecignoreadmins = {"afkspecignoreadmins", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_afkkicktimer = {"afkkicktimer", "Off", CV_SAVE, afktimer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_afkkickignoreadmins = {"afkkickignoreadmins", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+static CV_PossibleValue_t afkkickminimumplayers_cons_t[] = {{0, "MIN"}, {(MAXPLAYERS), "MAX"}, {(MAXPLAYERS/2), "Default"}, {0, NULL}}; //Must be at least this many players in the server for kicks to happen
+consvar_t cv_afkkickminimumplayers = {"afkkickminimumplayers", "Default", CV_SAVE, afkkickminimumplayers_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+
 static CV_PossibleValue_t votetime_cons_t[] = {{10, "MIN"}, {3600, "MAX"}, {0, NULL}};
-consvar_t cv_votetime = {"votetime", "20", CV_NETVAR, votetime_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
+consvar_t cv_votetime = {"votetime", "20", CV_SAVE|CV_NETVAR, votetime_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 consvar_t cv_ringslinger = {"ringslinger", "No", CV_NETVAR|CV_NOSHOWHELP|CV_CALL|CV_CHEAT, CV_YesNo,
 	Ringslinger_OnChange, 0, NULL, NULL, 0, 0, NULL};
@@ -702,6 +710,13 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_maxping);
 	CV_RegisterVar(&cv_pingtimeout);
 	CV_RegisterVar(&cv_showping);
+
+	//afktimer cvars
+	CV_RegisterVar(&cv_afkspectimer);
+	CV_RegisterVar(&cv_afkspecignoreadmins);
+	CV_RegisterVar(&cv_afkkicktimer);
+	CV_RegisterVar(&cv_afkkickignoreadmins);
+	CV_RegisterVar(&cv_afkkickminimumplayers);
 
 #ifdef SEENAMES
 	 CV_RegisterVar(&cv_allowseenames);

@@ -163,6 +163,7 @@ typedef struct textcmdtic_s
 ticcmd_t netcmds[TICQUEUE][MAXPLAYERS];
 static textcmdtic_t *textcmds[TEXTCMD_HASH_SIZE] = {NULL};
 
+UINT32 afktimer[MAXPLAYERS];
 
 consvar_t cv_showjoinaddress = {"showjoinaddress", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 
@@ -2599,6 +2600,7 @@ void CL_ClearPlayer(INT32 playernum)
 			P_RemoveMobj(players[playernum].mo->tracer);
 		P_RemoveMobj(players[playernum].mo);
 	}
+	afktimer[playernum] = 0;
 	memset(&players[playernum], 0, sizeof (player_t));
 }
 
@@ -5325,6 +5327,64 @@ static void HandleNodeTimeouts(void)
 				Net_ConnectionTimeout(i);
 }
 
+static boolean CheckForSameCmd(UINT8 p)
+{
+	if (netcmds[maketic%TICQUEUE][p].buttons == netcmds[(maketic-1)%TICQUEUE][p].buttons
+		&& netcmds[maketic%TICQUEUE][p].forwardmove == netcmds[(maketic-1)%TICQUEUE][p].forwardmove
+		&& netcmds[maketic%TICQUEUE][p].sidemove == netcmds[(maketic-1)%TICQUEUE][p].sidemove
+		&& !D_GetExistingTextcmd(maketic, p) //Ensures people chatting or selecting skin and color don't get counted
+		&& !(players[p].pflags & PF_WANTSTOJOIN))
+	{
+		return true;
+	}
+	return false;
+}
+
+//note: UINT32_MAX/TICRATE is the Off value
+static void  HandleIdlePlayers()
+{
+	if (server && !demo.playback && netgame && (gamestate == GS_LEVEL || gamestate == GS_INTERMISSION || gamestate == GS_VOTING))
+	{
+		for (INT32 i = 0; i < MAXPLAYERS; i++)
+		{
+			if (!(dedicated && i == serverplayer)) //dont do anything to the dedicated playerid
+			{
+				if (playeringame[i])
+				{
+					if (CheckForSameCmd(i))
+						afktimer[i]++;
+					else
+						afktimer[i] = 0;
+
+					if (cv_afkspectimer.value != UINT32_MAX/TICRATE && afktimer[i] >= cv_afkspectimer.value * TICRATE //speccing is enabled, and someone broke the limit and isnt a spectator already
+						&& !players[i].spectator && !(players[i].pflags & PF_WANTSTOJOIN)
+						&& !(cv_afkspecignoreadmins.value && (IsPlayerAdmin(i) || i == serverplayer))) //ensure the cvar covers the server player, since they dont count as an "admin"
+					{
+						DEBFILE(va("Forcespec p %d %s with afktimer value %d\n", i, player_names[i], afktimer[i]));
+						CONS_Printf(M_GetText("Forcing %s to spectate for being idle\n"), player_names[i]);
+						COM_BufInsertText(va("serverchangeteam %d %d", i, 0));
+						afktimer[i] -= 3*TICRATE; //Silly hacks. This will ensure when this code is run next frame while the player is still getting changeteamed, it will not trigger again.
+					}
+					
+					if (afktimer[i] >= ((UINT32)cv_afkkicktimer.value) * TICRATE)
+					{
+						afktimer[i] -= 3*TICRATE; //5 Seconds cooldown on kicking, also prevents UINT32 overflow
+
+						if (!(cv_afkkickignoreadmins.value && IsPlayerAdmin(i)) && i != serverplayer //ensure a non-dedicated host isn't kicked
+							&& cv_afkkicktimer.value != UINT32_MAX/TICRATE //only actually kick if it is enabled
+							&& cv_afkkickminimumplayers.value < D_NumPlayers()) 
+						{
+							DEBFILE(va("Kicked p %d %s with afktimer value %d\n", i, player_names[i], afktimer[i]));
+							CONS_Printf(M_GetText("Kicking %s for being idle\n"), player_names[i]);
+							COM_BufInsertText(va("kick %d %s", i, "Kicked for being idle"));
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 // Keep the network alive while not advancing tics!
 void NetKeepAlive(void)
 {
@@ -5455,6 +5515,7 @@ FILESTAMP
 	}
 	Net_AckTicker();
 	HandleNodeTimeouts();
+	HandleIdlePlayers(); //Force spectate or kick anyone who is idle
 	if (nowtime > resptime)
 	{
 		resptime = nowtime;
