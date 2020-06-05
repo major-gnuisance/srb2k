@@ -5371,7 +5371,8 @@ static void  HandleIdlePlayers()
 						afktimer[i] -= 3*TICRATE; //5 Seconds cooldown on kicking, also prevents UINT32 overflow
 
 						if (!(cv_afkkickignoreadmins.value && IsPlayerAdmin(i)) && i != serverplayer //ensure a non-dedicated host isn't kicked
-							&& cv_afkkicktimer.value != UINT32_MAX/TICRATE) //only actually kick if it is enabled
+							&& cv_afkkicktimer.value != UINT32_MAX/TICRATE //only actually kick if it is enabled
+							&& cv_afkkickminimumplayers.value < D_NumPlayers()) 
 						{
 							DEBFILE(va("Kicked p %d %s with afktimer value %d\n", i, player_names[i], afktimer[i]));
 							CONS_Printf(M_GetText("Kicking %s for being idle\n"), player_names[i]);

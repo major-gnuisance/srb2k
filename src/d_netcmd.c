@@ -388,6 +388,8 @@ consvar_t cv_afkspectimer = {"afkspectimer", "Off", CV_SAVE, afktimer_cons_t, NU
 consvar_t cv_afkspecignoreadmins = {"afkspecignoreadmins", "Off", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_afkkicktimer = {"afkkicktimer", "Off", CV_SAVE, afktimer_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 consvar_t cv_afkkickignoreadmins = {"afkkickignoreadmins", "On", CV_SAVE, CV_OnOff, NULL, 0, NULL, NULL, 0, 0, NULL};
+static CV_PossibleValue_t afkkickminimumplayers_cons_t[] = {{0, "MIN"}, {(MAXPLAYERS), "MAX"}, {(MAXPLAYERS/2), "Default"}, {0, NULL}}; //Must be at least this many players in the server for kicks to happen
+consvar_t cv_afkkickminimumplayers = {"afkkickminimumplayers", "Default", CV_SAVE, afkkickminimumplayers_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
 
 static CV_PossibleValue_t votetime_cons_t[] = {{10, "MIN"}, {3600, "MAX"}, {0, NULL}};
 consvar_t cv_votetime = {"votetime", "20", CV_SAVE|CV_NETVAR, votetime_cons_t, NULL, 0, NULL, NULL, 0, 0, NULL};
@@ -708,10 +710,13 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_maxping);
 	CV_RegisterVar(&cv_pingtimeout);
 	CV_RegisterVar(&cv_showping);
+
+	//afktimer cvars
 	CV_RegisterVar(&cv_afkspectimer);
 	CV_RegisterVar(&cv_afkspecignoreadmins);
 	CV_RegisterVar(&cv_afkkicktimer);
 	CV_RegisterVar(&cv_afkkickignoreadmins);
+	CV_RegisterVar(&cv_afkkickminimumplayers);
 
 #ifdef SEENAMES
 	 CV_RegisterVar(&cv_allowseenames);
