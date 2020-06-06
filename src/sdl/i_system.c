@@ -2999,6 +2999,22 @@ static void I_ShutdownTimer(void)
 	}
 }
 #else
+
+#ifdef SDLTICKS
+static int TimeMillis(void)
+{
+	static Uint64 basetime = 0;
+		   Uint64 ticks = SDL_GetTicks();
+
+	if (!basetime)
+		basetime = ticks;
+
+	ticks -= basetime;
+
+	return (int)ticks;
+}
+#else
+
 #ifndef __MACH__
 struct timespec clk_basetime;
 
@@ -3017,6 +3033,8 @@ static int TimeMillis(void)
 	return ms;
 }
 #endif/*__MACH__*/
+
+#endif/*SDLTICKS*/
 
 #endif
 
