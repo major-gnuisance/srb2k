@@ -366,7 +366,7 @@ static boolean Processackpak(void)
 				//The client still thinks it is connected during this situation and will send an ack of > 1
 				//Here we set nextfirstack to ack in this situation so the server does not treat this as an out of order packet
 				//This a serverside hack and should be fixed in teh client
-				if (!nextfirstack)
+				if (!nextfirstack || nextfirstack == 1)
 					nextfirstack = ack;
 
 				if (ack == nextfirstack)
