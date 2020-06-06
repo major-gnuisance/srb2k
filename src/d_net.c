@@ -361,13 +361,12 @@ static boolean Processackpak(void)
 				// Is a good packet so increment the acknowledge number,
 				// Then search for a "hole" in the queue
 				UINT8 nextfirstack = (UINT8)(node->firstacktosend + 1);
-				if (!nextfirstack)
-					nextfirstack = 1;
 
 				//Sometimes a client will timeout while loading files during connection
 				//The client still thinks it is connected during this situation and will send an ack of > 1
 				//Here we set nextfirstack to ack in this situation so the server does not treat this as an out of order packet
-				if (netbuffer->packettype == PT_CLIENTJOIN)
+				//This a serverside hack and should be fixed in teh client
+				if (!nextfirstack)
 					nextfirstack = ack;
 
 				if (ack == nextfirstack)
