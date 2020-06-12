@@ -8239,7 +8239,7 @@ void P_MobjThinker(mobj_t *mobj)
 			break;
 		case MT_INSTASHIELDB:
 			mobj->flags2 ^= MF2_DONTDRAW;
-			K_MatchGenericExtraFlags(mobj, mobj->target);
+			//K_MatchGenericExtraFlags(mobj, mobj->target);
 			/* FALLTHRU */
 		case MT_INSTASHIELDA:
 			if (!mobj->target || !mobj->target->health || (mobj->target->player && !mobj->target->player->kartstuff[k_instashield]))
