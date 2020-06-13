@@ -74,6 +74,25 @@ void R_LerpCameraPosition(camera_t *thiscam, vector3_t *pos);
 #define R_LerpAngle(ob, var) ({int32_t diff = (ob)->var - (ob)->lerp.var; (ob)->var + FixedMul(diff, lerp_fractic);})
 #define R_LerpAngleVar(a, b) ((a) + FixedMul((int32_t)((b) - (a)), lerp_fractic))
 
+// Render stats
+
+extern consvar_t cv_renderstats;
+
+extern int rs_prevframetime;// time when previous frame was rendered
+extern int rs_rendercalltime;
+extern int rs_swaptime;
+
+extern int rs_bsptime;
+
+extern int rs_sw_portaltime;
+extern int rs_sw_planetime;
+extern int rs_sw_maskedtime;
+
+extern int rs_numbspcalls;
+extern int rs_numsprites;
+extern int rs_numdrawnodes;
+extern int rs_numpolyobjects;
+
 //
 // REFRESH - the actual rendering functions.
 //

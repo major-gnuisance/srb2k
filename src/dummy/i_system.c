@@ -26,6 +26,11 @@ UINT16 I_GetFrameReference(UINT16 fps)
 	return 0;
 }
 
+int I_GetTimeMicros(void)
+{
+	return 0;
+}
+
 void I_Sleep(void){}
 
 void I_GetEvent(void){}

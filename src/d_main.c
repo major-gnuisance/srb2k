@@ -440,6 +440,7 @@ static boolean D_Display(void)
 		// draw the view directly
 		if (cv_renderview.value && !automapactive)
 		{
+			rs_rendercalltime = I_GetTimeMicros();
 			for (i = 0; i <= splitscreen; i++)
 			{
 				if (players[displayplayers[i]].mo || players[displayplayers[i]].playerstate == PST_DEAD)
@@ -512,6 +513,7 @@ static boolean D_Display(void)
 						V_DoPostProcessor(i, postimgtype[i], postimgparam[i]);
 				}
 			}
+			rs_rendercalltime = I_GetTimeMicros() - rs_rendercalltime;
 		}
 
 		if (lastdraw)
@@ -615,6 +617,81 @@ static boolean D_Display(void)
 			V_DrawRightAlignedString(BASEVIDWIDTH, BASEVIDHEIGHT-ST_HEIGHT-10, V_YELLOWMAP, s);
 		}
 
+		if (cv_renderstats.value)
+		{
+			char s[50];
+			int frametime = I_GetTimeMicros() - rs_prevframetime;
+			int divisor = 1;
+			rs_prevframetime = I_GetTimeMicros();
+
+// do we have microsecond accuracy available?
+#if defined (_WIN32) || (!defined (SDLTICKS) && !defined(__MACH__))
+			if (rs_rendercalltime > 10000)
+#endif
+				divisor = 1000;
+			
+			snprintf(s, sizeof s - 1, "ft   %d", frametime / divisor);
+			V_DrawThinString(30, 10, V_MONOSPACE | V_YELLOWMAP, s);
+			snprintf(s, sizeof s - 1, "rtot %d", rs_rendercalltime / divisor);
+			V_DrawThinString(30, 20, V_MONOSPACE | V_YELLOWMAP, s);
+			snprintf(s, sizeof s - 1, "bsp  %d", rs_bsptime / divisor);
+			V_DrawThinString(30, 30, V_MONOSPACE | V_YELLOWMAP, s);
+			snprintf(s, sizeof s - 1, "nbsp %d", rs_numbspcalls);
+			V_DrawThinString(80, 10, V_MONOSPACE | V_BLUEMAP, s);
+			snprintf(s, sizeof s - 1, "nspr %d", rs_numsprites);
+			V_DrawThinString(80, 20, V_MONOSPACE | V_BLUEMAP, s);
+			snprintf(s, sizeof s - 1, "nnod %d", rs_numdrawnodes);
+			V_DrawThinString(80, 30, V_MONOSPACE | V_BLUEMAP, s);
+			snprintf(s, sizeof s - 1, "npob %d", rs_numpolyobjects);
+			V_DrawThinString(80, 40, V_MONOSPACE | V_BLUEMAP, s);
+			if (rendermode == render_opengl) // OpenGL specific stats
+			{
+				snprintf(s, sizeof s - 1, "nsrt %d", rs_hw_nodesorttime / divisor);
+				V_DrawThinString(30, 40, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "ndrw %d", rs_hw_nodedrawtime / divisor);
+				V_DrawThinString(30, 50, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "ssrt %d", rs_hw_spritesorttime / divisor);
+				V_DrawThinString(30, 60, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "sdrw %d", rs_hw_spritedrawtime / divisor);
+				V_DrawThinString(30, 70, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "fin  %d", rs_swaptime / divisor);
+				V_DrawThinString(30, 80, V_MONOSPACE | V_YELLOWMAP, s);
+				if (cv_grbatching.value)
+				{
+					snprintf(s, sizeof s - 1, "bsrt %d", rs_hw_batchsorttime / divisor);
+					V_DrawThinString(80, 55, V_MONOSPACE | V_REDMAP, s);
+					snprintf(s, sizeof s - 1, "bdrw %d", rs_hw_batchdrawtime / divisor);
+					V_DrawThinString(80, 65, V_MONOSPACE | V_REDMAP, s);
+
+					snprintf(s, sizeof s - 1, "npol %d", rs_hw_numpolys);
+					V_DrawThinString(130, 10, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "ndc  %d", rs_hw_numcalls);
+					V_DrawThinString(130, 20, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "nshd %d", rs_hw_numshaders);
+					V_DrawThinString(130, 30, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "nvrt %d", rs_hw_numverts);
+					V_DrawThinString(130, 40, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "ntex %d", rs_hw_numtextures);
+					V_DrawThinString(185, 10, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "npf  %d", rs_hw_numpolyflags);
+					V_DrawThinString(185, 20, V_MONOSPACE | V_PURPLEMAP, s);
+					snprintf(s, sizeof s - 1, "ncol %d", rs_hw_numcolors);
+					V_DrawThinString(185, 30, V_MONOSPACE | V_PURPLEMAP, s);
+				}
+			}
+			else // software specific stats
+			{
+				snprintf(s, sizeof s - 1, "prtl %d", rs_sw_portaltime / divisor);
+				V_DrawThinString(30, 40, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "plns %d", rs_sw_planetime / divisor);
+				V_DrawThinString(30, 50, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "mskd %d", rs_sw_maskedtime / divisor);
+				V_DrawThinString(30, 60, V_MONOSPACE | V_YELLOWMAP, s);
+				snprintf(s, sizeof s - 1, "fin  %d", rs_swaptime / divisor);
+				V_DrawThinString(30, 70, V_MONOSPACE | V_YELLOWMAP, s);
+			}
+		}
+
 		if (cv_shittyscreen.value)
 			V_DrawVhsEffect(cv_shittyscreen.value == 2);
 
@@ -636,7 +713,9 @@ static boolean D_Display(void)
 			}
 		}*/
 
+		rs_swaptime = I_GetTimeMicros();
 		I_FinishUpdate(); // page flip or blit buffer
+		rs_swaptime = I_GetTimeMicros() - rs_swaptime;
 	}
 
 	return true;

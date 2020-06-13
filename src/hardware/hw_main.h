@@ -148,7 +148,25 @@ extern consvar_t cv_grsolvetjoin;
 extern consvar_t cv_grspritebillboarding;
 extern consvar_t cv_grfakecontrast;
 extern consvar_t cv_grfallbackplayermodel;
+extern consvar_t cv_grbatching;
 
 extern CV_PossibleValue_t granisotropicmode_cons_t[];
+
+// Render stats
+extern int rs_hw_nodesorttime;
+extern int rs_hw_nodedrawtime;
+extern int rs_hw_spritesorttime;
+extern int rs_hw_spritedrawtime;
+
+// render stats for batching
+extern int rs_hw_numpolys;
+extern int rs_hw_numverts;
+extern int rs_hw_numcalls;
+extern int rs_hw_numshaders;
+extern int rs_hw_numtextures;
+extern int rs_hw_numpolyflags;
+extern int rs_hw_numcolors;
+extern int rs_hw_batchsorttime;
+extern int rs_hw_batchdrawtime;
 
 #endif
