@@ -252,7 +252,6 @@ static boolean D_Display(void)
 	if (!dedicated)
 	{
 		if (nodrawers)
-<<<<<<< HEAD
 			return false; // for comparative timing/profiling
 		if (cv_interpolationmode.value == 1)
 		{
@@ -267,9 +266,6 @@ static boolean D_Display(void)
 
 			frame = newframe;
 		}
-=======
-			return; // for comparative timing/profiling
->>>>>>> renderstats
 
 		// check for change of screen size (video mode)
 		if (setmodeneeded && !wipe)
