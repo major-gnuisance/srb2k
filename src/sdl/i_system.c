@@ -2943,6 +2943,7 @@ static p_timeGetTime pfntimeGetTime = NULL;
 // but lower precision on Windows NT
 // ---------
 
+DWORD TimeFunction(int requested_frequency);
 DWORD TimeFunction(int requested_frequency)
 {
 	DWORD newtics = 0;
@@ -3009,6 +3010,7 @@ static void I_ShutdownTimer(void)
 // I_GetTime
 // returns time in 1/TICRATE second tics
 //
+int TimeFunction(int requested_frequency);
 int TimeFunction(int requested_frequency)
 {
 	static Uint64 basetime = 0;
