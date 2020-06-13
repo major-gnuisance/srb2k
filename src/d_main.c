@@ -595,8 +595,8 @@ static boolean D_Display(void)
 			int divisor = 1;
 			rs_prevframetime = I_GetTimeMicros();
 
-// currently on Unix SDL_GetTicks is used so the values will always be multiples of 1000
-#if defined (_WIN32)
+// do we have microsecond accuracy available?
+#if defined (_WIN32) || (!defined (SDLTICKS) && !defined(__MACH__))
 			if (rs_rendercalltime > 10000)
 #endif
 				divisor = 1000;
