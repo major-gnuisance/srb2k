@@ -707,13 +707,8 @@ void D_SRB2Loop(void)
 #endif
 
 		if (demo.playback && gamestate == GS_LEVEL)
-		{
-			static fixed_t oldlerp = 0;
-			fixed_t lerp = I_GetFracTime();
 			realtics = realtics * cv_playbackspeed.value;
-			oldlerp = lerp;
-		}
-
+		
 		if (!realtics && !singletics)
 		{
 			//I_Sleep();//test
