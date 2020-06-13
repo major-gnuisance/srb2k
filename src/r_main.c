@@ -991,17 +991,17 @@ void R_SkyboxFrame(player_t *player)
 	if (mapheaderinfo[gamemap-1])
 	{
 		mapheader_t *mh = mapheaderinfo[gamemap-1];
-		fixed_t viewheight = 0;
+		fixed_t viewheight_local = 0;
 
 		if (player->awayviewtics)
 		{
 			R_LerpMobjPosition(player->awayviewmobj, &pos);
-			viewheight = 20*FRACUNIT;
+			viewheight_local = 20*FRACUNIT;
 		}
 		else if (thiscam->chase)
 		{
 			R_LerpCameraPosition(thiscam, &pos);
-			viewheight = thiscam->height >> 1;
+			viewheight_local = thiscam->height >> 1;
 		}
 		else
 			R_LerpMobjPosition(player->mo, &pos);
@@ -1047,9 +1047,9 @@ void R_SkyboxFrame(player_t *player)
 			}
 		}
 		if (mh->skybox_scalez > 0)
-			viewz += (pos.z + viewheight) / mh->skybox_scalez;
+			viewz += (pos.z + viewheight_local) / mh->skybox_scalez;
 		else if (mh->skybox_scalez < 0)
-			viewz += (pos.z + viewheight) * -mh->skybox_scalez;
+			viewz += (pos.z + viewheight_local) * -mh->skybox_scalez;
 	}
 
 	if (viewmobj->subsector)
