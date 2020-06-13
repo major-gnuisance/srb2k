@@ -2999,7 +2999,7 @@ static void I_ShutdownTimer(void)
 }
 #else
 
-#ifdef SDLTICKS
+#if defined(SDLTICKS) || defined(__MACH__)
 static int TimeMillis(void)
 {
 	static Uint64 basetime = 0;
@@ -3014,7 +3014,6 @@ static int TimeMillis(void)
 }
 #else
 
-#ifndef __MACH__
 struct timespec clk_basetime;
 
 static int TimeMillis(void)
@@ -3031,9 +3030,8 @@ static int TimeMillis(void)
 
 	return ms;
 }
-#endif/*__MACH__*/
 
-#endif/*SDLTICKS*/
+#endif/*SDLTICKS || __MACH__*/
 
 #endif
 
@@ -3046,7 +3044,6 @@ tic_t I_GetTime(void)
 	return (TimeMillis() * NEWTICRATE) / 1000;
 }
 
-#ifndef __MACH__
 fixed_t I_GetFracTime(void)
 {
 	Uint64 ticks;
@@ -3064,7 +3061,6 @@ UINT16 I_GetFrameReference(UINT16 fps)
 {
 	return (TimeMillis() % 1000) * fps / 1000;
 }
-#endif/*__MACH__*/
 
 //
 //I_StartupTimer
@@ -3088,8 +3084,10 @@ void I_StartupTimer(void)
 	}
 	I_AddExitFunc(I_ShutdownTimer);
 #else
+#if !defined(SDLTICKS) && !defined(__MACH__)
 	clock_gettime(CLOCK_MONOTONIC, &clk_basetime);
-#endif
+#endif/*!SDLTICKS && !__MACH__*/
+#endif/*_WIN32*/
 }
 
 
