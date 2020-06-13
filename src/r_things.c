@@ -2236,6 +2236,8 @@ static drawnode_t *R_CreateDrawNode(drawnode_t *link)
 	node->thickseg = NULL;
 	node->ffloor = NULL;
 	node->sprite = NULL;
+
+	rs_numdrawnodes++;
 	return node;
 }
 
@@ -2293,6 +2295,7 @@ static void R_DrawPrecipitationSprite(vissprite_t *spr)
 void R_ClipSprites(void)
 {
 	vissprite_t *spr;
+	rs_numsprites = visspritecount; // this function has access to visspritecount so put the value to rs_numsprites here
 	for (;clippedvissprites < visspritecount; clippedvissprites++)
 	{
 		drawseg_t *ds;

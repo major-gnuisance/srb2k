@@ -28,6 +28,8 @@
 
 #include "../../p_tick.h" // for leveltime (NOTE: THIS IS BAD, FIGURE OUT HOW TO PROPERLY IMPLEMENT gl_leveltime)
 
+#include "../../i_system.h" // I_GetTimeMicros
+
 #if defined (HWRENDER) && !defined (NOROPENGL)
 
 struct GLRGBAFloat
@@ -143,7 +145,7 @@ static const GLfloat byte2float[256] = {
 // -----------------+
 
 #ifdef DEBUG_TO_FILE
-FILE *gllogstream;
+FILE *gllogstream = NULL;
 #endif
 
 FUNCPRINTF void GL_DBG_Printf(const char *format, ...)
@@ -152,14 +154,14 @@ FUNCPRINTF void GL_DBG_Printf(const char *format, ...)
 	char str[4096] = "";
 	va_list arglist;
 
-	if (!gllogstream)
-		gllogstream = fopen("ogllog.txt", "w");
+	if (gllogstream) 
+	{	
+		va_start(arglist, format);
+		vsnprintf(str, 4096, format, arglist);
+		va_end(arglist);
 
-	va_start(arglist, format);
-	vsnprintf(str, 4096, format, arglist);
-	va_end(arglist);
-
-	fwrite(str, strlen(str), 1, gllogstream);
+		fwrite(str, strlen(str), 1, gllogstream);
+	}
 #else
 	(void)format;
 #endif
@@ -823,7 +825,7 @@ EXPORT boolean HWRAPI(LoadShaders) (void)
 #ifdef GL_SHADERS
 	GLuint gl_vertShader, gl_fragShader;
 	GLint i, result;
-	
+
 	if (!pglUseProgram) return false;
 
 	gl_customvertexshaders[0] = NULL;
@@ -1894,7 +1896,7 @@ static int comparePolygonsNoShaders(const void *p1, const void *p2)
 }
 
 // the parameters for this functions (numPolys etc.) are used to return rendering stats
-EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors)
+EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCalls, int *sNumShaders, int *sNumTextures, int *sNumPolyFlags, int *sNumColors, int *sSortTime, int *sDrawTime)
 {
 	int finalVertexWritePos = 0;// position in finalVertexArray
 	int finalIndexWritePos = 0;// position in finalVertexIndexArray
@@ -1933,12 +1935,12 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 
 	// sort polygons
 	//CONS_Printf("qsort polys\n");
-	//*sSortTime = I_GetTimeMicros();
+	*sSortTime = I_GetTimeMicros();
 	if (gl_allowshaders)
 		qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygons);
 	else
 		qsort(polygonIndexArray, polygonArraySize, sizeof(unsigned int), comparePolygonsNoShaders);
-	//*sSortTime = I_GetTimeMicros() - *sSortTime;
+	*sSortTime = I_GetTimeMicros() - *sSortTime;
 	//CONS_Printf("sort done\n");
 	// sort order
 	// 1. shader
@@ -1947,7 +1949,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 	// 4. colors + light level
 	// not sure about order of last 2, or if it even matters
 
-	//*sDrawTime = I_GetTimeMicros();
+	*sDrawTime = I_GetTimeMicros();
 
 	currentShader = polygonArray[polygonIndexArray[0]].shader;
 	currentTexture = polygonArray[polygonIndexArray[0]].texNum;
@@ -2002,11 +2004,11 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 		boolean stopFlag = false;
 		boolean changeState = false;
 		boolean changeShader = false;
-		GLuint nextShader;
+		GLuint nextShader = 0U;
 		boolean changeTexture = false;
-		GLuint nextTexture;
+		GLuint nextTexture = 0U;
 		boolean changePolyFlags = false;
-		FBITFIELD nextPolyFlags;
+		FBITFIELD nextPolyFlags = 0U;
 		boolean changeSurfaceInfo = false;
 		FSurfaceInfo nextSurfaceInfo;
 
@@ -2234,7 +2236,7 @@ EXPORT void HWRAPI(RenderBatches) (int *sNumPolys, int *sNumVerts, int *sNumCall
 	polygonArraySize = 0;
 	unsortedVertexArraySize = 0;
 
-	//*sDrawTime = I_GetTimeMicros() - *sDrawTime;
+	*sDrawTime = I_GetTimeMicros() - *sDrawTime;
 }
 
 // -----------------+
@@ -2307,7 +2309,7 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 
 				pglColor4ubv((GLubyte*)&pSurf->PolyColor.s);
 			}
-			
+
 			// Tint color
 			tint.red   = byte2float[pSurf->TintColor.s.red];
 			tint.green = byte2float[pSurf->TintColor.s.green];

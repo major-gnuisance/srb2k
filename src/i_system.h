@@ -54,6 +54,8 @@ fixed_t I_GetFracTime(void);
 */
 UINT16 I_GetFrameReference(UINT16 fps);
 
+int I_GetTimeMicros(void);// provides microsecond counter for render stats
+
 /**	\brief	The I_Sleep function
 
 	\return	void
