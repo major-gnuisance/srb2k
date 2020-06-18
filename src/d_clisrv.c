@@ -5343,7 +5343,7 @@ static boolean CheckForSameCmd(UINT8 p)
 //note: UINT32_MAX/TICRATE is the Off value
 static void  HandleIdlePlayers()
 {
-	if (server && !demo.playback && netgame && (gamestate == GS_LEVEL || gamestate == GS_INTERMISSION || gamestate == GS_VOTING))
+	if (server && !demo.playback && netgame && (gamestate == GS_LEVEL || gamestate == GS_INTERMISSION || gamestate == GS_VOTING) && !(paused || hu_resynching))
 	{
 		for (INT32 i = 0; i < MAXPLAYERS; i++)
 		{
