@@ -3091,7 +3091,7 @@ static void Got_KickCmd(UINT8 **p, INT32 playernum)
 			HU_AddChatText(va("\x82*%s left the game (Synch Failure)", player_names[pnum]), false);
 			kickreason = KR_SYNCH;
 
-			if (M_CheckParm("-consisdump")) // Helps debugging some problems
+			if (true) // M_CheckParm("-consisdump")) // Helps debugging some problems
 			{
 				INT32 i;
 
@@ -3106,6 +3106,7 @@ static void Got_KickCmd(UINT8 **p, INT32 playernum)
 					CONS_Printf("Skin: %d\n", players[i].skin);
 					CONS_Printf("Color: %d\n", players[i].skincolor);
 					CONS_Printf("Speed: %d\n",players[i].speed>>FRACBITS);
+					CONS_Printf("Itemtype: %d\n", players[i].kartstuff[k_itemtype]);
 					if (players[i].mo)
 					{
 						if (!players[i].mo->skin)
@@ -3120,6 +3121,7 @@ static void Got_KickCmd(UINT8 **p, INT32 playernum)
 					}
 					else
 						CONS_Printf("Mobj: NULL\n");
+					CONS_Printf("RandomSeed: %d\n", P_GetRandSeed());
 					CONS_Printf("-------------------------------------\n");
 				}
 			}
