@@ -108,6 +108,8 @@ char downloaddir[512] = "DOWNLOAD";
 #ifdef CLIENT_LOADINGSCREEN
 // for cl loading screen
 INT32 lastfilenum = -1;
+INT32 downloadcompletednum = 0;
+INT32 totalfilesrequestednum = 0;
 #endif
 
 #ifdef HAVE_CURL
@@ -330,6 +332,7 @@ boolean CL_SendRequestFile(void)
 			// put it in download dir
 			strcatbf(fileneeded[i].filename, downloaddir, "/");
 			fileneeded[i].status = FS_REQUESTED;
+			totalfilesrequestednum++;
 		}
 	WRITEUINT8(p, 0xFF);
 	I_GetDiskFreeSpace(&availablefreespace);
@@ -457,7 +460,7 @@ INT32 CL_CheckFiles(void)
 }
 
 // Load it now
-void CL_LoadServerFiles(void)
+boolean CL_LoadServerFiles(void)
 {
 	INT32 i;
 
@@ -473,6 +476,7 @@ void CL_LoadServerFiles(void)
 			P_AddWadFile(fileneeded[i].filename);
 			G_SetGameModified(true, false);
 			fileneeded[i].status = FS_OPEN;
+			return false;
 		}
 		else if (fileneeded[i].status == FS_MD5SUMBAD)
 			I_Error("Wrong version of file %s", fileneeded[i].filename);
@@ -498,6 +502,7 @@ void CL_LoadServerFiles(void)
 				fileneeded[i].status, s);
 		}
 	}
+	return true;
 }
 
 // Number of files to send
@@ -858,6 +863,7 @@ void Got_Filetxpak(void)
 			file->status = FS_FOUND;
 			CONS_Printf(M_GetText("Downloading %s...(done)\n"),
 				filename);
+			downloadcompletednum++;
 		}
 	}
 	else
@@ -1169,6 +1175,7 @@ void CURLGetFile(void)
 			{
 				nameonly(curl_realname);
 				CONS_Printf(M_GetText("Finished downloading %s\n"), curl_realname);
+				downloadcompletednum++;
 				curl_curfile->status = FS_FOUND;
 				fclose(curl_curfile->file);
 			}

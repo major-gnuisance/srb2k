@@ -1098,6 +1098,7 @@ typedef enum
 	CL_SEARCHING,
 	CL_DOWNLOADFILES,
 	CL_ASKJOIN,
+	CL_LOADFILES,
 	CL_WAITJOINRESPONSE,
 #ifdef JOININGAME
 	CL_DOWNLOADSAVEGAME,
@@ -1169,11 +1170,7 @@ static inline void CL_DrawConnectionStatus(void)
 	// Draw background fade
 	V_DrawFadeScreen(0xFF00, 16);
 
-	// Draw the bottom box.
-	M_DrawTextBox(BASEVIDWIDTH/2-128-8, BASEVIDHEIGHT-24-8, 32, 1);
-	V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24-24, V_YELLOWMAP, "Press ESC to abort");
-
-	if (cl_mode != CL_DOWNLOADFILES
+	if (cl_mode != CL_DOWNLOADFILES && cl_mode != CL_LOADFILES
 #ifdef HAVE_CURL
 	&& cl_mode != CL_DOWNLOADHTTPFILES
 #endif
@@ -1183,6 +1180,10 @@ static inline void CL_DrawConnectionStatus(void)
 		UINT8 palstart = (cl_mode == CL_SEARCHING) ? 128 : 160;
 		// 15 pal entries total.
 		const char *cltext;
+
+		//Draw bottom box
+		M_DrawTextBox(BASEVIDWIDTH/2-128-8, BASEVIDHEIGHT-24-8, 32, 1);
+		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24-24, V_YELLOWMAP, "Press ESC to abort");
 
 		for (i = 0; i < 16; ++i)
 			V_DrawFill((BASEVIDWIDTH/2-128) + (i * 16), BASEVIDHEIGHT-24, 16, 8, palstart + ((animtime - i) & 15));
@@ -1205,7 +1206,10 @@ static inline void CL_DrawConnectionStatus(void)
 				break;
 #endif
 			case CL_ASKFULLFILELIST:
-				cltext = M_GetText("This server has a LOT of files!");
+				cltext = M_GetText("This server has a LOT of addons!");
+				break;
+			case CL_LOADFILES:
+				cltext = M_GetText("Loading server addons...");
 				break;
 			case CL_ASKJOIN:
 			case CL_WAITJOINRESPONSE:
@@ -1224,9 +1228,35 @@ static inline void CL_DrawConnectionStatus(void)
 	}
 	else
 	{
-		if (lastfilenum != -1)
+		if (cl_mode == CL_LOADFILES)
 		{
+			INT32 totalfileslength;
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24-24, V_YELLOWMAP, "Press ESC to abort");
+
+			//ima just count files here
+			INT32 loadcompletednum = 0;
+			INT32 i;
+			for (i = 0; i < fileneedednum; i++)
+				if (fileneeded[i].status == FS_OPEN)
+					loadcompletednum++;
+			
+			// Loading progress
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24-32, V_YELLOWMAP, "Loading server addons...");
+			totalfileslength = (INT32)((loadcompletednum/(double)(fileneedednum+1)) * 256);
+			M_DrawTextBox(BASEVIDWIDTH/2-128-8, BASEVIDHEIGHT-24-8, 32, 1);
+			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-24, 256, 8, 175);
+			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-24, totalfileslength, 8, 160);
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24, V_20TRANS|V_MONOSPACE,
+				va(" %2u/%2u Files",loadcompletednum,fileneedednum+1));
+		}
+		else if (lastfilenum != -1)
+		{
+			// Draw the bottom box.
+			M_DrawTextBox(BASEVIDWIDTH/2-128-8, BASEVIDHEIGHT-58-8, 32, 1);
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-58-14, V_YELLOWMAP, "Press ESC to abort");
+
 			INT32 dldlength;
+			INT32 totalfileslength;
 			static char tempname[28];
 			fileneeded_t *file = &fileneeded[lastfilenum];
 			char *filename = file->filename;
@@ -1235,8 +1265,10 @@ static inline void CL_DrawConnectionStatus(void)
 			dldlength = (INT32)((file->currentsize/(double)file->totalsize) * 256);
 			if (dldlength > 256)
 				dldlength = 256;
-			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-24, 256, 8, 175);
-			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-24, dldlength, 8, 160);
+			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-58, 256, 8, 175);
+			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-58, dldlength, 8, 160);
+
+
 
 			memset(tempname, 0, sizeof(tempname));
 			// offset filename to just the name only part
@@ -1254,15 +1286,24 @@ static inline void CL_DrawConnectionStatus(void)
 				strncpy(tempname, filename, sizeof(tempname)-1);
 			}
 
-			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24-32, V_YELLOWMAP,
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-58-22, V_YELLOWMAP,
 				va(M_GetText("Downloading \"%s\""), tempname));
-			V_DrawString(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-24, V_20TRANS|V_MONOSPACE,
+			V_DrawString(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-58, V_20TRANS|V_MONOSPACE,
 				va(" %4uK/%4uK",fileneeded[lastfilenum].currentsize>>10,file->totalsize>>10));
-			V_DrawRightAlignedString(BASEVIDWIDTH/2+128, BASEVIDHEIGHT-24, V_20TRANS|V_MONOSPACE,
+			V_DrawRightAlignedString(BASEVIDWIDTH/2+128, BASEVIDHEIGHT-58, V_20TRANS|V_MONOSPACE,
 				va("%3.1fK/s ", ((double)getbps)/1024));
+
+			// Download progress
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24-14, V_YELLOWMAP, "Overall Download Progress");
+			totalfileslength = (INT32)((downloadcompletednum/(double)totalfilesrequestednum) * 256);
+			M_DrawTextBox(BASEVIDWIDTH/2-128-8, BASEVIDHEIGHT-24-8, 32, 1);
+			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-24, 256, 8, 175);
+			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-24, totalfileslength, 8, 160);
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24, V_20TRANS|V_MONOSPACE,
+				va(" %2u/%2u Files",downloadcompletednum,totalfilesrequestednum));
 		}
 		else
-			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-24-32, V_YELLOWMAP,
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-58-32, V_YELLOWMAP,
 				M_GetText("Waiting to download files..."));
 	}
 }
@@ -1995,7 +2036,7 @@ static boolean CL_FinishedFileList(void)
 		return false;
 	}
 	else if (i == 1)
-		cl_mode = CL_ASKJOIN;
+		cl_mode = CL_LOADFILES;
 	else
 	{
 		// must download something
@@ -2021,7 +2062,11 @@ static boolean CL_FinishedFileList(void)
 			}
 
 			if (CL_SendRequestFile())
+			{
 				cl_mode = CL_DOWNLOADFILES;
+				downloadcompletednum = 0;
+				totalfilesrequestednum = 0;
+			}
 		}
 #ifdef HAVE_CURL
 		else
@@ -2164,10 +2209,15 @@ static boolean CL_ServerConnectionTicker(const char *tmpsave, tic_t *oldtic, tic
 		case CL_PREPAREHTTPFILES:
 			if (http_source[0])
 			{
+				downloadcompletednum = 0;
+				totalfilesrequestednum = 0;
 				for (i = 0; i < fileneedednum; i++)
 					if (fileneeded[i].status == FS_NOTFOUND || fileneeded[i].status == FS_MD5SUMBAD)
+					{
 						curl_transfers++;
-
+						totalfilesrequestednum++;
+					}
+				
 				cl_mode = CL_DOWNLOADHTTPFILES;
 			}
 			break;
@@ -2203,7 +2253,7 @@ static boolean CL_ServerConnectionTicker(const char *tmpsave, tic_t *oldtic, tic
 			}
 
 			if (!curl_transfers)
-				cl_mode = CL_ASKJOIN; // don't break case continue to cljoin request now
+				cl_mode = CL_LOADFILES; // don't break case continue to cljoin request now
 
 			break;
 #endif
@@ -2219,11 +2269,12 @@ static boolean CL_ServerConnectionTicker(const char *tmpsave, tic_t *oldtic, tic
 			if (waitmore)
 				break; // exit the case
 
-			cl_mode = CL_ASKJOIN; // don't break case continue to cljoin request now
-			/* FALLTHRU */
-
+			cl_mode = CL_LOADFILES; // don't break case continue to cljoin request now
+			break;
+		case CL_LOADFILES:
+			if (!CL_LoadServerFiles())
+				break;
 		case CL_ASKJOIN:
-			CL_LoadServerFiles();
 #ifdef JOININGAME
 			// prepare structures to save the file
 			// WARNING: this can be useless in case of server not in GS_LEVEL
