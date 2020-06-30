@@ -52,9 +52,6 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #endif
 #if defined (__unix__) || defined (UNIXCOMMON)
 #include <fcntl.h>
-#ifndef __MACH__
-#include <time.h>
-#endif/*__MACH__*/
 #endif
 
 #include <stdio.h>
@@ -3009,67 +3006,24 @@ static void I_ShutdownTimer(void)
 		winmm = NULL;
 	}
 }
-#else
+#else /* _WIN32 */
 
-#if defined(SDLTICKS) || defined(__MACH__)
 //
 // I_GetTime
 // returns time in 1/TICRATE second tics
 //
-int TimeFunction(int requested_frequency);
+Uint64 sdl_performance_count_base;
+double sdl_performance_count_frequency;
+
 int TimeFunction(int requested_frequency)
 {
-	static Uint64 basetime = 0;
-		   Uint64 ticks = SDL_GetTicks();
+	Uint64 delta_time = SDL_GetPerformanceCounter() - sdl_performance_count_base;
+	double frequency_ratio = requested_frequency / sdl_performance_count_frequency;
 
-	if (!basetime)
-		basetime = ticks;
-
-	ticks -= basetime;
-
-	ticks = (ticks*requested_frequency);
-
-	ticks = (ticks/1000);
-
-	return (tic_t)ticks;
-}
-#else
-
-struct timespec clk_basetime;
-
-static int TimeFunction(int requested_frequency);
-static int TimeFunction(int requested_frequency)
-{
-	struct timespec ts;
-	int result;
-
-	/* clock_gettime won't fail if its arguments are correct */
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	// i don't feel like figuring out the elegant way to do this...
-	if (requested_frequency == NEWTICRATE)
-	{
-		result = ( ts.tv_nsec - clk_basetime.tv_nsec )/ 1000000;
-		result +=   ts.tv_sec  * 1000;
-		return result * NEWTICRATE / 1000;
-	}
-	else
-	{
-		if (requested_frequency == 1000)
-			result = ( ts.tv_nsec - clk_basetime.tv_nsec )/ 1000000;
-		else if (requested_frequency == 1000000)
-			result = ( ts.tv_nsec - clk_basetime.tv_nsec )/ 1000;
-		else
-			I_Error("Unimplemented TimeFunction frequency");
-		result +=   ts.tv_sec  * requested_frequency;
-	}
-
-	return result;
+	return delta_time * frequency_ratio;
 }
 
-#endif/*SDLTICKS || __MACH__*/
-
-#endif
+#endif /* _WIN32 */
 
 tic_t I_GetTime(void)
 {
@@ -3121,9 +3075,8 @@ void I_StartupTimer(void)
 	}
 	I_AddExitFunc(I_ShutdownTimer);
 #else
-#if !defined(SDLTICKS) && !defined(__MACH__)
-	clock_gettime(CLOCK_MONOTONIC, &clk_basetime);
-#endif/*!SDLTICKS && !__MACH__*/
+	sdl_performance_count_base = SDL_GetPerformanceCounter();
+	sdl_performance_count_frequency = SDL_GetPerformanceFrequency();
 #endif/*_WIN32*/
 }
 
