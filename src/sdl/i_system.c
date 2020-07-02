@@ -2932,7 +2932,7 @@ ticcmd_t *I_BaseTiccmd4(void)
 	return &emptycmd4;
 }
 
-#if defined (_WIN32)
+#if defined (_WIN32) && !defined (SDLTIMER)
 static HMODULE winmm = NULL;
 static DWORD starttickcount = 0; // hack for win2k time bug
 static p_timeGetTime pfntimeGetTime = NULL;
@@ -3006,7 +3006,7 @@ static void I_ShutdownTimer(void)
 		winmm = NULL;
 	}
 }
-#else /* _WIN32 */
+#else /* _WIN32 && !SDLTIMER */
 
 //
 // I_GetTime
@@ -3023,7 +3023,7 @@ int TimeFunction(int requested_frequency)
 	return delta_time * frequency_ratio;
 }
 
-#endif /* _WIN32 */
+#endif /* _WIN32 && !SDLTIMER */
 
 tic_t I_GetTime(void)
 {
@@ -3058,7 +3058,7 @@ UINT16 I_GetFrameReference(UINT16 fps)
 //
 void I_StartupTimer(void)
 {
-#ifdef _WIN32
+#if defined (_WIN32) && !defined (SDLTIMER)
 	// for win2k time bug
 	if (M_CheckParm("-gettickcount"))
 	{
@@ -3077,7 +3077,7 @@ void I_StartupTimer(void)
 #else
 	sdl_performance_count_base = SDL_GetPerformanceCounter();
 	sdl_performance_count_frequency = SDL_GetPerformanceFrequency();
-#endif/*_WIN32*/
+#endif /* _WIN32 && !SDLTIMER */
 }
 
 
