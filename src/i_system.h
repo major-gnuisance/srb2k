@@ -56,6 +56,10 @@ UINT16 I_GetFrameReference(UINT16 fps);
 
 int I_GetTimeMicros(void);// provides microsecond counter for render stats
 
+/** \brief Returns true if a microsecond precision timer is available.
+*/
+int I_IsMicrosecondTimerAvailable(void);
+
 /**	\brief	The I_Sleep function
 
 	\return	void

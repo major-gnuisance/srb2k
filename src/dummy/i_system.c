@@ -31,6 +31,11 @@ int I_GetTimeMicros(void)
 	return 0;
 }
 
+int I_IsMicrosecondTimerAvailable(void)
+{
+	return 0;
+}
+
 void I_Sleep(void){}
 
 void I_GetEvent(void){}

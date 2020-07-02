@@ -2932,6 +2932,12 @@ ticcmd_t *I_BaseTiccmd4(void)
 	return &emptycmd4;
 }
 
+int microsecond_timer_available;
+
+int I_IsMicrosecondTimerAvailable(void){
+  return microsecond_timer_available;
+};
+
 #if defined (_WIN32) && !defined (SDLTIMER)
 static HMODULE winmm = NULL;
 static DWORD starttickcount = 0; // hack for win2k time bug
@@ -3059,6 +3065,7 @@ UINT16 I_GetFrameReference(UINT16 fps)
 void I_StartupTimer(void)
 {
 #if defined (_WIN32) && !defined (SDLTIMER)
+	LARGE_INTEGER frequency;
 	// for win2k time bug
 	if (M_CheckParm("-gettickcount"))
 	{
@@ -3073,10 +3080,17 @@ void I_StartupTimer(void)
 			pfntimeBeginPeriod(1);
 		pfntimeGetTime = (p_timeGetTime)(LPVOID)GetProcAddress(winmm, "timeGetTime");
 	}
+
+	if( QueryPerformanceFrequency(&frequency) && frequency.QuadPart >= 1000000)
+		microsecond_timer_available = true;
+	else
+		microsecond_timer_available = false;
+
 	I_AddExitFunc(I_ShutdownTimer);
 #else
 	sdl_performance_count_base = SDL_GetPerformanceCounter();
 	sdl_performance_count_frequency = SDL_GetPerformanceFrequency();
+	microsecond_timer_available = (SDL_GetPerformanceFrequency() >= 1000000);
 #endif /* _WIN32 && !SDLTIMER */
 }
 
